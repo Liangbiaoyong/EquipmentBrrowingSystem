@@ -1,0 +1,45 @@
+# ─── 临时目录 ───────────────────────────────────────────
+arch_gzhu_analysis/
+project_description/
+
+# ─── IDE / OS ───────────────────────────────────────────
+.idea/
+.vscode/
+*.iml
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ─── Node / Frontend ────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/.vite/
+
+# ─── Maven / Gradle ─────────────────────────────────────
+backend/target/
+backend/*.jar
+backend/*.war
+backend/.gradle/
+backend/build/
+
+# ─── Python / 虚拟环境 ──────────────────────────────────
+__pycache__/
+*.pyc
+.env
+venv/
+.venv/
+*.egg-info/
+
+# ─── 日志 ───────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Docker 环境变量 ────────────────────────────────────
+.env
+
+# ─── 其他 ───────────────────────────────────────────────
+*.bak
+*.tmp
