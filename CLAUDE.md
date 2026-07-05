@@ -16,42 +16,39 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ```
 EquipmentBrrowingSystem/
-├── backend/               # Spring Boot 后端
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── java/com/gzhu/equipment/
-│   │   │   │   ├── controller/     # REST 接口层
-│   │   │   │   ├── service/        # 业务逻辑层
-│   │   │   │   ├── mapper/         # MyBatis-Plus 数据访问
-│   │   │   │   ├── entity/         # 数据库实体
-│   │   │   │   ├── dto/            # 数据传输对象
-│   │   │   │   ├── config/         # 安全/跨域/Swagger 配置
-│   │   │   │   └── util/           # 工具类（图片压缩、日期）
-│   │   │   └── resources/
-│   │   └── test/                   # 单元测试 (JUnit5 + Mockito)
-│   ├── Dockerfile
+├── backend/                       # Spring Boot 后端
+│   ├── src/main/java/com/gzhu/equipment/
+│   │   ├── DeviceBorrowApplication.java   # 启动类（@EnableScheduling）
+│   │   ├── common/                        # R统一返回、PageParam、GlobalExceptionHandler
+│   │   ├── config/                        # Security / MinIO / Knife4j / CORS 配置
+│   │   ├── controller/                    # REST 接口层（待实现）
+│   │   ├── service/                       # 业务逻辑层（待实现）
+│   │   ├── mapper/                        # MyBatis-Plus Mapper（待实现）
+│   │   └── entity/                        # 数据库实体（待实现）
+│   ├── src/main/resources/
+│   │   ├── application.yml                # 主配置（激活 dev profile）
+│   │   ├── application-dev.yml            # 本地开发配置（直连 localhost）
+│   │   └── application-prod.yml           # 生产配置（环境变量注入）
+│   ├── src/test/java/                     # 单元测试目录
+│   ├── Dockerfile                         # 多阶段构建（Maven → JRE）
 │   └── pom.xml
-├── frontend/              # Vue 3 前端
+├── frontend/                      # Vue 3 前端
 │   ├── src/
-│   │   ├── api/           # Axios 接口封装
-│   │   ├── components/    # 公共组件
-│   │   ├── views/         # 页面
-│   │   ├── router/        # 路由守卫
-│   │   ├── store/         # Pinia 状态管理
-│   │   └── utils/         # 工具函数
-│   ├── Dockerfile
+│   │   ├── api/                   # request.js（Axios封装） + auth/device/borrow
+│   │   ├── router/index.js        # 路由定义 + 导航守卫
+│   │   ├── store/                 # Pinia（index + user 模块）
+│   │   ├── views/                 # Login / Layout / Dashboard + 占位页
+│   │   └── App.vue / main.js
+│   ├── Dockerfile + nginx.conf    # 多阶段构建（Node → Nginx）
+│   ├── vite.config.js             # 开发代理到 8080
 │   └── package.json
-├── docs/                  # 项目文档
-│   ├── requirements/      # 需求文档
-│   ├── design/            # 设计文档（含数据库、API、架构图）
-│   ├── development/       # 开发文档
-│   ├── testing/           # 测试文档
-│   └── user/              # 用户手册
-├── tests/                 # 集成/端到端/E2E 测试
-├── sql/                   # SQL 初始化脚本
-│   └── init/
-├── docker-compose.yml     # 完整编排文件
-├── .env.example           # 环境变量模板
+├── sql/init/
+│   ├── 01-schema.sql              # 9 张核心表 DDL
+│   └── 02-data.sql                # 初始管理员 + 5 个设备分类
+├── docs/                          # 需求/设计/开发/测试/用户文档
+├── tests/                         # 集成/E2E/性能测试
+├── docker-compose.yml             # MySQL + Redis + MinIO + 后端 + 前端
+├── .env.example                   # 环境变量模板
 └── CLAUDE.md
 ```
 
@@ -144,37 +141,45 @@ git add -A && git commit -m "<type>: <description>" && git push
 ## 开发约定
 
 ### 后端
+
+- **包基础路径**: `com.gzhu.equipment`
 - **API 前缀**: 所有接口以 `/api/v1` 开头
 - **认证**: 请求头携带 `Authorization: Bearer <JWT>`，无状态认证
 - **鉴权**: 方法级 `@PreAuthorize` 注解，角色分 `STUDENT` / `TEACHER` / `LAB_ADMIN` / `SYSTEM_ADMIN`
 - **响应格式**: 统一使用 `R<T>` 泛型封装（`{code, msg, data}`）
 - **图片处理**: 上传使用 Thumbnailator 压缩至 1920px 以内、5MB 以下
 - **分页**: 使用 MyBatis-Plus `Page` 对象，前端传 `page` / `size`
-- **设备状态**: 可用(1) / 已借出(2) / 维修中(3) / 报废(4)
+- **多环境**: `application.yml` 激活 profile，`-dev` 直连 localhost，`-prod` 全部环境变量注入
+- **设备状态**: 正常(1) / 维修中(2) / 报废(3)
 - **借用状态**: PENDING_APPROVAL / APPROVED / REJECTED / BORROWING / RETURNED / OVERDUE / CANCELLED
 
 ### 前端
+
 - **组件库**: Element Plus，使用 `<el-xxx>` 标签
 - **状态管理**: Pinia，按模块拆分 store
 - **HTTP 请求**: 统一使用 `src/api/` 下的封装，自动处理 JWT 注入和 401 跳转
 - **路由守卫**: `src/router/` 中处理未认证跳转和角色权限
 
 ### 数据库
+
 - **引擎**: InnoDB，字符集 `utf8mb4`
 - **命名**: 表名 `snake_case`，字段 `snake_case`，主键 `id`，时间字段 `xxx_time`
-- **核心表**: `sys_user` / `device` / `device_image` / `borrow_record` / `approval_log` / `attachment` / `notification`
+- **核心表（9张）**: `sys_user` / `device_category` / `device` / `device_image` / `borrow_record` / `approval_log` / `attachment` / `notification` / `sys_log`
 - **软删除**: 不使用逻辑删除，关键记录永久保留
 
 ### 审批流
+
 - 默认两级：审批人（申请人指定教师）→ 审核员（实验室管理员）
 - 可配置三级：开启后增加「最终确认」节点
 - 审批流定义以 JSON 快照存入 `borrow_record.approve_flow_def`
 
 ### 图片存储策略
+
 - MinIO 路径: 设备图片 `device-images/`（永久），借用归还图片 `borrow-images/{yyyy-MM}/`（半年）
 - 清理任务: `@Scheduled(cron = "0 0 3 * * ?")` 每天凌晨 3 点执行
 
 ### 部署
+
 - 完整部署方式: `docker compose up -d --build`
 - 生产环境配置文件: `application-prod.yml`，通过环境变量注入
 - `.env` 文件存储敏感信息（数据库密码、JWT密钥等），不提交到仓库
