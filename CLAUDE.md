@@ -104,7 +104,7 @@ cd frontend && npm run type-check
 # 完整部署（构建并启动所有服务）
 docker compose up -d --build
 
-# 仅启动后端依赖（MySQL + Redis + MinIO）
+# 仅启动基础设施（MySQL + Redis + MinIO），用于本地开发
 docker compose up -d mysql redis minio
 
 # 查看日志
@@ -116,6 +116,22 @@ docker compose down
 # 停止并删除数据卷
 docker compose down -v
 ```
+
+### 本地开发工作流（热更新）
+
+```bash
+# 终端1：启动基础设施（只需一次）
+docker compose up -d mysql redis minio
+
+# 终端2：启动后端（热更新）
+cd backend && mvn spring-boot:run -Dspring-boot.run.profiles=dev
+
+# 终端3：启动前端（热更新，代理到后端 8080）
+cd frontend && npm run dev
+```
+
+> 本地开发时只容器化基础设施，后端和前端以开发进程运行获得热更新。
+> 打包部署时执行 `docker compose up -d --build` 构建所有镜像。
 
 ### Git（每完成阶段性成果后自动推送）
 
