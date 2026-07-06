@@ -195,7 +195,7 @@ class SysUserServiceImplTest {
 
         // when & then
         assertThatThrownBy(() ->
-                sysUserService.createLocalUser("admin", "admin", 3, null, null, null, "pass"))
+                sysUserService.createLocalUser("admin", "admin", 3, null, null, null, "admin123456"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("用户名已存在");
     }
@@ -205,13 +205,14 @@ class SysUserServiceImplTest {
     void createOrUpdateCasUser_concurrentInsert_shouldFallbackToUpdate() {
         // given: 第一次查询未找到，insert抛出DuplicateKeyException
         SysUser newUser = createCasUser();
-        when(sysUserMapper.selectByCasUuid(anyString())).thenReturn(null);
-        when(sysUserMapper.selectByUsername(anyString())).thenReturn(null);
-        doThrow(new DuplicateKeyException("Duplicate entry")).when(sysUserMapper).insert(any(SysUser.class));
-
-        // 并发场景：另一线程已插入，重新查询能查到
         SysUser concurrent = createCasUser();
-        when(sysUserMapper.selectByCasUuid("uuid-123")).thenReturn(concurrent);
+
+        // 第一次 selectByCasUuid 返回 null，第二次（retry）返回 concurrent
+        when(sysUserMapper.selectByCasUuid("uuid-123"))
+                .thenReturn(null)
+                .thenReturn(concurrent);
+        when(sysUserMapper.selectByUsername("zhangsan")).thenReturn(null);
+        doThrow(new DuplicateKeyException("Duplicate entry")).when(sysUserMapper).insert(any(SysUser.class));
 
         // when
         SysUser result = sysUserService.createOrUpdateCasUser(newUser);
@@ -225,7 +226,7 @@ class SysUserServiceImplTest {
     @DisplayName("创建本地用户（短密码）→ 抛出异常")
     void createLocalUser_shortPassword_shouldThrow() {
         assertThatThrownBy(() ->
-                sysUserService.createLocalUser("u1", "Name", 3, null, null, null, "123"))
+                sysUserService.createLocalUser("user1", "Name", 3, null, null, null, "123"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("至少为8位");
     }

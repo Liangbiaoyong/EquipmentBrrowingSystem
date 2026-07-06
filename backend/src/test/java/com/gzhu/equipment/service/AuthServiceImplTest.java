@@ -30,6 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
+import org.mockito.ArgumentMatchers;
 
 /**
  * AuthServiceImpl 单元测试
@@ -62,6 +63,9 @@ class AuthServiceImplTest {
         authService = new AuthServiceImpl(
                 sysUserService, jwtTokenProvider, passwordEncoder,
                 objectMapper, restTemplate);
+
+        // 设置 @Value 注入的字段，避免 fetchCasUserInfo 中 restTemplate.exchange 因 null URL 失败
+        ReflectionTestUtils.setField(authService, "casUserInfoUrl", "https://example.com/cas/userInfo");
     }
 
     // ==================== 本地登录 ====================
@@ -295,7 +299,8 @@ class AuthServiceImplTest {
                 + "\"status\":1"
                 + "}}";
         ResponseEntity<String> responseEntity = new ResponseEntity<>(casResponse, HttpStatus.OK);
-        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(String.class)))
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(),
+                ArgumentMatchers.<Class<String>>any()))
                 .thenReturn(responseEntity);
 
         SysUser savedUser = new SysUser();
