@@ -1,5 +1,7 @@
 server:
   port: 8080
+  servlet:
+    context-path: /api/v1
 
 spring:
   datasource:
@@ -53,12 +55,20 @@ minio:
   image-max-size: 5242880
 
 jwt:
-  secret: local-test-secret-do-not-use-in-prod
+  secret: local-test-secret-key-must-be-at-least-256-bits-long-for-hmac-sha512
   expiration: 14400000  # 4小时
 
+# CAS 统一认证配置
+# 说明：本系统不直接对接CAS协议，而是利用CAS登录后获得的token
+# 前端完成CAS认证后，将token传给后端 /auth/cas/login
+# 后端调用以下 userInfo API 验证token并获取用户信息
 cas:
-  server-url: https://cas.gzhu.edu.cn/cas
-  client-host-url: http://localhost:8080
+  # CAS用户信息验证API（广州大学图书馆认证中心）
+  userinfo-url: https://libbooking.gzhu.edu.cn/ic-web/auth/userInfo
+  # 调用userInfo API的超时时间（毫秒）
+  request-timeout: 15000
+  # CAS服务端地址（前端跳转用，后端记录仅供参考）
+  server-url: https://newcas.gzhu.edu.cn/cas
 
 knife4j:
   enable: true

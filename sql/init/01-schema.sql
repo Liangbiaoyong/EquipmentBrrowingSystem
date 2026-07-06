@@ -17,16 +17,32 @@ CREATE TABLE IF NOT EXISTS `sys_user` (
   `username` varchar(50) NOT NULL COMMENT 'CAS学工号/本地登录名',
   `real_name` varchar(50) DEFAULT NULL COMMENT '真实姓名',
   `user_type` tinyint DEFAULT '0' COMMENT '0学生 1教师 2实验室管理员 3系统管理员',
-  `department` varchar(100) DEFAULT NULL COMMENT '学院/班级',
+  `department` varchar(100) DEFAULT NULL COMMENT '学院/部门名称(deptName)',
   `email` varchar(100) DEFAULT NULL COMMENT '邮箱',
   `phone` varchar(20) DEFAULT NULL COMMENT '手机号',
   `password` varchar(200) DEFAULT '' COMMENT 'BCrypt密码（仅本地用户）',
   `auth_source` char(1) DEFAULT 'C' COMMENT 'C:CAS L:本地',
   `status` tinyint DEFAULT '1' COMMENT '1正常 0禁用',
+
+  -- === CAS 系统返回字段（仅 auth_source=C 时有值） ===
+  `cas_uuid` varchar(64) DEFAULT NULL COMMENT 'CAS系统UUID（全局唯一标识）',
+  `acc_no` int DEFAULT NULL COMMENT 'CAS账号编号(accNo)',
+  `class_name` varchar(100) DEFAULT NULL COMMENT '班级名称（学生：className；教师：同deptName）',
+  `class_id` bigint DEFAULT NULL COMMENT '班级ID(classId)',
+  `dept_id` bigint DEFAULT NULL COMMENT '学院/部门ID(deptId)',
+  `ident` int DEFAULT NULL COMMENT 'CAS身份标识: 257学生 259教师',
+  `card_no` varchar(50) DEFAULT NULL COMMENT '一卡通号(cardNo)',
+  `sex` tinyint DEFAULT 0 COMMENT '性别: 0未知 1男 2女',
+  `expired_date` int DEFAULT NULL COMMENT 'CAS账号过期日期(expiredDate, 格式yyyyMMdd)',
+  `last_cas_login` datetime DEFAULT NULL COMMENT '最近一次CAS登录时间',
+
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uk_username` (`username`)
+  UNIQUE KEY `uk_username` (`username`),
+  UNIQUE KEY `uk_cas_uuid` (`cas_uuid`),
+  KEY `idx_user_type` (`user_type`),
+  KEY `idx_auth_source` (`auth_source`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
 
 -- -----------------------------------------------------------

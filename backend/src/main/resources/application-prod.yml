@@ -1,5 +1,7 @@
 server:
   port: 8080
+  servlet:
+    context-path: /api/v1
 
 spring:
   datasource:
@@ -51,11 +53,13 @@ minio:
 
 jwt:
   secret: ${JWT_SECRET}
-  expiration: 14400000
+  expiration: 14400000  # 4小时
 
+# CAS 统一认证配置（生产环境通过环境变量注入）
 cas:
-  server-url: ${CAS_SERVER_URL}
-  client-host-url: http://localhost:8080
+  userinfo-url: ${CAS_USERINFO_URL:https://libbooking.gzhu.edu.cn/ic-web/auth/userInfo}
+  request-timeout: ${CAS_REQUEST_TIMEOUT:15000}
+  server-url: ${CAS_SERVER_URL:https://newcas.gzhu.edu.cn/cas}
 
 knife4j:
   enable: true

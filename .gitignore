@@ -2,6 +2,7 @@
 arch_gzhu_analysis/
 project_description/
 AgentTools/
+TEMP/
 
 # ─── IDE / OS ───────────────────────────────────────────
 .idea/
@@ -44,3 +45,5 @@ logs/
 # ─── 其他 ───────────────────────────────────────────────
 *.bak
 *.tmp
+file_tree.txt
+merged_texts.txt
