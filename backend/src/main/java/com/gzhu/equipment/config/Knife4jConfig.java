@@ -8,13 +8,13 @@ import springfox.documentation.builders.RequestHandlerSelectors;
 import springfox.documentation.service.ApiInfo;
 import springfox.documentation.spi.DocumentationType;
 import springfox.documentation.spring.web.plugins.Docket;
-import springfox.documentation.swagger2.annotations.EnableSwagger2;
 
 /**
  * Knife4j (Swagger) 配置
+ *
+ * Knife4j 4.x 自动注册 Swagger 2 资源，无需 @EnableSwagger2
  */
 @Configuration
-@EnableSwagger2
 public class Knife4jConfig {
 
     @Bean
