@@ -1,19 +1,100 @@
 package com.gzhu.equipment.security;
 
+import com.gzhu.equipment.entity.SysUser;
+import com.gzhu.equipment.mapper.SysUserMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.Mockito.when;
 
 /**
- * UserDetailsServiceImpl 单元测试 — 角色映射与权限构建
+ * UserDetailsServiceImpl 单元测试 — 角色映射 + loadUserByUsername
  */
 @ExtendWith(MockitoExtension.class)
 class UserDetailsServiceImplTest {
+
+    @Mock
+    private SysUserMapper sysUserMapper;
+
+    private UserDetailsServiceImpl userDetailsService;
+
+    @BeforeEach
+    void setUp() {
+        userDetailsService = new UserDetailsServiceImpl(sysUserMapper);
+    }
+
+    // ==================== loadUserByUsername ====================
+
+    @Test
+    @DisplayName("loadUserByUsername → 本地用户登录成功")
+    void loadUserByUsername_localUser_shouldReturnUserDetails() {
+        SysUser user = new SysUser();
+        user.setId(1L);
+        user.setUsername("admin");
+        user.setPassword("$2a$10$encodedpasswordhash");
+        user.setUserType(3);
+        user.setAuthSource("L");
+        user.setStatus(1);
+
+        when(sysUserMapper.selectByUsername("admin")).thenReturn(user);
+
+        UserDetails details = userDetailsService.loadUserByUsername("admin");
+
+        assertThat(details.getUsername()).isEqualTo("admin");
+        assertThat(details.getAuthorities()).isNotEmpty();
+        assertThat(details.getAuthorities().iterator().next().getAuthority())
+                .isEqualTo("ROLE_SYSTEM_ADMIN");
+    }
+
+    @Test
+    @DisplayName("loadUserByUsername → 用户不存在抛出异常")
+    void loadUserByUsername_notFound_shouldThrow() {
+        when(sysUserMapper.selectByUsername("nobody")).thenReturn(null);
+
+        assertThatThrownBy(() -> userDetailsService.loadUserByUsername("nobody"))
+                .isInstanceOf(UsernameNotFoundException.class)
+                .hasMessageContaining("用户不存在");
+    }
+
+    @Test
+    @DisplayName("loadUserByUsername → 被禁用用户抛出异常")
+    void loadUserByUsername_disabled_shouldThrow() {
+        SysUser user = new SysUser();
+        user.setUsername("disabled");
+        user.setAuthSource("L");
+        user.setStatus(0);
+
+        when(sysUserMapper.selectByUsername("disabled")).thenReturn(user);
+
+        assertThatThrownBy(() -> userDetailsService.loadUserByUsername("disabled"))
+                .isInstanceOf(UsernameNotFoundException.class)
+                .hasMessageContaining("已被禁用");
+    }
+
+    @Test
+    @DisplayName("loadUserByUsername → CAS用户尝试本地登录抛出异常")
+    void loadUserByUsername_casUser_shouldThrow() {
+        SysUser user = new SysUser();
+        user.setUsername("zhangsan");
+        user.setAuthSource("C");
+        user.setStatus(1);
+
+        when(sysUserMapper.selectByUsername("zhangsan")).thenReturn(user);
+
+        assertThatThrownBy(() -> userDetailsService.loadUserByUsername("zhangsan"))
+                .isInstanceOf(UsernameNotFoundException.class)
+                .hasMessageContaining("CAS用户不支持");
+    }
 
     @Test
     @DisplayName("学生类型 → 返回 ROLE_STUDENT")

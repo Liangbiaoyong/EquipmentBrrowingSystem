@@ -63,8 +63,13 @@ public class SecurityConfig {
             // 请求授权
             .authorizeRequests()
             // --- 公开端点 ---
-            .antMatchers("/auth/**").permitAll()
-            // API文档
+            // CAS/本地登录 + 健康检查
+            .antMatchers(
+                "/auth/cas/login",
+                "/auth/local/login",
+                "/auth/health"
+            ).permitAll()
+            // API文档（仅开发环境建议公开；生产环境可通过 profile 控制）
             .antMatchers(
                 "/doc.html",
                 "/swagger-resources/**",
@@ -73,13 +78,14 @@ public class SecurityConfig {
                 "/v2/api-docs",
                 "/v3/api-docs/**"
             ).permitAll()
-            // 运维监控（生产环境建议限制IP）
-            .antMatchers("/actuator/**").permitAll()
+            // 运维监控 — 仅暴露健康检查，其余必需认证
+            .antMatchers("/actuator/health").permitAll()
+            .antMatchers("/actuator/**").authenticated()
             // 静态资源
             .antMatchers(HttpMethod.GET,
                 "/", "/favicon.ico", "/error"
             ).permitAll()
-            // --- 其余需认证 ---
+            // --- 其余需认证（包括 /auth/info） ---
             .anyRequest().authenticated()
             .and()
             // 禁用默认登录方式

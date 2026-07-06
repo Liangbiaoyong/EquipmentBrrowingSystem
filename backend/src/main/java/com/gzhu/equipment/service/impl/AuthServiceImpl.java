@@ -108,10 +108,10 @@ public class AuthServiceImpl implements AuthService {
             JsonNode root = objectMapper.readTree(response.getBody());
             String code = root.path("code").asText();
 
-            // 成功的响应code为"0"或0
-            if (!"0".equals(code) && !"success".equals(root.path("message").asText())) {
+            // code不为"0"即为失败（message字段仅供参考，不作为成功判定依据）
+            if (!"0".equals(code)) {
                 log.warn("CAS userInfo API返回错误: code={}, message={}",
-                        code, root.path("message").asText());
+                        code, root.path("message").asText(""));
                 return null;
             }
 

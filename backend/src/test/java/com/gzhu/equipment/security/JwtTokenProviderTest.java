@@ -1,12 +1,10 @@
 package com.gzhu.equipment.security;
 
 import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Arrays;
 import java.util.List;
@@ -19,7 +17,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  *
  * 覆盖：Token生成、解析、校验、过期、异常处理
  */
-@ExtendWith(MockitoExtension.class)
 class JwtTokenProviderTest {
 
     private static final String TEST_SECRET = "test-secret-key-that-is-at-least-256-bits-long-for-hmac-sha-algorithm";
@@ -104,20 +101,15 @@ class JwtTokenProviderTest {
 
     @Test
     @DisplayName("校验过期Token → 返回false")
-    void validateToken_expiredToken_shouldReturnFalse() throws Exception {
-        // given
-        JwtTokenProvider shortLivedProvider = new JwtTokenProvider(TEST_SECRET, 1L); // 1ms过期
-
-        // 使用反射设置 expirationMs 来创建几乎立即过期的 token
+    void validateToken_expiredToken_shouldReturnFalse() {
+        // given: 1ms过期的token — 不依赖Thread.sleep
+        JwtTokenProvider shortLivedProvider = new JwtTokenProvider(TEST_SECRET, 0L);
         String token = shortLivedProvider.generateToken(1L, "admin", 3, List.of("ROLE_SYSTEM_ADMIN"));
-
-        // 等待token过期
-        Thread.sleep(10);
 
         // when
         boolean isValid = shortLivedProvider.validateToken(token);
 
-        // then
+        // then: 0ms过期 → 签发时即过期
         assertThat(isValid).isFalse();
     }
 
@@ -179,15 +171,35 @@ class JwtTokenProviderTest {
     }
 
     @Test
-    @DisplayName("解析过期Token → 抛出异常")
-    void parseToken_expiredToken_shouldThrowException() throws Exception {
-        // given
-        JwtTokenProvider shortLivedProvider = new JwtTokenProvider(TEST_SECRET, 1L);
+    @DisplayName("解析过期Token → 抛出ExpiredJwtException")
+    void parseToken_expiredToken_shouldThrowException() {
+        // given: 0ms过期 → 签发时即过期
+        JwtTokenProvider shortLivedProvider = new JwtTokenProvider(TEST_SECRET, 0L);
         String token = shortLivedProvider.generateToken(1L, "admin", 3, List.of("ROLE_SYSTEM_ADMIN"));
-        Thread.sleep(10);
 
         // when & then
         assertThatThrownBy(() -> shortLivedProvider.parseToken(token))
-                .isInstanceOf(io.jsonwebtoken.ExpiredJwtException.class);
+                .isInstanceOf(ExpiredJwtException.class);
+    }
+
+    @Test
+    @DisplayName("从Token提取用户类型 → 返回正确类型")
+    void getUserType_shouldReturnCorrectType() {
+        String token = jwtTokenProvider.generateToken(1L, "admin", 3, List.of("ROLE_SYSTEM_ADMIN"));
+        assertThat(jwtTokenProvider.getUserType(token)).isEqualTo(3);
+    }
+
+    @Test
+    @DisplayName("获取Token有效期 → 返回配置值")
+    void getExpirationMs_shouldReturnConfiguredValue() {
+        assertThat(jwtTokenProvider.getExpirationMs()).isEqualTo(TEST_EXPIRATION);
+    }
+
+    @Test
+    @DisplayName("密钥太短 → 启动时抛出IllegalArgumentException")
+    void constructor_shortSecret_shouldThrow() {
+        assertThatThrownBy(() -> new JwtTokenProvider("short", 3600000L))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("至少 64 字节");
     }
 }

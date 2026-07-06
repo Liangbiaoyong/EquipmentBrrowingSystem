@@ -3,6 +3,7 @@ package com.gzhu.equipment.controller;
 import com.gzhu.equipment.common.R;
 import com.gzhu.equipment.dto.CasLoginRequest;
 import com.gzhu.equipment.dto.LocalLoginRequest;
+import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.service.AuthService;
 import com.gzhu.equipment.vo.LoginVO;
 import com.gzhu.equipment.vo.UserInfoVO;
@@ -10,7 +11,6 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -87,8 +87,12 @@ public class AuthController {
         if (authentication == null || !authentication.isAuthenticated()) {
             return R.fail(401, "未登录");
         }
-        Long userId = (Long) authentication.getPrincipal();
-        UserInfoVO userInfo = authService.getCurrentUserInfo(userId);
+        Object principal = authentication.getPrincipal();
+        if (!(principal instanceof JwtUserPrincipal)) {
+            return R.fail(401, "认证信息异常");
+        }
+        JwtUserPrincipal jwtPrincipal = (JwtUserPrincipal) principal;
+        UserInfoVO userInfo = authService.getCurrentUserInfo(jwtPrincipal.getUserId());
         return R.ok(userInfo);
     }
 

@@ -6,7 +6,6 @@ import com.gzhu.equipment.dto.CasLoginRequest;
 import com.gzhu.equipment.dto.LocalLoginRequest;
 import com.gzhu.equipment.entity.SysUser;
 import com.gzhu.equipment.security.JwtTokenProvider;
-import com.gzhu.equipment.security.UserDetailsServiceImpl;
 import com.gzhu.equipment.service.SysUserService;
 import com.gzhu.equipment.vo.LoginVO;
 import com.gzhu.equipment.vo.UserInfoVO;
@@ -16,13 +15,15 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -272,6 +273,70 @@ class AuthServiceImplTest {
             // then
             assertThat(info.getUserType()).isEqualTo(type);
         }
+    }
+
+    // ==================== CAS 登录 ====================
+
+    @Test
+    @DisplayName("CAS登录（有效Token）→ 返回 LoginVO")
+    void casLogin_validToken_shouldReturnLoginVO() {
+        // given: Mock RestTemplate 返回成功的CAS用户信息
+        String casResponse = "{"
+                + "\"code\":\"0\","
+                + "\"message\":\"success\","
+                + "\"data\":{"
+                + "\"uuid\":\"stu-uuid\","
+                + "\"logonName\":\"2022010101\","
+                + "\"trueName\":\"李四\","
+                + "\"deptName\":\"建筑学院\","
+                + "\"className\":\"建筑学191\","
+                + "\"ident\":257,"
+                + "\"sex\":1,"
+                + "\"status\":1"
+                + "}}";
+        ResponseEntity<String> responseEntity = new ResponseEntity<>(casResponse, HttpStatus.OK);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(responseEntity);
+
+        SysUser savedUser = new SysUser();
+        savedUser.setId(10L);
+        savedUser.setUsername("2022010101");
+        savedUser.setRealName("李四");
+        savedUser.setUserType(0);
+        savedUser.setAuthSource("C");
+        savedUser.setStatus(1);
+        savedUser.setDepartment("建筑学院");
+        when(sysUserService.createOrUpdateCasUser(any(SysUser.class))).thenReturn(savedUser);
+
+        CasLoginRequest request = new CasLoginRequest();
+        request.setToken("valid-cas-token");
+
+        // when
+        LoginVO loginVO = authService.casLogin(request);
+
+        // then
+        assertThat(loginVO).isNotNull();
+        assertThat(loginVO.getAccessToken()).isNotNull().isNotEmpty();
+        assertThat(loginVO.getUserInfo().getUsername()).isEqualTo("2022010101");
+        assertThat(loginVO.getUserInfo().getUserTypeName()).isEqualTo("学生");
+    }
+
+    @Test
+    @DisplayName("CAS登录（无效Token）→ 抛出异常")
+    void casLogin_invalidToken_shouldThrow() {
+        // given: RestTemplate 返回失败
+        String errorResponse = "{\"code\":\"1\",\"message\":\"token无效\"}";
+        ResponseEntity<String> responseEntity = new ResponseEntity<>(errorResponse, HttpStatus.OK);
+        when(restTemplate.exchange(anyString(), eq(HttpMethod.GET), any(), eq(String.class)))
+                .thenReturn(responseEntity);
+
+        CasLoginRequest request = new CasLoginRequest();
+        request.setToken("invalid-token");
+
+        // when & then
+        assertThatThrownBy(() -> authService.casLogin(request))
+                .isInstanceOf(BadCredentialsException.class)
+                .hasMessage("CAS token无效或已过期");
     }
 
     // ==================== JSON解析辅助方法测试 ====================

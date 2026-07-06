@@ -1,5 +1,6 @@
 package com.gzhu.equipment.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -11,11 +12,14 @@ import org.springframework.web.client.RestTemplate;
 @Configuration
 public class RestTemplateConfig {
 
+    @Value("${cas.request-timeout:15000}")
+    private int casRequestTimeout;
+
     @Bean
     public RestTemplate restTemplate() {
         SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-        factory.setConnectTimeout(15000);
-        factory.setReadTimeout(15000);
+        factory.setConnectTimeout(casRequestTimeout);
+        factory.setReadTimeout(casRequestTimeout);
         return new RestTemplate(factory);
     }
 }

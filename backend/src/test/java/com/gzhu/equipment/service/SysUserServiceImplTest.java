@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -197,6 +198,45 @@ class SysUserServiceImplTest {
                 sysUserService.createLocalUser("admin", "admin", 3, null, null, null, "pass"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("用户名已存在");
+    }
+
+    @Test
+    @DisplayName("CAS并发插入 → DuplicateKeyException降级为更新")
+    void createOrUpdateCasUser_concurrentInsert_shouldFallbackToUpdate() {
+        // given: 第一次查询未找到，insert抛出DuplicateKeyException
+        SysUser newUser = createCasUser();
+        when(sysUserMapper.selectByCasUuid(anyString())).thenReturn(null);
+        when(sysUserMapper.selectByUsername(anyString())).thenReturn(null);
+        doThrow(new DuplicateKeyException("Duplicate entry")).when(sysUserMapper).insert(any(SysUser.class));
+
+        // 并发场景：另一线程已插入，重新查询能查到
+        SysUser concurrent = createCasUser();
+        when(sysUserMapper.selectByCasUuid("uuid-123")).thenReturn(concurrent);
+
+        // when
+        SysUser result = sysUserService.createOrUpdateCasUser(newUser);
+
+        // then: 降级为update，不抛异常
+        assertThat(result).isNotNull();
+        verify(sysUserMapper).updateById(any(SysUser.class));
+    }
+
+    @Test
+    @DisplayName("创建本地用户（短密码）→ 抛出异常")
+    void createLocalUser_shortPassword_shouldThrow() {
+        assertThatThrownBy(() ->
+                sysUserService.createLocalUser("u1", "Name", 3, null, null, null, "123"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("至少为8位");
+    }
+
+    @Test
+    @DisplayName("创建本地用户（短用户名）→ 抛出异常")
+    void createLocalUser_shortUsername_shouldThrow() {
+        assertThatThrownBy(() ->
+                sysUserService.createLocalUser("ab", "Name", 3, null, null, null, "password123"))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("至少需要3个字符");
     }
 
     // ==================== 辅助方法 ====================

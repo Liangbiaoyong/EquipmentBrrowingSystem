@@ -15,6 +15,7 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -53,12 +54,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String username = jwtTokenProvider.getUsername(token);
                 List<String> roles = jwtTokenProvider.getRoles(token);
 
-                List<SimpleGrantedAuthority> authorities = roles.stream()
-                        .map(SimpleGrantedAuthority::new)
-                        .collect(Collectors.toList());
+                List<SimpleGrantedAuthority> authorities = roles != null
+                        ? roles.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList())
+                        : Collections.emptyList();
+
+                // 使用 JwtUserPrincipal 作为 principal，符合 Spring Security 惯例
+                // credentials 不存储原始 JWT，避免日志/调试时泄露
+                JwtUserPrincipal principal = new JwtUserPrincipal(
+                        userId, username, jwtTokenProvider.getUserType(token), roles, authorities);
 
                 UsernamePasswordAuthenticationToken authentication =
-                        new UsernamePasswordAuthenticationToken(userId, token, authorities);
+                        new UsernamePasswordAuthenticationToken(principal, null, authorities);
                 authentication.setDetails(
                         new WebAuthenticationDetailsSource().buildDetails(request));
 

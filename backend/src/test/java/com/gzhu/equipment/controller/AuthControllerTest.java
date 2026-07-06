@@ -1,10 +1,9 @@
 package com.gzhu.equipment.controller;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.gzhu.equipment.common.R;
 import com.gzhu.equipment.dto.CasLoginRequest;
 import com.gzhu.equipment.dto.LocalLoginRequest;
-import com.gzhu.equipment.security.JwtTokenProvider;
+import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.service.AuthService;
 import com.gzhu.equipment.vo.LoginVO;
 import com.gzhu.equipment.vo.UserInfoVO;
@@ -17,7 +16,9 @@ import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.test.context.support.WithMockUser;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.util.List;
@@ -48,9 +49,6 @@ class AuthControllerTest {
 
     @MockBean
     private AuthService authService;
-
-    @MockBean
-    private JwtTokenProvider jwtTokenProvider;
 
     private LocalLoginRequest validLocalRequest;
     private LoginVO successLoginVO;
@@ -139,15 +137,18 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("本地登录（空用户名密码）→ 服务层不调用，直接返回")
-    void localLogin_invalidRequest_shouldReject() throws Exception {
-        // 空字符串不会触发 @Valid 时，控制器仍返回正常响应
-        // 验证不会抛出异常
+    @DisplayName("本地登录（空请求体）→ 触发验证错误或服务层拒绝")
+    void localLogin_emptyBody_shouldReturnError() throws Exception {
+        // @Valid 校验空用户名字段触发 BadCredentials或验证错误
+        when(authService.localLogin(any(LocalLoginRequest.class)))
+                .thenThrow(new BadCredentialsException("用户名不能为空"));
+
         mockMvc.perform(post("/auth/local/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{}"))
                 .andDo(print())
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401));
     }
 
     // ==================== CAS登录 ====================
@@ -192,21 +193,22 @@ class AuthControllerTest {
     }
 
     @Test
-    @DisplayName("CAS登录（空Token）→ 服务层不调用，直接返回")
-    void casLogin_emptyToken_shouldReject() throws Exception {
-        // 空字符串不会触发 @Valid 时，控制器仍返回正常响应
-        // 验证不会抛出异常
+    @DisplayName("CAS登录（空Token）→ 服务层拒绝并返回401")
+    void casLogin_emptyToken_shouldReturnError() throws Exception {
+        when(authService.casLogin(any(CasLoginRequest.class)))
+                .thenThrow(new BadCredentialsException("CAS token无效或已过期"));
+
         mockMvc.perform(post("/auth/cas/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"token\":\"\"}"))
                 .andDo(print())
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(401));
     }
 
     // ==================== 获取用户信息 ====================
 
     @Test
-    @WithMockUser(username = "1")
     @DisplayName("获取用户信息（已认证）→ 返回用户信息")
     void getCurrentUserInfo_authenticated_shouldReturnInfo() throws Exception {
         // given
@@ -218,20 +220,15 @@ class AuthControllerTest {
                 .build();
         when(authService.getCurrentUserInfo(anyLong())).thenReturn(userInfo);
 
-        // when & then
-        // 手动设置SecurityContext：@WithMockUser默认principal为String，但控制器期望Long
-        org.springframework.security.core.context.SecurityContextHolder
-                .getContext()
-                .setAuthentication(
-                    new org.springframework.security.authentication
-                        .UsernamePasswordAuthenticationToken(
-                            1L, "mock-token",
-                            java.util.List.of(
-                                new org.springframework.security.core.authority
-                                    .SimpleGrantedAuthority("ROLE_SYSTEM_ADMIN")
-                            )
-                        )
-                );
+        // 使用 JwtUserPrincipal 作为principal（匹配JwtAuthenticationFilter的行为）
+        JwtUserPrincipal principal = new JwtUserPrincipal(
+                1L, "admin", 3,
+                List.of("ROLE_SYSTEM_ADMIN"),
+                List.of(new SimpleGrantedAuthority("ROLE_SYSTEM_ADMIN")));
+
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(
+                        principal, null, principal.getAuthorities()));
 
         mockMvc.perform(get("/auth/info"))
                 .andDo(print())
@@ -242,12 +239,10 @@ class AuthControllerTest {
 
     @Test
     @DisplayName("获取用户信息（未认证）→ 返回401")
-    void getCurrentUserInfo_unauthenticated_shouldReturn401() throws Exception {
-        // 默认情况下 Security 配置会让 /auth/info 需要认证
-        // 但 /auth/** 被配置为 permitAll，所以需要验证实际行为
+    void getCurrentUserInfo_unauthenticated_shouldReturnError() throws Exception {
         mockMvc.perform(get("/auth/info"))
                 .andDo(print())
-                .andExpect(status().isOk()) // 不认证也能访问，但控制器内会检测SecurityContext
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(401))
                 .andExpect(jsonPath("$.msg").value("未登录"));
     }

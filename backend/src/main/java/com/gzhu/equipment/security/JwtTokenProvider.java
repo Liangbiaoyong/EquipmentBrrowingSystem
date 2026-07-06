@@ -31,8 +31,14 @@ public class JwtTokenProvider {
     public JwtTokenProvider(
             @Value("${jwt.secret}") String secret,
             @Value("${jwt.expiration}") long expirationMs) {
-        // 使用HMAC-SHA512确保密钥长度≥512位
-        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+        // HMAC-SHA512 要求密钥长度 ≥ 512 bits (64 bytes)；启动时校验
+        byte[] keyBytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (keyBytes.length < 64) {
+            throw new IllegalArgumentException(
+                    "jwt.secret 长度不足: 当前 " + keyBytes.length + " 字节，HMAC-SHA512 要求至少 64 字节(512 bits)。" +
+                    " 请在配置文件中设置足够长的密钥。");
+        }
+        this.secretKey = Keys.hmacShaKeyFor(keyBytes);
         this.expirationMs = expirationMs;
     }
 
@@ -109,6 +115,13 @@ public class JwtTokenProvider {
     @SuppressWarnings("unchecked")
     public List<String> getRoles(String token) {
         return parseToken(token).get("roles", List.class);
+    }
+
+    /**
+     * 从Token中获取用户类型
+     */
+    public Integer getUserType(String token) {
+        return parseToken(token).get("userType", Integer.class);
     }
 
     /**
