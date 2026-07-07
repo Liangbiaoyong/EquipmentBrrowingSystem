@@ -46,42 +46,85 @@ CREATE TABLE IF NOT EXISTS `sys_user` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户表';
 
 -- -----------------------------------------------------------
--- 2. 设备分类表
+-- 2. 设备分类表（树形业务分类）
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `device_category` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `name` varchar(50) NOT NULL COMMENT '分类名称',
-  `parent_id` bigint DEFAULT '0' COMMENT '父分类ID',
+  `code` varchar(50) DEFAULT NULL COMMENT '分类编码（如 COMPUTER, CAMERA）',
+  `parent_id` bigint DEFAULT '0' COMMENT '父分类ID（0=一级分类）',
+  `level` tinyint DEFAULT '1' COMMENT '层级: 1一级 2二级 3三级',
   `sort` int DEFAULT '0' COMMENT '排序',
   `status` tinyint DEFAULT '1' COMMENT '1启用 0禁用',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (`id`)
+  PRIMARY KEY (`id`),
+  KEY `idx_parent` (`parent_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备分类表';
 
 -- -----------------------------------------------------------
--- 3. 设备表
+-- 3. 设备/资产表
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `device` (
+  -- === 核心业务字段 ===
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `name` varchar(100) NOT NULL COMMENT '设备名称',
-  `model` varchar(100) DEFAULT NULL COMMENT '型号',
-  `category_id` bigint DEFAULT NULL COMMENT '分类ID',
-  `location` varchar(200) DEFAULT NULL COMMENT '存放位置',
-  `total_qty` int NOT NULL DEFAULT '1' COMMENT '总数量',
-  `available_qty` int NOT NULL DEFAULT '1' COMMENT '当前可借数量',
+  `asset_no` varchar(50) DEFAULT NULL COMMENT '资产编号（学校统一编码）',
+  `name` varchar(200) NOT NULL COMMENT '设备/资产名称',
+  `model` varchar(200) DEFAULT NULL COMMENT '型号/品牌',
+  `specs` text COMMENT '规格描述',
+  `category_id` bigint DEFAULT NULL COMMENT '业务分类ID（关联device_category）',
+  `location` varchar(500) DEFAULT NULL COMMENT '存放地名称',
+  `department` varchar(100) DEFAULT NULL COMMENT '使用单位',
+  `custodian` varchar(50) DEFAULT NULL COMMENT '使用人姓名',
+  `total_qty` int NOT NULL DEFAULT '1' COMMENT '数量',
+  `unit_price` decimal(12,2) DEFAULT NULL COMMENT '单价(元)',
+  `total_amount` decimal(12,2) DEFAULT NULL COMMENT '金额(元)',
   `status` tinyint DEFAULT '1' COMMENT '1正常 2维修中 3报废',
-  `description` text COMMENT '设备描述/配件说明',
+  `description` text COMMENT '设备描述/备注',
   `cover_image` varchar(500) DEFAULT NULL COMMENT '封面图URL',
-  `create_by` bigint DEFAULT NULL COMMENT '创建人',
+  `create_by` bigint DEFAULT NULL COMMENT '创建人ID',
+
+  -- === 资产导入字段 ===
+  `gb_category_name` varchar(100) DEFAULT NULL COMMENT '国标分类名',
+  `gb_category_code` varchar(50) DEFAULT NULL COMMENT '国标分类号',
+  `edu_category_name` varchar(100) DEFAULT NULL COMMENT '教育分类名',
+  `edu_category_code` varchar(50) DEFAULT NULL COMMENT '教育分类号',
+  `purchase_date` date DEFAULT NULL COMMENT '购置日期',
+  `manufacturer` varchar(200) DEFAULT NULL COMMENT '厂家/产地',
+  `supplier` varchar(200) DEFAULT NULL COMMENT '供货商及电话',
+  `invoice_no` varchar(100) DEFAULT NULL COMMENT '发票号',
+  `contract_no` varchar(100) DEFAULT NULL COMMENT '合同号',
+  `warranty_period` int DEFAULT NULL COMMENT '保修期限(月)',
+  `import_batch_id` varchar(50) DEFAULT NULL COMMENT '导入批次号',
+
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_asset_no` (`asset_no`),
   KEY `idx_category` (`category_id`),
-  KEY `idx_status` (`status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备表';
+  KEY `idx_status` (`status`),
+  KEY `idx_location` (`location`(100)),
+  KEY `idx_name` (`name`(50))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备/资产表';
 
 -- -----------------------------------------------------------
--- 4. 设备图片表
+-- 4. 国标→业务分类映射表（自动分类规则）
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `category_mapping` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `gb_category_name` varchar(100) NOT NULL COMMENT '国标分类名',
+  `keyword` varchar(100) NOT NULL COMMENT '匹配关键词（用于自动分类的包含匹配）',
+  `category_id` bigint NOT NULL COMMENT '映射到的业务分类ID',
+  `priority` int DEFAULT '100' COMMENT '优先级（越小越优先，用于冲突消解）',
+  `is_active` tinyint DEFAULT '1' COMMENT '1启用 0禁用',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_gb_name` (`gb_category_name`),
+  KEY `idx_category` (`category_id`),
+  KEY `idx_keyword` (`keyword`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='国标→业务分类映射表';
+
+-- -----------------------------------------------------------
+-- 5. 设备图片表
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `device_image` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -94,7 +137,7 @@ CREATE TABLE IF NOT EXISTS `device_image` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备图片表';
 
 -- -----------------------------------------------------------
--- 5. 借用单表
+-- 6. 借用单表
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `borrow_record` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -118,7 +161,7 @@ CREATE TABLE IF NOT EXISTS `borrow_record` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='借用单表';
 
 -- -----------------------------------------------------------
--- 6. 审批记录表
+-- 7. 审批记录表
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `approval_log` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -134,7 +177,7 @@ CREATE TABLE IF NOT EXISTS `approval_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='审批记录表';
 
 -- -----------------------------------------------------------
--- 7. 附件表（借用/归还照片）
+-- 8. 附件表（借用/归还照片）
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `attachment` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -149,7 +192,7 @@ CREATE TABLE IF NOT EXISTS `attachment` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='附件表';
 
 -- -----------------------------------------------------------
--- 8. 消息通知表
+-- 9. 消息通知表
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `notification` (
   `id` bigint NOT NULL AUTO_INCREMENT,
@@ -165,7 +208,7 @@ CREATE TABLE IF NOT EXISTS `notification` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='消息通知表';
 
 -- -----------------------------------------------------------
--- 9. 操作日志表
+-- 10. 操作日志表
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `sys_log` (
   `id` bigint NOT NULL AUTO_INCREMENT,

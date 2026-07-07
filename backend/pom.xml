@@ -24,6 +24,7 @@
         <minio.version>8.5.2</minio.version>
         <thumbnailator.version>0.4.19</thumbnailator.version>
         <jjwt.version>0.11.5</jjwt.version>
+        <poi.version>5.2.5</poi.version>
     </properties>
 
     <dependencies>
@@ -108,6 +109,13 @@
             <groupId>org.jasig.cas.client</groupId>
             <artifactId>cas-client-support-springboot</artifactId>
             <version>3.6.4</version>
+        </dependency>
+
+        <!-- Apache POI — Excel 文件读写 -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-ooxml</artifactId>
+            <version>${poi.version}</version>
         </dependency>
 
         <!-- Lombok -->
