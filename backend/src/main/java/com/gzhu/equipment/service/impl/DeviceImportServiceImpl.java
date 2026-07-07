@@ -93,7 +93,7 @@ public class DeviceImportServiceImpl implements DeviceImportService {
         return deviceMapper.delete(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Device>()
                         .eq(Device::getImportBatchId, batchId)
-        ).intValue();
+        );
     }
 
     // ==================== Dry-Run 预览 ====================
@@ -444,8 +444,8 @@ public class DeviceImportServiceImpl implements DeviceImportService {
                 return cell.getStringCellValue();
             case NUMERIC:
                 if (DateUtil.isCellDateFormatted(cell)) {
-                    return String.valueOf((int) DateUtil.getJavaDate(cell.getLocalDateTimeCellValue()
-                            .toLocalDate().toEpochDay() + EXCEL_EPOCH.toEpochDay() - 1));
+                    // 返回 Excel 序列号数字，后续由 parseExcelDate 统一解析
+                    return String.valueOf(cell.getNumericCellValue());
                 }
                 // 避免科学计数法
                 double dv = cell.getNumericCellValue();

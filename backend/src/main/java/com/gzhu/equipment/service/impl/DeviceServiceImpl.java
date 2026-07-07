@@ -1,6 +1,7 @@
 package com.gzhu.equipment.service.impl;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -78,22 +79,21 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     public int deleteByBatchId(String batchId) {
         LambdaQueryWrapper<Device> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Device::getImportBatchId, batchId);
-        int count = deviceMapper.delete(wrapper).intValue();
+        int count = deviceMapper.delete(wrapper);
         log.info("按批次清除设备: batchId={} count={}", batchId, count);
         return count;
     }
 
     @Override
     public List<String> listBatches() {
-        // 查询所有不同的导入批次
-        LambdaQueryWrapper<Device> wrapper = new LambdaQueryWrapper<>();
-        wrapper.select(Device::getImportBatchId)
-                .isNotNull(Device::getImportBatchId)
-                .groupBy(Device::getImportBatchId)
-                .orderByDesc(Device::getImportBatchId);
-        return deviceMapper.selectList(wrapper).stream()
-                .map(Device::getImportBatchId)
-                .distinct()
+        // 查询所有不同的导入批次 — 使用字符串列名避免LambdaQueryWrapper在无Spring上下文中报错
+        QueryWrapper<Device> wrapper = new QueryWrapper<>();
+        wrapper.select("DISTINCT import_batch_id")
+                .isNotNull("import_batch_id")
+                .orderByDesc("import_batch_id");
+        return deviceMapper.selectMaps(wrapper).stream()
+                .map(m -> (String) m.get("import_batch_id"))
+                .filter(java.util.Objects::nonNull)
                 .collect(Collectors.toList());
     }
 
@@ -102,6 +102,8 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         LambdaQueryWrapper<Device> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Device::getImportBatchId, batchId)
                 .orderByAsc(Device::getCreateTime);
+        // 使用 lambda 表达式时确保 MyBatis-Plus 注解处理器已启用
+        // 若在纯 Mockito 测试中报错，改用 QueryWrapper
         return deviceMapper.selectList(wrapper);
     }
 }

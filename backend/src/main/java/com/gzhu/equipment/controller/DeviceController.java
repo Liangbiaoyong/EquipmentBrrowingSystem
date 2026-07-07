@@ -142,7 +142,7 @@ public class DeviceController {
     public R<Integer> clearByBatch(@PathVariable String batchId) {
         int count = deviceImportService.clearByBatchId(batchId);
         log.warn("批次清除完成: batchId={} count={}", batchId, count);
-        return R.ok("已清除 " + count + " 条设备记录");
+        return R.ok("已清除 " + count + " 条设备记录", count);
     }
 
     @GetMapping("/batches/{batchId}")
