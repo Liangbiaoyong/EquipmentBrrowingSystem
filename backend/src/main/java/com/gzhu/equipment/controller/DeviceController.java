@@ -44,6 +44,7 @@ public class DeviceController {
     private final DeviceImageMapper imageMapper;
     private final DeviceCategoryMapper categoryMapper;
     private final BorrowRecordMapper borrowMapper;
+    private final com.gzhu.equipment.mapper.DeviceMapper deviceMapper;
 
     // ==================== 查询 ====================
 
@@ -58,6 +59,33 @@ public class DeviceController {
             @RequestParam(required = false) String location,
             @RequestParam(required = false) String gbCategoryName) {
         return R.ok(deviceService.pageQuery(page, size, keyword, categoryId, status, location, gbCategoryName));
+    }
+
+    @GetMapping("/by-status/{type}")
+    @ApiOperation("按状态分类查询设备：idle闲置 / borrowing借用中 / unavailable不可借 / repair待维修")
+    public R<List<Device>> listByStatus(@PathVariable String type) {
+        List<Device> all = deviceMapper.selectList(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 1));
+        switch (type) {
+            case "idle": return R.ok(all.stream().filter(d -> d.getAvailableQty() != null && d.getAvailableQty() > 0).collect(java.util.stream.Collectors.toList()));
+            case "borrowing": {
+                var borrowingIds = borrowMapper.selectList(new LambdaQueryWrapper<com.gzhu.equipment.entity.BorrowRecord>().eq(com.gzhu.equipment.entity.BorrowRecord::getStatus, "BORROWING")).stream().map(com.gzhu.equipment.entity.BorrowRecord::getDeviceId).collect(java.util.stream.Collectors.toSet());
+                return R.ok(all.stream().filter(d -> borrowingIds.contains(d.getId())).collect(java.util.stream.Collectors.toList()));
+            }
+            case "unavailable": return R.ok(all.stream().filter(d -> d.getAvailableQty() == null || d.getAvailableQty() == 0).collect(java.util.stream.Collectors.toList()));
+            case "repair": return R.ok(deviceService.list(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 2)));
+            default: return R.fail("无效类型: idle/borrowing/unavailable/repair");
+        }
+    }
+
+    @PutMapping("/{id}/default-approver")
+    @ApiOperation("设置设备默认审批人")
+    @PreAuthorize("hasAnyAuthority('device:manage','admin:user')")
+    public R<String> setDefaultApprover(@PathVariable Long id, @RequestParam Long approverId) {
+        Device d = deviceService.getById(id);
+        if (d == null) return R.fail(404, "设备不存在");
+        d.setDefaultApproverId(approverId);
+        deviceService.updateById(d);
+        return R.ok("已更新");
     }
 
     @GetMapping("/{id}")

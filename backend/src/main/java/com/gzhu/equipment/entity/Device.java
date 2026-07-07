@@ -46,6 +46,9 @@ public class Device implements Serializable {
     /** 使用人姓名 */
     private String custodian;
 
+    /** 默认审批人ID（一级审核人，LAB_ADMIN可修改） */
+    private Long defaultApproverId;
+
     /** 数量 */
     private Integer totalQty;
 

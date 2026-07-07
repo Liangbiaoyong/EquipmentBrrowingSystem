@@ -75,6 +75,9 @@ class DeviceControllerTest {
     @MockBean
     private BorrowRecordMapper borrowRecordMapper;
 
+    @MockBean
+    private com.gzhu.equipment.mapper.DeviceMapper deviceMapper;
+
     @BeforeEach
     void setUp() {
         // 设置认证上下文 — JwtUserPrincipal

@@ -91,8 +91,16 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             r.setCurrentStep(1); r.setApproveFlowDef(flowDef);
             borrowMapper.insert(r);
 
-            createApprovalLog(r.getId(), 1, dto.getApproverId());
-            if (dto.getApproverId() != null) notificationService.notifyBorrowSubmitted(dto.getApproverId(), device.getName(), r.getId());
+            // 默认审批人：请求指定的 > 设备默认审批人 > 根据使用人查找 > null
+            Long approver = dto.getApproverId();
+            if (approver == null) approver = device.getDefaultApproverId();
+            if (approver == null && device.getCustodian() != null) {
+                SysUser custodianUser = userMapper.selectOne(
+                        new LambdaQueryWrapper<SysUser>().eq(SysUser::getRealName, device.getCustodian()));
+                if (custodianUser != null) approver = custodianUser.getId();
+            }
+            createApprovalLog(r.getId(), 1, approver);
+            if (approver != null) notificationService.notifyBorrowSubmitted(approver, device.getName(), r.getId());
             records.add(r);
             log.info("借用申请已提交: borrowId={} deviceId={}", r.getId(), deviceId);
         }
@@ -122,17 +130,24 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
 
     @Override
     public IPage<BorrowRecord> pendingApprovals(Long approverId, int level, int page, int size) {
-        // 查找该审批人负责的待审批记录
-        // 通过 approval_log 表关联：step=level AND approver_id=approverId AND result=PENDING
-        // 简化为子查询方式
+        SysUser user = userMapper.selectById(approverId);
+        boolean isAdmin = user != null && (user.getUserType() == 2 || user.getUserType() == 3);
         Page<BorrowRecord> pg = new Page<>(page, size);
-        return borrowMapper.selectPage(pg,
-                new LambdaQueryWrapper<BorrowRecord>()
-                        .eq(BorrowRecord::getStatus, "PENDING_APPROVAL")
-                        .eq(BorrowRecord::getCurrentStep, level)
-                        .apply("id IN (SELECT borrow_id FROM approval_log WHERE step = {0} AND approver_id = {1} AND result = 'PENDING')",
-                                level, approverId)
-                        .orderByDesc(BorrowRecord::getCreateTime));
+
+        LambdaQueryWrapper<BorrowRecord> w = new LambdaQueryWrapper<BorrowRecord>()
+                .eq(BorrowRecord::getStatus, "PENDING_APPROVAL")
+                .eq(BorrowRecord::getCurrentStep, level)
+                .orderByDesc(BorrowRecord::getCreateTime);
+
+        if (isAdmin) {
+            // lab_admin/admin：可看到分配给自己 + 未分配的审批记录
+            w.apply("id IN (SELECT borrow_id FROM approval_log WHERE step = {0} AND result = 'PENDING' AND (approver_id = {1} OR approver_id IS NULL))",
+                    level, approverId);
+        } else {
+            w.apply("id IN (SELECT borrow_id FROM approval_log WHERE step = {0} AND approver_id = {1} AND result = 'PENDING')",
+                    level, approverId);
+        }
+        return borrowMapper.selectPage(pg, w);
     }
 
     // ==================== 审批操作 ====================

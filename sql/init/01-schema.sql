@@ -76,6 +76,8 @@ CREATE TABLE IF NOT EXISTS `device` (
   `department` varchar(100) DEFAULT NULL COMMENT '使用单位',
   `custodian` varchar(50) DEFAULT NULL COMMENT '使用人姓名',
   `total_qty` int NOT NULL DEFAULT '1' COMMENT '数量',
+  `available_qty` int NOT NULL DEFAULT '1' COMMENT '当前可借数量',
+  `default_approver_id` bigint DEFAULT NULL COMMENT '默认审批人ID（设备使用人，LAB_ADMIN可修改）',
   `unit_price` decimal(12,2) DEFAULT NULL COMMENT '单价(元)',
   `total_amount` decimal(12,2) DEFAULT NULL COMMENT '金额(元)',
   `status` tinyint DEFAULT '1' COMMENT '1正常 2维修中 3报废',
