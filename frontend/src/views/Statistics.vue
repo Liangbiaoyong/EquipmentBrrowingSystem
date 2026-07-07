@@ -8,7 +8,7 @@
       <el-tab-pane label="分类利用率" name="utilization"/>
     </el-tabs>
     <el-card v-loading="loading">
-      <div v-if="tab==='overview'"><el-descriptions :column="2" border><el-descriptions-item v-for="(v,k) in overview" :key="k" :label="k">{{ v }}</el-descriptions-item></el-descriptions></div>
+      <div v-if="tab==='overview'"><el-descriptions :column="2" border v-if="Object.keys(overview).length"><el-descriptions-item v-for="(v,k) in overview" :key="k" :label="k">{{ v }}</el-descriptions-item></el-descriptions><el-empty v-else description="暂无数据" :image-size="60"/></div>
       <div v-else>
         <div v-for="(row,i) in chartData" :key="i" style="display:flex;align-items:center;margin-bottom:8px"><span style="width:200px;text-align:right;margin-right:10px;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ row.label }}</span><div style="flex:1;background:#f0f2f5;border-radius:4px;height:24px;overflow:hidden"><div :style="{width:row.pct+'%',background:colors[i%colors.length],height:'100%',transition:'width 0.5s'}"/></div><span style="margin-left:10px;font-weight:bold;font-size:13px;min-width:40px">{{ row.value }}</span></div>
       </div>

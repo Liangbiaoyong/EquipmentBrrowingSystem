@@ -45,6 +45,7 @@ public class DeviceController {
     private final DeviceCategoryMapper categoryMapper;
     private final BorrowRecordMapper borrowMapper;
     private final com.gzhu.equipment.mapper.DeviceMapper deviceMapper;
+    private final com.gzhu.equipment.mapper.SysUserMapper sysUserMapper;
 
     // ==================== 查询 ====================
 
@@ -122,7 +123,8 @@ public class DeviceController {
         String borrower = null;
         String returnTime = null;
         if (currentBorrow != null) {
-            borrower = "用户ID:" + currentBorrow.getUserId();
+            var bu = sysUserMapper.selectById(currentBorrow.getUserId());
+            borrower = bu != null ? (bu.getRealName() != null ? bu.getRealName() : bu.getUsername()) : "用户ID:" + currentBorrow.getUserId();
             returnTime = currentBorrow.getEndTime() != null
                     ? currentBorrow.getEndTime().toString() : null;
         }

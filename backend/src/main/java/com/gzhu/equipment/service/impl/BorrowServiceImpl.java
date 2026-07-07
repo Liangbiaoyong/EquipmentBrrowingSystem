@@ -13,6 +13,7 @@ import com.gzhu.equipment.entity.SysUser;
 import com.gzhu.equipment.mapper.ApprovalLogMapper;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
+import com.gzhu.equipment.mapper.RepairRecordMapper;
 import com.gzhu.equipment.mapper.SysUserMapper;
 import com.gzhu.equipment.service.BorrowService;
 import com.gzhu.equipment.service.NotificationService;
@@ -51,6 +52,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
     private final ApprovalLogMapper approvalMapper;
     private final DeviceMapper deviceMapper;
     private final SysUserMapper userMapper;
+    private final RepairRecordMapper repairMapper;
     private final SystemConfigService configService;
     private final NotificationService notificationService;
 
@@ -252,9 +254,16 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         Device device = deviceMapper.selectById(record.getDeviceId());
         if (device != null) {
             device.setAvailableQty(Math.min(device.getAvailableQty() + 1, device.getTotalQty()));
-            // 有损坏报告 → 标记维修中
+            // 有损坏报告 → 标记维修中 + 自动创建维修记录
             if (damageReport != null && !damageReport.trim().isEmpty()) {
                 device.setStatus(2);
+                com.gzhu.equipment.entity.RepairRecord repair = new com.gzhu.equipment.entity.RepairRecord();
+                repair.setDeviceId(record.getDeviceId());
+                repair.setBorrowId(record.getId());
+                repair.setFaultDescription(damageReport);
+                repair.setStatus("PENDING");
+                repairMapper.insert(repair);
+                log.info("损坏归还自动创建维修记录: repairId={} deviceId={}", repair.getId(), record.getDeviceId());
             }
             deviceMapper.updateById(device);
         }

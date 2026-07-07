@@ -78,6 +78,9 @@ class DeviceControllerTest {
     @MockBean
     private com.gzhu.equipment.mapper.DeviceMapper deviceMapper;
 
+    @MockBean
+    private com.gzhu.equipment.mapper.SysUserMapper sysUserMapper;
+
     @BeforeEach
     void setUp() {
         // 设置认证上下文 — JwtUserPrincipal
