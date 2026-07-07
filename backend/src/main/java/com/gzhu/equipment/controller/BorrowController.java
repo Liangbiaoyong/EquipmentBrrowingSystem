@@ -6,7 +6,10 @@ import com.gzhu.equipment.dto.ApprovalRequestDTO;
 import com.gzhu.equipment.dto.BorrowRequestDTO;
 import com.gzhu.equipment.entity.BorrowRecord;
 import com.gzhu.equipment.security.JwtUserPrincipal;
+import com.gzhu.equipment.entity.Attachment;
+import com.gzhu.equipment.mapper.AttachmentMapper;
 import com.gzhu.equipment.service.BorrowService;
+import com.gzhu.equipment.service.MinioFileService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
@@ -14,8 +17,10 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.validation.Valid;
+import java.time.LocalDateTime;
 
 /**
  * 借用审批控制器
@@ -39,6 +44,8 @@ import javax.validation.Valid;
 public class BorrowController {
 
     private final BorrowService borrowService;
+    private final MinioFileService minioFileService;
+    private final AttachmentMapper attachmentMapper;
 
     // ==================== 借用申请 ====================
 
@@ -122,15 +129,32 @@ public class BorrowController {
     // ==================== 归还 ====================
 
     @PostMapping("/{id}/return")
-    @ApiOperation("归还登记")
+    @ApiOperation("归还登记（支持上传归还照片）")
     @PreAuthorize("hasAuthority('borrow:return')")
     public R<BorrowRecord> returnDevice(@PathVariable Long id,
-                                         @RequestParam(required = false) String damageReport) {
+                                         @RequestParam(required = false) String damageReport,
+                                         @RequestParam(value = "file", required = false) MultipartFile file) {
         try {
             BorrowRecord record = borrowService.returnDevice(id, getCurrentUserId(), damageReport);
+
+            // 上传归还照片（如有）
+            if (file != null && !file.isEmpty()) {
+                String objectPath = minioFileService.uploadImage(file, "RETURN");
+                Attachment att = new Attachment();
+                att.setBizType("RETURN_IMG");
+                att.setBizId(record.getId());
+                att.setFileUrl(objectPath);
+                att.setFileSize(file.getSize());
+                att.setUploadTime(LocalDateTime.now());
+                att.setExpireTime(LocalDateTime.now().plusMonths(6)); // 半年后过期
+                attachmentMapper.insert(att);
+            }
+
             return R.ok("归还成功", record);
         } catch (IllegalArgumentException e) {
             return R.fail(e.getMessage());
+        } catch (Exception e) {
+            return R.fail("归还失败: " + e.getMessage());
         }
     }
 

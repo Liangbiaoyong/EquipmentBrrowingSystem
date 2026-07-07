@@ -6,6 +6,7 @@ import com.gzhu.equipment.entity.Attachment;
 import com.gzhu.equipment.entity.BorrowRecord;
 import com.gzhu.equipment.entity.Notification;
 import com.gzhu.equipment.mapper.*;
+import com.gzhu.equipment.service.MinioFileService;
 import com.gzhu.equipment.service.NotificationService;
 import com.gzhu.equipment.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +48,7 @@ public class ScheduledCleanupTask {
     private final BorrowRecordMapper borrowMapper;
     private final NotificationService notificationService;
     private final SystemConfigService configService;
+    private final MinioFileService minioFileService;
 
     // 默认值（system_config 表中有则优先）
     private static final int DEFAULT_SMALL_RECORD_DAYS = 15;
@@ -87,14 +89,20 @@ public class ScheduledCleanupTask {
         // ─── 2. 大型临时文件清理（30天）───
         LocalDateTime largeThreshold = LocalDateTime.now().minusDays(largeDays);
 
-        // 2a. 过期附件（expire_time到期 或 创建超过30天）
-        int attDeleted = attachmentMapper.delete(
+        // 2a. 过期附件（先删MinIO文件，再删DB记录）
+        var expiredAtts = attachmentMapper.selectList(
                 new LambdaQueryWrapper<Attachment>()
                         .and(w -> w
                                 .lt(Attachment::getExpireTime, LocalDateTime.now())
                                 .or()
                                 .lt(Attachment::getUploadTime, largeThreshold)));
-        log.info("清理附件: {} 条（{}天前或已过期）", attDeleted, largeDays);
+        int attDeleted = 0;
+        for (Attachment att : expiredAtts) {
+            minioFileService.deleteFile(att.getFileUrl());
+            attachmentMapper.deleteById(att.getId());
+            attDeleted++;
+        }
+        log.info("清理附件(含MinIO): {} 条（{}天前或已过期）", attDeleted, largeDays);
 
         // ─── 3. 逾期检测 ───
         int overdueCount = 0;

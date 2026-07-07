@@ -7,8 +7,10 @@ import com.gzhu.equipment.entity.BorrowRecord;
 import com.gzhu.equipment.security.JwtTokenProvider;
 import com.gzhu.equipment.security.LoginRateLimiter;
 import com.gzhu.equipment.security.TokenBlacklist;
+import com.gzhu.equipment.mapper.AttachmentMapper;
 import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.service.BorrowService;
+import com.gzhu.equipment.service.MinioFileService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -56,6 +58,12 @@ class BorrowControllerTest {
 
     @MockBean
     private TokenBlacklist tokenBlacklist;
+
+    @MockBean
+    private MinioFileService minioFileService;
+
+    @MockBean
+    private AttachmentMapper attachmentMapper;
 
     @BeforeEach
     void setUp() {

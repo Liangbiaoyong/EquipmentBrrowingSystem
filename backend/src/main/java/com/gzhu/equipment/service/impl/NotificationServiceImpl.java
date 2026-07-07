@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gzhu.equipment.entity.Notification;
 import com.gzhu.equipment.mapper.NotificationMapper;
 import com.gzhu.equipment.service.NotificationService;
+import com.gzhu.equipment.ws.NotificationWebSocket;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -31,6 +32,8 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
         n.setType(type);
         n.setIsRead(0);
         notificationMapper.insert(n);
+        // WebSocket 实时推送
+        NotificationWebSocket.pushToUser(userId, type, title, content);
         log.info("通知已发送: userId={} title={}", userId, title);
     }
 
