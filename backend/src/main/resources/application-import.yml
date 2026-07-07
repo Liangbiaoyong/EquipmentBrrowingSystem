@@ -1,0 +1,11 @@
+# ─── 命令行导入模式配置 ───
+# 激活方式: --spring.profiles.active=dev,import
+# 不启动Web服务器，仅执行导入后退出
+
+spring:
+  main:
+    web-application-type: none
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.web.servlet.ServletWebServerFactoryAutoConfiguration
+      - org.springframework.boot.autoconfigure.web.servlet.WebMvcAutoConfiguration

@@ -73,6 +73,97 @@ public class DeviceImportServiceImpl implements DeviceImportService {
         }
     }
 
+    @Override
+    public ImportResultDTO dryRun(InputStream inputStream, String fileName) {
+        String batchId = "DRY-RUN-" + UUID.randomUUID().toString().substring(0, 6);
+        String lowerName = fileName != null ? fileName.toLowerCase() : "";
+
+        if (lowerName.endsWith(".csv")) {
+            return dryRunCsv(inputStream, batchId);
+        } else if (lowerName.endsWith(".xlsx")) {
+            return dryRunXlsx(inputStream, batchId);
+        } else {
+            throw new IllegalArgumentException("不支持的文件格式，仅支持 .csv 和 .xlsx");
+        }
+    }
+
+    @Override
+    public int clearByBatchId(String batchId) {
+        log.info("清除导入批次: batchId={}", batchId);
+        return deviceMapper.delete(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Device>()
+                        .eq(Device::getImportBatchId, batchId)
+        ).intValue();
+    }
+
+    // ==================== Dry-Run 预览 ====================
+
+    private ImportResultDTO dryRunCsv(InputStream inputStream, String batchId) {
+        ImportResultDTO result = createDryRunResult(batchId);
+        try (BufferedReader reader = new BufferedReader(
+                new InputStreamReader(inputStream, java.nio.charset.StandardCharsets.UTF_8))) {
+            reader.readLine(); // 跳过表头
+            String line;
+            int rowNum = 1;
+            while ((line = reader.readLine()) != null) {
+                rowNum++;
+                List<String> cols = parseCsvLine(line);
+                if (cols.size() < 5) continue;
+                Device device = mapColumns(cols, null, batchId);
+                if (device == null) continue;
+                classifyAndRecord(device, result);
+                if (result.getTotalRows() >= 20) break; // 只取前20条预览
+            }
+        } catch (IOException e) {
+            result.addError(0, "-", "-", "文件读取失败: " + e.getMessage());
+        }
+        return result;
+    }
+
+    private ImportResultDTO dryRunXlsx(InputStream inputStream, String batchId) {
+        ImportResultDTO result = createDryRunResult(batchId);
+        try (Workbook workbook = new XSSFWorkbook(inputStream)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            int lastRow = Math.min(sheet.getLastRowNum(), 21); // 最多读21行（含表头）
+            for (int i = 1; i <= lastRow; i++) {
+                Row row = sheet.getRow(i);
+                if (row == null) continue;
+                List<String> cols = new ArrayList<>();
+                int lastCol = Math.max(row.getLastCellNum(), 49);
+                for (int c = 0; c < lastCol; c++) {
+                    cols.add(getCellString(row.getCell(c)));
+                }
+                Device device = mapColumns(cols, null, batchId);
+                if (device == null) continue;
+                classifyAndRecord(device, result);
+                if (result.getTotalRows() >= 20) break;
+            }
+        } catch (IOException e) {
+            result.addError(0, "-", "-", "文件读取失败: " + e.getMessage());
+        }
+        return result;
+    }
+
+    private ImportResultDTO createDryRunResult(String batchId) {
+        ImportResultDTO result = ImportResultDTO.builder()
+                .batchId(batchId)
+                .errors(new ArrayList<>())
+                .build();
+        return result;
+    }
+
+    private void classifyAndRecord(Device device, ImportResultDTO result) {
+        Long categoryId = categoryService.classifyByGbName(device.getGbCategoryName());
+        if (categoryId != null) {
+            device.setCategoryId(categoryId);
+            result.setAutoCategoryCount(result.getAutoCategoryCount() + 1);
+        } else {
+            device.setCategoryId(10L);
+            result.setUncategorizedCount(result.getUncategorizedCount() + 1);
+        }
+        result.setTotalRows(result.getTotalRows() + 1);
+    }
+
     // ==================== CSV 导入 ====================
 
     private ImportResultDTO importCsv(InputStream inputStream, Long userId, String batchId) {
