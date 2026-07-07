@@ -3,9 +3,14 @@ package com.gzhu.equipment.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.gzhu.equipment.common.R;
 import com.gzhu.equipment.dto.ImportResultDTO;
-import com.gzhu.equipment.entity.Device;
+import com.gzhu.equipment.entity.*;
+import com.gzhu.equipment.mapper.BorrowRecordMapper;
+import com.gzhu.equipment.mapper.DeviceCategoryMapper;
+import com.gzhu.equipment.mapper.DeviceImageMapper;
 import com.gzhu.equipment.service.DeviceImportService;
 import com.gzhu.equipment.service.DeviceService;
+import com.gzhu.equipment.vo.DeviceDetailVO;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
@@ -36,6 +41,9 @@ public class DeviceController {
 
     private final DeviceService deviceService;
     private final DeviceImportService deviceImportService;
+    private final DeviceImageMapper imageMapper;
+    private final DeviceCategoryMapper categoryMapper;
+    private final BorrowRecordMapper borrowMapper;
 
     // ==================== 查询 ====================
 
@@ -53,13 +61,55 @@ public class DeviceController {
     }
 
     @GetMapping("/{id}")
-    @ApiOperation("获取设备详情")
-    public R<Device> getDevice(@PathVariable Long id) {
+    @ApiOperation("获取设备详情（含图片、借用状态、分类名）")
+    public R<DeviceDetailVO> getDevice(@PathVariable Long id) {
         Device device = deviceService.getById(id);
-        if (device == null) {
-            return R.fail(404, "设备不存在");
+        if (device == null) return R.fail(404, "设备不存在");
+
+        // 图片列表
+        List<DeviceImage> images = imageMapper.selectList(
+                new LambdaQueryWrapper<DeviceImage>()
+                        .eq(DeviceImage::getDeviceId, id)
+                        .orderByAsc(DeviceImage::getSort));
+
+        // 分类名
+        String categoryName = "";
+        if (device.getCategoryId() != null) {
+            DeviceCategory cat = categoryMapper.selectById(device.getCategoryId());
+            if (cat != null) categoryName = cat.getName();
         }
-        return R.ok(device);
+
+        // 当前借用状态
+        BorrowRecord currentBorrow = borrowMapper.selectOne(
+                new LambdaQueryWrapper<BorrowRecord>()
+                        .eq(BorrowRecord::getDeviceId, id)
+                        .in(BorrowRecord::getStatus, "BORROWING", "OVERDUE")
+                        .orderByDesc(BorrowRecord::getCreateTime)
+                        .last("LIMIT 1"));
+
+        // 历史借用次数
+        long borrowCount = borrowMapper.selectCount(
+                new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getDeviceId, id));
+
+        String borrower = null;
+        String returnTime = null;
+        if (currentBorrow != null) {
+            borrower = "用户ID:" + currentBorrow.getUserId();
+            returnTime = currentBorrow.getEndTime() != null
+                    ? currentBorrow.getEndTime().toString() : null;
+        }
+
+        DeviceDetailVO vo = DeviceDetailVO.builder()
+                .device(device)
+                .images(images != null ? images : List.of())
+                .categoryName(categoryName)
+                .isBorrowing(currentBorrow != null)
+                .currentBorrower(borrower)
+                .expectedReturnTime(returnTime)
+                .borrowCount(borrowCount)
+                .build();
+
+        return R.ok(vo);
     }
 
     @GetMapping("/by-asset-no/{assetNo}")

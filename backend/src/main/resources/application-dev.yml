@@ -58,6 +58,10 @@ jwt:
   secret: local-test-secret-key-must-be-at-least-256-bits-long-for-hmac-sha512
   expiration: 14400000  # 4小时
 
+# 借用规则（默认值，Admin可运行时通过 /admin/config 覆盖）
+borrow:
+  max-days: 7   # 最大借用天数
+
 # CAS 统一认证配置
 # 说明：本系统不直接对接CAS协议，而是利用CAS登录后获得的token
 # 前端完成CAS认证后，将token传给后端 /auth/cas/login

@@ -55,6 +55,9 @@ jwt:
   secret: ${JWT_SECRET}
   expiration: 14400000  # 4小时
 
+borrow:
+  max-days: 7
+
 # CAS 统一认证配置（生产环境通过环境变量注入）
 cas:
   userinfo-url: ${CAS_USERINFO_URL:https://libbooking.gzhu.edu.cn/ic-web/auth/userInfo}

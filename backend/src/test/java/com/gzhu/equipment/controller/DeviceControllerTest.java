@@ -5,6 +5,9 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gzhu.equipment.dto.ImportResultDTO;
 import com.gzhu.equipment.entity.Device;
+import com.gzhu.equipment.mapper.BorrowRecordMapper;
+import com.gzhu.equipment.mapper.DeviceCategoryMapper;
+import com.gzhu.equipment.mapper.DeviceImageMapper;
 import com.gzhu.equipment.security.JwtTokenProvider;
 import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.service.DeviceImportService;
@@ -55,6 +58,15 @@ class DeviceControllerTest {
     @MockBean
     private JwtTokenProvider jwtTokenProvider;
 
+    @MockBean
+    private DeviceImageMapper deviceImageMapper;
+
+    @MockBean
+    private DeviceCategoryMapper deviceCategoryMapper;
+
+    @MockBean
+    private BorrowRecordMapper borrowRecordMapper;
+
     @BeforeEach
     void setUp() {
         // 设置认证上下文 — JwtUserPrincipal
@@ -96,17 +108,22 @@ class DeviceControllerTest {
     }
 
     @Test
-    @DisplayName("GET /devices/1 → 设备详情")
+    @DisplayName("GET /devices/1 → 设备详情（含图片、分类名、借用状态）")
     void getDevice_existing_shouldReturnDevice() throws Exception {
         Device device = new Device();
         device.setId(1L);
         device.setName("测试设备");
+        device.setCategoryId(1L);
         when(deviceService.getById(1L)).thenReturn(device);
+        when(deviceImageMapper.selectList(any())).thenReturn(java.util.Collections.emptyList());
+        when(deviceCategoryMapper.selectById(1L)).thenReturn(null);
+        when(borrowRecordMapper.selectOne(any())).thenReturn(null);
+        when(borrowRecordMapper.selectCount(any())).thenReturn(0L);
 
         mockMvc.perform(get("/devices/1"))
                 .andDo(print())
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.name").value("测试设备"));
+                .andExpect(jsonPath("$.data.device.name").value("测试设备"));
     }
 
     @Test

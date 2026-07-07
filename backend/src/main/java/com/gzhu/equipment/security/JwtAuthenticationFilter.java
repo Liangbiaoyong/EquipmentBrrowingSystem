@@ -54,9 +54,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String username = jwtTokenProvider.getUsername(token);
                 List<String> roles = jwtTokenProvider.getRoles(token);
 
+                // ROLE_ 前缀的权限（兼容 hasRole）
                 List<SimpleGrantedAuthority> authorities = roles != null
                         ? roles.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList())
-                        : Collections.emptyList();
+                        : new java.util.ArrayList<>();
+                // module:action 细粒度权限（用于 hasAuthority）
+                Integer userType = jwtTokenProvider.getUserType(token);
+                PermissionConstants.getPermissionsByUserType(userType).stream()
+                        .map(SimpleGrantedAuthority::new)
+                        .forEach(authorities::add);
 
                 // 使用 JwtUserPrincipal 作为 principal，符合 Spring Security 惯例
                 // credentials 不存储原始 JWT，避免日志/调试时泄露

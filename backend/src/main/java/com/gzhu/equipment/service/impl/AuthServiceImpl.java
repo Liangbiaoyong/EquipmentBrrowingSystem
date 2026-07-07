@@ -6,6 +6,7 @@ import com.gzhu.equipment.dto.CasLoginRequest;
 import com.gzhu.equipment.dto.LocalLoginRequest;
 import com.gzhu.equipment.entity.SysUser;
 import com.gzhu.equipment.security.JwtTokenProvider;
+import com.gzhu.equipment.security.PermissionConstants;
 import com.gzhu.equipment.security.UserDetailsServiceImpl;
 import com.gzhu.equipment.service.AuthService;
 import com.gzhu.equipment.service.SysUserService;
@@ -249,6 +250,7 @@ public class AuthServiceImpl implements AuthService {
         if (role != null) {
             roles.add(role);
         }
+        List<String> permissions = PermissionConstants.getPermissionsByUserType(user.getUserType());
 
         return UserInfoVO.builder()
                 .id(user.getId())
@@ -262,7 +264,7 @@ public class AuthServiceImpl implements AuthService {
                 .phone(user.getPhone())
                 .authSource(user.getAuthSource())
                 .roles(roles)
-                .permissions(new ArrayList<>())
+                .permissions(permissions)
                 .build();
     }
 

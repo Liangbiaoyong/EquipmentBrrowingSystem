@@ -49,6 +49,9 @@ public class Device implements Serializable {
     /** 数量 */
     private Integer totalQty;
 
+    /** 当前可借数量 */
+    private Integer availableQty;
+
     /** 单价(元) */
     private BigDecimal unitPrice;
 

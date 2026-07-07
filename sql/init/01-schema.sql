@@ -225,3 +225,23 @@ CREATE TABLE IF NOT EXISTS `sys_log` (
   KEY `idx_user` (`user_id`),
   KEY `idx_create` (`create_time`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='操作日志表';
+
+-- -----------------------------------------------------------
+-- 11. 系统配置表（运行时 Admin 可修改）
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `system_config` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `config_key` varchar(100) NOT NULL COMMENT '配置键',
+  `config_value` varchar(500) DEFAULT NULL COMMENT '配置值',
+  `description` varchar(200) DEFAULT NULL COMMENT '配置说明',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_config_key` (`config_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统配置表';
+
+-- 预置默认配置
+INSERT INTO `system_config` (`config_key`, `config_value`, `description`) VALUES
+('borrow.max_days', '7', '借用最大天数（超出拒绝），Admin可运行时修改'),
+('borrow.default_approval_steps', '2', '默认审批级数（1或2）')
+ON DUPLICATE KEY UPDATE `config_value` = VALUES(`config_value`);
