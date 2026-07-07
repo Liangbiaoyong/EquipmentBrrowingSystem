@@ -9,6 +9,8 @@ import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceCategoryMapper;
 import com.gzhu.equipment.mapper.DeviceImageMapper;
 import com.gzhu.equipment.security.JwtTokenProvider;
+import com.gzhu.equipment.security.LoginRateLimiter;
+import com.gzhu.equipment.security.TokenBlacklist;
 import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.service.DeviceImportService;
 import com.gzhu.equipment.service.DeviceService;
@@ -57,6 +59,12 @@ class DeviceControllerTest {
 
     @MockBean
     private JwtTokenProvider jwtTokenProvider;
+
+    @MockBean
+    private LoginRateLimiter loginRateLimiter;
+
+    @MockBean
+    private TokenBlacklist tokenBlacklist;
 
     @MockBean
     private DeviceImageMapper deviceImageMapper;

@@ -4,6 +4,8 @@ import com.gzhu.equipment.common.R;
 import com.gzhu.equipment.dto.CasLoginRequest;
 import com.gzhu.equipment.dto.LocalLoginRequest;
 import com.gzhu.equipment.security.JwtUserPrincipal;
+import com.gzhu.equipment.security.LoginRateLimiter;
+import com.gzhu.equipment.security.TokenBlacklist;
 import com.gzhu.equipment.service.AuthService;
 import com.gzhu.equipment.vo.LoginVO;
 import com.gzhu.equipment.vo.UserInfoVO;
@@ -16,6 +18,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import javax.servlet.http.HttpServletRequest;
 import javax.validation.Valid;
 
 /**
@@ -31,6 +34,8 @@ import javax.validation.Valid;
 public class AuthController {
 
     private final AuthService authService;
+    private final LoginRateLimiter rateLimiter;
+    private final TokenBlacklist tokenBlacklist;
 
     /**
      * CAS 统一认证登录
@@ -62,15 +67,37 @@ public class AuthController {
      */
     @PostMapping("/local/login")
     @ApiOperation("本地账户登录")
-    public R<LoginVO> localLogin(@Valid @RequestBody LocalLoginRequest request) {
+    public R<LoginVO> localLogin(@Valid @RequestBody LocalLoginRequest request,
+                                  HttpServletRequest req) {
+        String ip = req.getRemoteAddr();
+        if (!rateLimiter.allowAttempt(ip)) {
+            return R.fail(429, "登录尝试过于频繁，请5分钟后再试");
+        }
         try {
             LoginVO loginVO = authService.localLogin(request);
+            rateLimiter.clearAttempt(ip);
             log.info("本地登录成功: username={}", loginVO.getUserInfo().getUsername());
             return R.ok("登录成功", loginVO);
         } catch (BadCredentialsException e) {
             log.warn("本地登录失败: {}", e.getMessage());
             return R.fail(401, e.getMessage());
         }
+    }
+
+    /**
+     * 登出 — 将当前Token加入黑名单
+     */
+    @PostMapping("/logout")
+    @ApiOperation("登出")
+    public R<String> logout(HttpServletRequest req) {
+        String bearer = req.getHeader("Authorization");
+        if (bearer != null && bearer.startsWith("Bearer ")) {
+            String token = bearer.substring(7);
+            // Token黑名单有效期设为剩余有效时间（秒），保守设为4h
+            tokenBlacklist.add(token, 14400);
+        }
+        SecurityContextHolder.clearContext();
+        return R.ok("已登出");
     }
 
     /**

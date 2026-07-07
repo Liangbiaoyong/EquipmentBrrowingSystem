@@ -13,6 +13,7 @@ import com.gzhu.equipment.mapper.ApprovalLogMapper;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
 import com.gzhu.equipment.service.BorrowService;
+import com.gzhu.equipment.service.NotificationService;
 import com.gzhu.equipment.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -48,6 +49,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
     private final ApprovalLogMapper approvalMapper;
     private final DeviceMapper deviceMapper;
     private final SystemConfigService configService;
+    private final NotificationService notificationService;
 
     /** application.yml 默认值，数据库未配置时使用 */
     @Value("${borrow.max-days:7}")
@@ -103,6 +105,11 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
 
         // 4. 创建一级审批记录
         createApprovalLog(record.getId(), 1, dto.getApproverId());
+
+        // 5. 通知审批人
+        if (dto.getApproverId() != null) {
+            notificationService.notifyBorrowSubmitted(dto.getApproverId(), device.getName(), record.getId());
+        }
 
         log.info("借用申请已提交: borrowId={} userId={} deviceId={}", record.getId(), userId, dto.getDeviceId());
         return record;
@@ -177,9 +184,11 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         approvalMapper.updateById(approvalLog);
 
         if ("REJECTED".equals(result)) {
-            // 驳回：终止流程
+            // 驳回：终止流程 + 通知申请人
             record.setStatus("REJECTED");
             borrowMapper.updateById(record);
+            notificationService.notifyApprovalResult(record.getUserId(),
+                    getDeviceName(record.getDeviceId()), record.getId(), false, dto.getComment());
             log.info("借用申请已被驳回: borrowId={} by approverId={}", record.getId(), approverId);
             return record;
         }
@@ -187,7 +196,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         // 通过 → 判断是否有下一级
         int totalSteps = DEFAULT_APPROVAL_STEPS;
         if (currentStep >= totalSteps) {
-            // 全部通过 → 扣减库存
+            // 全部通过 → 扣减库存 + 通知申请人
             record.setStatus("APPROVED");
             borrowMapper.updateById(record);
 
@@ -196,12 +205,13 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
                 device.setAvailableQty(Math.max(0, device.getAvailableQty() - 1));
                 deviceMapper.updateById(device);
             }
+            notificationService.notifyApprovalResult(record.getUserId(),
+                    getDeviceName(record.getDeviceId()), record.getId(), true, null);
             log.info("借用申请全部审批通过: borrowId={} deviceId={}", record.getId(), record.getDeviceId());
         } else {
             // 流转到下一级
             record.setCurrentStep(currentStep + 1);
             borrowMapper.updateById(record);
-            // 创建下一级审批记录（审批人未定，由实验室管理员处理）
             createApprovalLog(record.getId(), currentStep + 1, null);
             log.info("审批流转: borrowId={} step={}→{}", record.getId(), currentStep, currentStep + 1);
         }
@@ -281,5 +291,10 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         log.setApproverId(approverId);
         log.setResult("PENDING");
         approvalMapper.insert(log);
+    }
+
+    private String getDeviceName(Long deviceId) {
+        Device d = deviceMapper.selectById(deviceId);
+        return d != null ? d.getName() : "未知设备";
     }
 }

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gzhu.equipment.entity.CategoryMapping;
 import com.gzhu.equipment.entity.DeviceCategory;
 import com.gzhu.equipment.security.JwtTokenProvider;
+import com.gzhu.equipment.security.LoginRateLimiter;
+import com.gzhu.equipment.security.TokenBlacklist;
 import com.gzhu.equipment.service.CategoryService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -43,6 +45,12 @@ class CategoryControllerTest {
 
     @MockBean
     private JwtTokenProvider jwtTokenProvider;
+
+    @MockBean
+    private LoginRateLimiter loginRateLimiter;
+
+    @MockBean
+    private TokenBlacklist tokenBlacklist;
 
     @Test
     @DisplayName("GET /categories → 返回分类列表")

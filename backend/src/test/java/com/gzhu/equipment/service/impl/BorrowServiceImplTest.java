@@ -8,6 +8,7 @@ import com.gzhu.equipment.entity.Device;
 import com.gzhu.equipment.mapper.ApprovalLogMapper;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
+import com.gzhu.equipment.service.NotificationService;
 import com.gzhu.equipment.service.SystemConfigService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -43,11 +44,14 @@ class BorrowServiceImplTest {
     @Mock
     private SystemConfigService configService;
 
+    @Mock
+    private NotificationService notificationService;
+
     private BorrowServiceImpl borrowService;
 
     @BeforeEach
     void setUp() {
-        borrowService = new BorrowServiceImpl(borrowMapper, approvalMapper, deviceMapper, configService);
+        borrowService = new BorrowServiceImpl(borrowMapper, approvalMapper, deviceMapper, configService, notificationService);
     }
 
     private Device createAvailableDevice() {

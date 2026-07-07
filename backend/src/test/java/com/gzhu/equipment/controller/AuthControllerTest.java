@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gzhu.equipment.dto.CasLoginRequest;
 import com.gzhu.equipment.dto.LocalLoginRequest;
 import com.gzhu.equipment.security.JwtTokenProvider;
+import com.gzhu.equipment.security.LoginRateLimiter;
+import com.gzhu.equipment.security.TokenBlacklist;
 import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.service.AuthService;
 import com.gzhu.equipment.vo.LoginVO;
@@ -26,6 +28,7 @@ import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -54,11 +57,20 @@ class AuthControllerTest {
     @MockBean
     private JwtTokenProvider jwtTokenProvider;
 
+    @MockBean
+    private LoginRateLimiter loginRateLimiter;
+
+    @MockBean
+    private TokenBlacklist tokenBlacklist;
+
     private LocalLoginRequest validLocalRequest;
     private LoginVO successLoginVO;
 
     @BeforeEach
     void setUp() {
+        // 允许登录频率限制
+        when(loginRateLimiter.allowAttempt(anyString())).thenReturn(true);
+
         // 准备本地登录请求
         validLocalRequest = new LocalLoginRequest();
         validLocalRequest.setUsername("admin");

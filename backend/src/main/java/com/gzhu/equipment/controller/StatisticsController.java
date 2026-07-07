@@ -64,6 +64,25 @@ public class StatisticsController {
         borrowStats.put("pendingApproval", pendingCount);
         data.put("borrowStats", borrowStats);
 
+        // 利用率分析：设备总借出次数
+        Long totalBorrows = borrowMapper.selectCount(null);
+        data.put("totalBorrows", totalBorrows);
+
         return R.ok(data);
+    }
+
+    @GetMapping("/utilization")
+    @ApiOperation("设备利用率分析")
+    @PreAuthorize("hasAuthority('statistics:view')")
+    public R<java.util.List<java.util.Map<String, Object>>> utilization() {
+        // 按分类统计借用次数（Top10）
+        var rows = borrowMapper.selectMaps(
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<com.gzhu.equipment.entity.BorrowRecord>()
+                        .select("d.category_id, COUNT(*) as cnt")
+                        .apply("LEFT JOIN device d ON borrow_record.device_id = d.id")
+                        .groupBy("d.category_id")
+                        .orderByDesc("cnt")
+                        .last("LIMIT 10"));
+        return R.ok(rows);
     }
 }

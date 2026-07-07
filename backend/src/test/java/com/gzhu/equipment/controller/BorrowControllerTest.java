@@ -5,6 +5,8 @@ import com.gzhu.equipment.dto.ApprovalRequestDTO;
 import com.gzhu.equipment.dto.BorrowRequestDTO;
 import com.gzhu.equipment.entity.BorrowRecord;
 import com.gzhu.equipment.security.JwtTokenProvider;
+import com.gzhu.equipment.security.LoginRateLimiter;
+import com.gzhu.equipment.security.TokenBlacklist;
 import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.service.BorrowService;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,6 +50,12 @@ class BorrowControllerTest {
 
     @MockBean
     private JwtTokenProvider jwtTokenProvider;
+
+    @MockBean
+    private LoginRateLimiter loginRateLimiter;
+
+    @MockBean
+    private TokenBlacklist tokenBlacklist;
 
     @BeforeEach
     void setUp() {
