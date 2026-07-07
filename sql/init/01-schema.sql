@@ -243,7 +243,26 @@ CREATE TABLE IF NOT EXISTS `system_config` (
 -- 预置默认配置
 INSERT INTO `system_config` (`config_key`, `config_value`, `description`) VALUES
 ('borrow.max_days', '7', '借用最大天数（超出拒绝），Admin可运行时修改'),
-('borrow.default_approval_steps', '2', '默认审批级数（1或2）'),
+('borrow.default_approval_steps', '2', '默认审批级数（1/2/3，Admin可运行时修改）'),
 ('cleanup.small_record_days', '15', '小记录保留天数（通知/日志/审批记录）'),
 ('cleanup.large_file_days', '30', '大型临时文件保留天数（附件/借用归还图片）')
 ON DUPLICATE KEY UPDATE `config_value` = VALUES(`config_value`);
+
+-- -----------------------------------------------------------
+-- 12. 维修记录表
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `repair_record` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `device_id` bigint NOT NULL COMMENT '关联设备',
+  `borrow_id` bigint DEFAULT NULL COMMENT '来源借用单ID（损坏报修时关联）',
+  `fault_description` text COMMENT '故障描述',
+  `status` varchar(20) DEFAULT 'PENDING' COMMENT 'PENDING=待维修 / REPAIRING=维修中 / FIXED=已修复',
+  `repair_by` bigint DEFAULT NULL COMMENT '维修人ID',
+  `repair_comment` text COMMENT '维修备注/方案',
+  `fixed_time` datetime DEFAULT NULL COMMENT '修复时间',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_device` (`device_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='维修记录表';

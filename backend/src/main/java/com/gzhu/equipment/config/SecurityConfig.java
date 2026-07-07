@@ -69,6 +69,10 @@ public class SecurityConfig {
                 "/auth/local/login",
                 "/auth/health"
             ).permitAll()
+            // 文件访问（MinIO代理，无需认证）
+            .antMatchers("/files/**").permitAll()
+            // WebSocket 端点
+            .antMatchers("/ws/**").permitAll()
             // API文档（仅开发环境建议公开；生产环境可通过 profile 控制）
             .antMatchers(
                 "/doc.html",

@@ -8,6 +8,7 @@ import com.gzhu.equipment.entity.Device;
 import com.gzhu.equipment.mapper.ApprovalLogMapper;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
+import com.gzhu.equipment.mapper.SysUserMapper;
 import com.gzhu.equipment.service.NotificationService;
 import com.gzhu.equipment.service.SystemConfigService;
 import org.junit.jupiter.api.BeforeEach;
@@ -47,11 +48,17 @@ class BorrowServiceImplTest {
     @Mock
     private NotificationService notificationService;
 
+    @Mock
+    private SysUserMapper sysUserMapper;
+
     private BorrowServiceImpl borrowService;
 
     @BeforeEach
     void setUp() {
-        borrowService = new BorrowServiceImpl(borrowMapper, approvalMapper, deviceMapper, configService, notificationService);
+        borrowService = new BorrowServiceImpl(borrowMapper, approvalMapper, deviceMapper, sysUserMapper, configService, notificationService);
+        // 默认借用时长限制宽松，各测试可覆盖
+        lenient().when(configService.getIntValue(eq("borrow.max_days"), anyInt())).thenReturn(30);
+        lenient().when(configService.getIntValue(eq("borrow.default_approval_steps"), anyInt())).thenReturn(2);
     }
 
     private Device createAvailableDevice() {
@@ -86,23 +93,23 @@ class BorrowServiceImplTest {
         when(borrowMapper.insert(any())).thenReturn(1);
 
         BorrowRequestDTO dto = createBorrowRequest(1L);
-        BorrowRecord record = borrowService.submitBorrow(dto, 10L);
+        java.util.List<BorrowRecord> records = borrowService.submitBorrow(dto, 10L);
 
-        assertThat(record.getUserId()).isEqualTo(10L);
-        assertThat(record.getStatus()).isEqualTo("PENDING_APPROVAL");
-        assertThat(record.getCurrentStep()).isEqualTo(1);
+        assertThat(records).hasSize(1);
+        assertThat(records.get(0).getUserId()).isEqualTo(10L);
+        assertThat(records.get(0).getStatus()).isEqualTo("PENDING_APPROVAL");
+        assertThat(records.get(0).getCurrentStep()).isEqualTo(1);
         verify(borrowMapper).insert(any(BorrowRecord.class));
         verify(approvalMapper).insert(any(ApprovalLog.class));
     }
 
     @Test
-    @DisplayName("提交借用（设备不存在）→ 抛出异常")
+    @DisplayName("提交借用（设备不存在）→ 所有设备不可借时抛出异常")
     void submitBorrow_deviceNotFound_shouldThrow() {
-        when(deviceMapper.selectById(999L)).thenReturn(null);
-
+        // deviceMapper返回null默认→设备不存在→continue→空列表→异常
         assertThatThrownBy(() -> borrowService.submitBorrow(createBorrowRequest(999L), 1L))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("设备不存在");
+                .hasMessageContaining("均不可借");
     }
 
     @Test
@@ -114,7 +121,7 @@ class BorrowServiceImplTest {
 
         assertThatThrownBy(() -> borrowService.submitBorrow(createBorrowRequest(1L), 1L))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("不可借");
+                .hasMessageContaining("均不可借");
     }
 
     @Test
@@ -126,14 +133,12 @@ class BorrowServiceImplTest {
 
         assertThatThrownBy(() -> borrowService.submitBorrow(createBorrowRequest(1L), 1L))
                 .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("库存不足");
+                .hasMessageContaining("均不可借");
     }
 
     @Test
-    @DisplayName("提交借用（超时长限制）→ 抛出异常")
+    @DisplayName("提交借用（超时长限制）→ 抛出异常（在设备查询前校验）")
     void submitBorrow_exceedMaxDays_shouldThrow() {
-        Device device = createAvailableDevice();
-        when(deviceMapper.selectById(1L)).thenReturn(device);
         when(configService.getIntValue(eq("borrow.max_days"), anyInt())).thenReturn(7);
 
         BorrowRequestDTO dto = createBorrowRequest(1L);
@@ -161,11 +166,6 @@ class BorrowServiceImplTest {
     @Test
     @DisplayName("提交借用（开始>结束）→ 抛出异常")
     void submitBorrow_startAfterEnd_shouldThrow() {
-        Device device = createAvailableDevice();
-        when(deviceMapper.selectById(1L)).thenReturn(device);
-        when(configService.getIntValue(eq("borrow.max_days"), anyInt())).thenReturn(7);
-        when(borrowMapper.selectCount(any())).thenReturn(0L);
-
         BorrowRequestDTO dto = createBorrowRequest(1L);
         dto.setStartTime(LocalDateTime.now().plusDays(5));
         dto.setEndTime(LocalDateTime.now().plusDays(1));
@@ -309,10 +309,12 @@ class BorrowServiceImplTest {
         BorrowRecord record = new BorrowRecord();
         record.setId(100L);
         record.setDeviceId(1L);
+        record.setUserId(10L);
         record.setStatus("BORROWING");
         record.setEndTime(LocalDateTime.now().plusDays(1));
 
         when(borrowMapper.selectById(100L)).thenReturn(record);
+        when(sysUserMapper.selectById(10L)).thenReturn(null); // 10L申请人不存在→非管理员
 
         Device device = new Device();
         device.setId(1L);
@@ -334,10 +336,12 @@ class BorrowServiceImplTest {
         BorrowRecord record = new BorrowRecord();
         record.setId(100L);
         record.setDeviceId(1L);
+        record.setUserId(10L);
         record.setStatus("BORROWING");
         record.setEndTime(LocalDateTime.now().minusDays(5)); // 5天前到期
 
         when(borrowMapper.selectById(100L)).thenReturn(record);
+        when(sysUserMapper.selectById(10L)).thenReturn(null);
 
         Device device = new Device();
         device.setId(1L);
@@ -356,10 +360,12 @@ class BorrowServiceImplTest {
         BorrowRecord record = new BorrowRecord();
         record.setId(100L);
         record.setDeviceId(1L);
+        record.setUserId(10L);
         record.setStatus("BORROWING");
         record.setEndTime(LocalDateTime.now().plusDays(1));
 
         when(borrowMapper.selectById(100L)).thenReturn(record);
+        when(sysUserMapper.selectById(10L)).thenReturn(null);
 
         Device device = new Device();
         device.setId(1L);
@@ -378,6 +384,7 @@ class BorrowServiceImplTest {
     void returnDevice_wrongStatus_shouldThrow() {
         BorrowRecord record = new BorrowRecord();
         record.setId(100L);
+        record.setUserId(10L);
         record.setStatus("PENDING_APPROVAL");
         when(borrowMapper.selectById(100L)).thenReturn(record);
 

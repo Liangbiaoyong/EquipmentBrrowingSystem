@@ -1,37 +1,17 @@
 import request from './request'
 
 export const deviceApi = {
-  /** 设备列表（分页+筛选） */
-  list(params) {
-    return request.get('/devices', { params })
-  },
-
-  /** 设备详情 */
-  getById(id) {
-    return request.get(`/devices/${id}`)
-  },
-
-  /** 新增设备 */
-  create(data) {
-    return request.post('/devices', data)
-  },
-
-  /** 更新设备 */
-  update(id, data) {
-    return request.put(`/devices/${id}`, data)
-  },
-
-  /** 上传设备图片 */
-  uploadImages(id, files) {
-    const formData = new FormData()
-    files.forEach(f => formData.append('files', f))
-    return request.post(`/devices/${id}/images`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' }
-    })
-  },
-
-  /** 删除设备图片 */
-  deleteImage(id, imageId) {
-    return request.delete(`/devices/${id}/images/${imageId}`)
-  }
+  list(params) { return request.get('/devices', { params }) },
+  getById(id) { return request.get(`/devices/${id}`) },
+  update(id, data) { return request.put(`/devices/${id}`, data) },
+  delete(id) { return request.delete(`/devices/${id}`) },
+  importFile(file) { const fd = new FormData(); fd.append('file', file); return request.post('/devices/import', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) },
+  dryRun(file) { const fd = new FormData(); fd.append('file', file); return request.post('/devices/import/dry-run', fd, { headers: { 'Content-Type': 'multipart/form-data' } }) },
+  exportCsv(params) { return request.get('/devices/export/csv', { params, responseType: 'blob' }) },
+  getImages(deviceId) { return request.get(`/devices/${deviceId}/images`) },
+  uploadImage(deviceId, file, sort = 0) { const fd = new FormData(); fd.append('file', file); fd.append('sort', sort); return request.post(`/devices/${deviceId}/images/upload`, fd, { headers: { 'Content-Type': 'multipart/form-data' } }) },
+  deleteImage(imageId) { return request.delete(`/devices/images/${imageId}`) },
+  missingImages(params) { return request.get('/devices/missing-images', { params }) },
+  getBatches() { return request.get('/devices/batches') },
+  deleteBatch(batchId) { return request.delete(`/devices/batches/${batchId}`) }
 }

@@ -1,0 +1,36 @@
+package com.gzhu.equipment.controller;
+
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.gzhu.equipment.common.R;
+import com.gzhu.equipment.entity.RepairRecord;
+import com.gzhu.equipment.service.RepairService;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiOperation;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.*;
+
+@RestController @RequestMapping("/repairs") @RequiredArgsConstructor @Api(tags = "维修管理")
+public class RepairController {
+    private final RepairService repairService;
+
+    @GetMapping @ApiOperation("维修列表") @PreAuthorize("hasAuthority('repair:manage')")
+    public R<IPage<RepairRecord>> list(@RequestParam(defaultValue="1")int page,@RequestParam(defaultValue="20")int size,@RequestParam(required=false)String status){
+        return R.ok(repairService.list(page,size,status));
+    }
+
+    @PostMapping @ApiOperation("创建维修记录") @PreAuthorize("hasAuthority('repair:manage')")
+    public R<RepairRecord> create(@RequestParam Long deviceId,@RequestParam(required=false) Long borrowId,@RequestParam String faultDescription){
+        return R.ok(repairService.createFromDamage(deviceId,borrowId,faultDescription));
+    }
+
+    @PutMapping("/{id}/start") @ApiOperation("开始维修") @PreAuthorize("hasAuthority('repair:manage')")
+    public R<Void> startRepair(@PathVariable Long id){
+        repairService.startRepair(id,1L); return R.ok();
+    }
+
+    @PutMapping("/{id}/fix") @ApiOperation("修复完成") @PreAuthorize("hasAuthority('repair:manage')")
+    public R<String> markFixed(@PathVariable Long id,@RequestParam(required=false,defaultValue="")String comment){
+        repairService.markFixed(id,comment); return R.ok("设备已恢复正常");
+    }
+}

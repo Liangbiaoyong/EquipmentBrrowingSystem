@@ -7,6 +7,7 @@ import com.gzhu.equipment.entity.BorrowRecord;
 import com.gzhu.equipment.security.JwtTokenProvider;
 import com.gzhu.equipment.security.LoginRateLimiter;
 import com.gzhu.equipment.security.TokenBlacklist;
+import com.gzhu.equipment.mapper.ApprovalLogMapper;
 import com.gzhu.equipment.mapper.AttachmentMapper;
 import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.service.BorrowService;
@@ -65,6 +66,9 @@ class BorrowControllerTest {
     @MockBean
     private AttachmentMapper attachmentMapper;
 
+    @MockBean
+    private ApprovalLogMapper approvalLogMapper;
+
     @BeforeEach
     void setUp() {
         JwtUserPrincipal principal = new JwtUserPrincipal(
@@ -91,7 +95,7 @@ class BorrowControllerTest {
         BorrowRecord record = new BorrowRecord();
         record.setId(100L);
         record.setStatus("PENDING_APPROVAL");
-        when(borrowService.submitBorrow(any(), anyLong())).thenReturn(record);
+        when(borrowService.submitBorrow(any(), anyLong())).thenReturn(java.util.List.of(record));
 
         mockMvc.perform(post("/borrows")
                         .contentType(MediaType.APPLICATION_JSON)

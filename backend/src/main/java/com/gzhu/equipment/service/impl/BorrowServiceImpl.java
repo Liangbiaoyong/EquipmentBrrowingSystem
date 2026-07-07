@@ -9,9 +9,11 @@ import com.gzhu.equipment.dto.BorrowRequestDTO;
 import com.gzhu.equipment.entity.ApprovalLog;
 import com.gzhu.equipment.entity.BorrowRecord;
 import com.gzhu.equipment.entity.Device;
+import com.gzhu.equipment.entity.SysUser;
 import com.gzhu.equipment.mapper.ApprovalLogMapper;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
+import com.gzhu.equipment.mapper.SysUserMapper;
 import com.gzhu.equipment.service.BorrowService;
 import com.gzhu.equipment.service.NotificationService;
 import com.gzhu.equipment.service.SystemConfigService;
@@ -48,6 +50,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
     private final BorrowRecordMapper borrowMapper;
     private final ApprovalLogMapper approvalMapper;
     private final DeviceMapper deviceMapper;
+    private final SysUserMapper userMapper;
     private final SystemConfigService configService;
     private final NotificationService notificationService;
 
@@ -55,64 +58,46 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
     @Value("${borrow.max-days:7}")
     private int defaultMaxDays;
 
-    // 冲突检测用的状态：这些状态下设备被占用
-    private static final List<String> OCCUPIED_STATUSES = Arrays.asList(
-            "PENDING_APPROVAL", "APPROVED", "BORROWING", "OVERDUE");
+    private static final List<String> OCCUPIED_STATUSES = Arrays.asList("PENDING_APPROVAL", "APPROVED", "BORROWING", "OVERDUE");
 
-    private static final int DEFAULT_APPROVAL_STEPS = 2; // 默认二级审批
-
-    // ==================== 提交借用申请 ====================
-
-    @Override
-    @Transactional
-    public BorrowRecord submitBorrow(BorrowRequestDTO dto, Long userId) {
-        // 1. 校验设备存在且可借
-        Device device = deviceMapper.selectById(dto.getDeviceId());
-        if (device == null) throw new IllegalArgumentException("设备不存在");
-        if (device.getStatus() != 1) throw new IllegalArgumentException("设备不可借（维修中/已报废）");
-        if (device.getAvailableQty() == null || device.getAvailableQty() <= 0) {
-            throw new IllegalArgumentException("设备库存不足");
+    @Override @Transactional
+    public List<BorrowRecord> submitBorrow(BorrowRequestDTO dto, Long userId) {
+        // 确定设备列表（兼容单设备deviceId和多设备deviceIds）
+        List<Long> deviceIds = dto.getDeviceIds();
+        if (deviceIds == null || deviceIds.isEmpty()) {
+            if (dto.getDeviceId() == null) throw new IllegalArgumentException("请选择设备");
+            deviceIds = List.of(dto.getDeviceId());
         }
 
-        // 2. 借用时长校验（数据库优先，application.yml兜底）
         int maxDays = configService.getIntValue("borrow.max_days", defaultMaxDays);
         long borrowDays = ChronoUnit.DAYS.between(dto.getStartTime().toLocalDate(), dto.getEndTime().toLocalDate());
-        if (borrowDays > maxDays) {
-            throw new IllegalArgumentException("借用时长不能超过 " + maxDays + " 天，当前 " + borrowDays + " 天");
+        if (borrowDays > maxDays) throw new IllegalArgumentException("借用时长不能超过 " + maxDays + " 天");
+        if (dto.getStartTime().isAfter(dto.getEndTime())) throw new IllegalArgumentException("开始时间不能晚于结束时间");
+
+        int totalSteps = configService.getIntValue("borrow.default_approval_steps", 2);
+        String flowDef = buildFlowDef(totalSteps);
+
+        List<BorrowRecord> records = new java.util.ArrayList<>();
+        for (Long deviceId : deviceIds) {
+            Device device = deviceMapper.selectById(deviceId);
+            if (device == null || device.getStatus() != 1) continue;
+            if (device.getAvailableQty() == null || device.getAvailableQty() <= 0) continue;
+            if (hasTimeConflict(deviceId, dto.getStartTime(), dto.getEndTime())) continue;
+
+            BorrowRecord r = new BorrowRecord();
+            r.setUserId(userId); r.setDeviceId(deviceId);
+            r.setStartTime(dto.getStartTime()); r.setEndTime(dto.getEndTime());
+            r.setReason(dto.getReason()); r.setStatus("PENDING_APPROVAL");
+            r.setCurrentStep(1); r.setApproveFlowDef(flowDef);
+            borrowMapper.insert(r);
+
+            createApprovalLog(r.getId(), 1, dto.getApproverId());
+            if (dto.getApproverId() != null) notificationService.notifyBorrowSubmitted(dto.getApproverId(), device.getName(), r.getId());
+            records.add(r);
+            log.info("借用申请已提交: borrowId={} deviceId={}", r.getId(), deviceId);
         }
-
-        // 3. 时间冲突检测
-        if (hasTimeConflict(dto.getDeviceId(), dto.getStartTime(), dto.getEndTime())) {
-            throw new IllegalArgumentException("所选时段设备已被占用，请重新选择时间");
-        }
-        if (dto.getStartTime().isAfter(dto.getEndTime())) {
-            throw new IllegalArgumentException("借用开始时间不能晚于结束时间");
-        }
-
-        // 3. 创建借用单
-        BorrowRecord record = new BorrowRecord();
-        record.setUserId(userId);
-        record.setDeviceId(dto.getDeviceId());
-        record.setStartTime(dto.getStartTime());
-        record.setEndTime(dto.getEndTime());
-        record.setReason(dto.getReason());
-        record.setStatus("PENDING_APPROVAL");
-        record.setCurrentStep(1);
-        // 审批流快照：二级审批 JSON
-        record.setApproveFlowDef("{\"steps\":[{\"step\":1,\"name\":\"审批人\"},{\"step\":2,\"name\":\"审核员\"}],\"totalSteps\":2}");
-
-        borrowMapper.insert(record);
-
-        // 4. 创建一级审批记录
-        createApprovalLog(record.getId(), 1, dto.getApproverId());
-
-        // 5. 通知审批人
-        if (dto.getApproverId() != null) {
-            notificationService.notifyBorrowSubmitted(dto.getApproverId(), device.getName(), record.getId());
-        }
-
-        log.info("借用申请已提交: borrowId={} userId={} deviceId={}", record.getId(), userId, dto.getDeviceId());
-        return record;
+        if (records.isEmpty()) throw new IllegalArgumentException("所选设备均不可借或已被占用");
+        return records;
     }
 
     // ==================== 我的借用 ====================
@@ -193,8 +178,8 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             return record;
         }
 
-        // 通过 → 判断是否有下一级
-        int totalSteps = DEFAULT_APPROVAL_STEPS;
+        // 通过 → 判断是否有下一级（从配置读取审批级数）
+        int totalSteps = configService.getIntValue("borrow.default_approval_steps", 2);
         if (currentStep >= totalSteps) {
             // 全部通过 → 扣减库存 + 通知申请人
             record.setStatus("APPROVED");
@@ -228,6 +213,12 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         if (record == null) throw new IllegalArgumentException("借用单不存在");
         if (!Arrays.asList("APPROVED", "BORROWING", "OVERDUE").contains(record.getStatus())) {
             throw new IllegalArgumentException("该借用单当前状态不允许归还");
+        }
+        // 借用人或管理员均可归还
+        SysUser user = userMapper.selectById(userId);
+        boolean isAdmin = user != null && (user.getUserType() == 2 || user.getUserType() == 3);
+        if (!record.getUserId().equals(userId) && !isAdmin) {
+            throw new IllegalArgumentException("只能归还自己的借用，或由管理员操作");
         }
 
         record.setStatus("RETURNED");
@@ -291,6 +282,26 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         log.setApproverId(approverId);
         log.setResult("PENDING");
         approvalMapper.insert(log);
+    }
+
+    @Override @Transactional
+    public void verifyReturn(Long borrowId, Long adminId) {
+        BorrowRecord r = borrowMapper.selectById(borrowId);
+        if (r == null) throw new IllegalArgumentException("借用单不存在");
+        if (!"RETURNED".equals(r.getStatus())) throw new IllegalArgumentException("该借用单尚未归还");
+        // 核验通过：正式标记（可扩展为独立状态VERIFIED）
+        log.info("归还核验完成: borrowId={} adminId={}", borrowId, adminId);
+    }
+
+    private String buildFlowDef(int totalSteps) {
+        StringBuilder sb = new StringBuilder("{\"steps\":[");
+        for (int i = 1; i <= totalSteps; i++) {
+            String name = i == 1 ? "审批人" : i == totalSteps ? "最终确认" : "审核员";
+            if (i > 1) sb.append(",");
+            sb.append("{\"step\":").append(i).append(",\"name\":\"").append(name).append("\"}");
+        }
+        sb.append("],\"totalSteps\":").append(totalSteps).append("}");
+        return sb.toString();
     }
 
     private String getDeviceName(Long deviceId) {

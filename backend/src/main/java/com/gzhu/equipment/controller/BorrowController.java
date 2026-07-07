@@ -8,6 +8,9 @@ import com.gzhu.equipment.entity.BorrowRecord;
 import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.entity.Attachment;
 import com.gzhu.equipment.mapper.AttachmentMapper;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.gzhu.equipment.entity.ApprovalLog;
+import com.gzhu.equipment.mapper.ApprovalLogMapper;
 import com.gzhu.equipment.service.BorrowService;
 import com.gzhu.equipment.service.MinioFileService;
 import io.swagger.annotations.Api;
@@ -21,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import javax.validation.Valid;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 借用审批控制器
@@ -46,17 +50,18 @@ public class BorrowController {
     private final BorrowService borrowService;
     private final MinioFileService minioFileService;
     private final AttachmentMapper attachmentMapper;
+    private final ApprovalLogMapper approvalLogMapper;
 
     // ==================== 借用申请 ====================
 
     @PostMapping
-    @ApiOperation("提交借用申请")
+    @ApiOperation("提交借用申请（支持多设备）")
     @PreAuthorize("hasAnyAuthority('borrow:create','borrow:my')")
-    public R<BorrowRecord> submitBorrow(@Valid @RequestBody BorrowRequestDTO dto) {
+    public R<List<BorrowRecord>> submitBorrow(@Valid @RequestBody BorrowRequestDTO dto) {
         Long userId = getCurrentUserId();
         try {
-            BorrowRecord record = borrowService.submitBorrow(dto, userId);
-            return R.ok("借用申请已提交，等待审批", record);
+            List<BorrowRecord> records = borrowService.submitBorrow(dto, userId);
+            return R.ok("已提交 " + records.size() + " 条借用申请", records);
         } catch (IllegalArgumentException e) {
             return R.fail(e.getMessage());
         }
@@ -170,6 +175,20 @@ public class BorrowController {
                         .eq(BorrowRecord::getStatus, "OVERDUE")
                         .orderByDesc(BorrowRecord::getOverdueDays));
         return R.ok(pg);
+    }
+
+    @GetMapping("/{id}/approval-logs")
+    @ApiOperation("审批记录列表")
+    public R<List<ApprovalLog>> approvalLogs(@PathVariable Long id) {
+        return R.ok(approvalLogMapper.selectList(
+                new LambdaQueryWrapper<ApprovalLog>().eq(ApprovalLog::getBorrowId, id).orderByAsc(ApprovalLog::getStep)));
+    }
+
+    @PostMapping("/{id}/verify")
+    @ApiOperation("管理员核验归还")
+    @PreAuthorize("hasAuthority('return:manage')")
+    public R<String> verifyReturn(@PathVariable Long id) {
+        borrowService.verifyReturn(id, getCurrentUserId()); return R.ok("已核验");
     }
 
     // ==================== 辅助 ====================
