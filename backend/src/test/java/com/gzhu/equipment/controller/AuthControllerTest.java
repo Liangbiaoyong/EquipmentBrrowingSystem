@@ -8,6 +8,8 @@ import com.gzhu.equipment.security.LoginRateLimiter;
 import com.gzhu.equipment.security.TokenBlacklist;
 import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.service.AuthService;
+import com.gzhu.equipment.mapper.SysUserMapper;
+import com.gzhu.equipment.service.CasServerLoginService;
 import com.gzhu.equipment.vo.LoginVO;
 import com.gzhu.equipment.vo.UserInfoVO;
 import org.junit.jupiter.api.BeforeEach;
@@ -62,6 +64,12 @@ class AuthControllerTest {
 
     @MockBean
     private TokenBlacklist tokenBlacklist;
+
+    @MockBean
+    private CasServerLoginService casServerLoginService;
+
+    @MockBean
+    private SysUserMapper sysUserMapper;
 
     private LocalLoginRequest validLocalRequest;
     private LoginVO successLoginVO;
