@@ -3,6 +3,7 @@ package com.gzhu.equipment.controller;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.gzhu.equipment.common.R;
+import lombok.extern.slf4j.Slf4j;
 import com.gzhu.equipment.entity.BorrowRecord;
 import com.gzhu.equipment.entity.Device;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
@@ -25,6 +26,7 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+@Slf4j
 @RestController
 @RequestMapping("/statistics")
 @RequiredArgsConstructor
