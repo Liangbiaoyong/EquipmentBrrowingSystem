@@ -2,8 +2,20 @@ server:
   port: 8080
   servlet:
     context-path: /api/v1
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+      force-response: true
 
 spring:
+  http:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  messages:
+    encoding: UTF-8
   datasource:
     url: jdbc:mysql://localhost:3306/device_borrow?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&useUnicode=true
     username: devuser
