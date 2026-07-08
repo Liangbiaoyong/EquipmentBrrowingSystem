@@ -6,11 +6,19 @@
 USE `device_borrow`;
 
 -- 1. 修复数据库字符集（解决中文乱码）
+-- ⚠️ 重要：如果数据在latin1连接下导入，数据已永久损坏，必须TRUNCATE后重新导入
+-- 下面的CONVERT只修改表默认字符集，不能修复已损坏的数据
 ALTER DATABASE device_borrow CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE sys_user CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE device CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE device_category CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ALTER TABLE category_mapping CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+-- 清空并重建数据（如果乱码问题持续，取消下面注释来清空后重新导入）
+-- TRUNCATE TABLE device;
+-- TRUNCATE TABLE device_category;
+-- TRUNCATE TABLE category_mapping;
+-- 然后重新执行 02-data.sql，并重新导入CSV
 
 -- 2. 确保 repair_record 表存在（如之前未创建）
 CREATE TABLE IF NOT EXISTS `repair_record` (

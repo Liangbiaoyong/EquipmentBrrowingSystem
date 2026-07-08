@@ -18,7 +18,7 @@ public class LoginRateLimiter {
 
     private final RedisTemplate<String, String> redisTemplate;
 
-    private static final int MAX_ATTEMPTS = 5;
+    private static final int MAX_ATTEMPTS = 20;  // 开发/测试环境放宽限制
     private static final int WINDOW_SECONDS = 60;
     private static final int LOCK_MINUTES = 5;
 

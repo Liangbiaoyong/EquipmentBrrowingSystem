@@ -22,6 +22,14 @@ export const useUserStore = defineStore('user', () => {
     localStorage.setItem('permissions', JSON.stringify(permissions.value))
   }
 
+  // CAS/凭证登录后的状态初始化（供Login.vue调用）
+  function loginCas(loginData) {
+    token.value = loginData.accessToken
+    localStorage.setItem('token', token.value)
+    userInfo.value = loginData.userInfo
+    savePerms(loginData.userInfo.permissions || [])
+  }
+
   async function login(credentials) {
     const res = await authApi.login(credentials)
     token.value = res.data.accessToken
@@ -50,5 +58,5 @@ export const useUserStore = defineStore('user', () => {
     localStorage.removeItem('permissions')
   }
 
-  return { token, userInfo, permissions, isLoggedIn, hasPermission, login, fetchUserInfo, logout }
+  return { token, userInfo, permissions, isLoggedIn, hasPermission, loginCas, login, fetchUserInfo, logout }
 })

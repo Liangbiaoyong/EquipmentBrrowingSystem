@@ -89,26 +89,36 @@ public class StatisticsController {
     @ApiOperation("热门设备 TOP10")
     @PreAuthorize("hasAuthority('statistics:view')")
     public R<List<Map<String, Object>>> topDevices() {
-        var rows = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
-                .select("d.name as deviceName", "COUNT(*) as borrowCount")
-                .apply("LEFT JOIN device d ON borrow_record.device_id = d.id")
-                .groupBy("d.name")
-                .orderByDesc("borrowCount")
-                .last("LIMIT 10"));
-        return R.ok(rows);
+        try {
+            var rows = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+                    .select("d.name as deviceName", "COUNT(*) as borrowCount")
+                    .apply("LEFT JOIN device d ON borrow_record.device_id = d.id")
+                    .groupBy("d.name")
+                    .orderByDesc("borrowCount")
+                    .last("LIMIT 10"));
+            return R.ok(rows != null ? rows : java.util.Collections.emptyList());
+        } catch (Exception e) {
+            log.warn("热门设备查询失败: {}", e.getMessage());
+            return R.ok(java.util.Collections.emptyList());
+        }
     }
 
     @GetMapping("/top-users")
     @ApiOperation("高频借用用户 TOP10")
     @PreAuthorize("hasAuthority('statistics:view')")
     public R<List<Map<String, Object>>> topUsers() {
-        var rows = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
-                .select("u.real_name as userName", "COUNT(*) as borrowCount")
-                .apply("LEFT JOIN sys_user u ON borrow_record.user_id = u.id")
-                .groupBy("u.real_name")
-                .orderByDesc("borrowCount")
-                .last("LIMIT 10"));
-        return R.ok(rows);
+        try {
+            var rows = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+                    .select("u.real_name as userName", "COUNT(*) as borrowCount")
+                    .apply("LEFT JOIN sys_user u ON borrow_record.user_id = u.id")
+                    .groupBy("u.real_name")
+                    .orderByDesc("borrowCount")
+                    .last("LIMIT 10"));
+            return R.ok(rows != null ? rows : java.util.Collections.emptyList());
+        } catch (Exception e) {
+            log.warn("热门用户查询失败: {}", e.getMessage());
+            return R.ok(java.util.Collections.emptyList());
+        }
     }
 
     @GetMapping("/utilization")
