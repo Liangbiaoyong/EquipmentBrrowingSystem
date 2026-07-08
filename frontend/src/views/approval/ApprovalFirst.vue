@@ -61,8 +61,9 @@ async function load(){
 }
 function doApprove(borrowId,approved){d.borrowId=borrowId;d.approved=approved;d.comment='';d.visible=true}
 async function confirmApprove(){
+  if(!d.approved&&!d.comment.trim()){ElMessage.warning('驳回时必须填写审批意见');return}
   d.visible=false
-  try{await borrowApi.approve({borrowId:d.borrowId,approved:d.approved,comment:d.comment});ElMessage.success(d.approved?'已通过':'已驳回');load()}catch(e){ElMessage.error('操作失败')}
+  try{await borrowApi.approve({borrowId:d.borrowId,approved:d.approved,comment:d.comment});ElMessage.success(d.approved?'已通过':'已驳回');load()}catch(e){ElMessage.error(e.message||'操作失败')}
 }
 onMounted(async()=>{await fetchNames();load()})
 </script>

@@ -9,7 +9,7 @@
       </el-alert>
       <el-form ref="formRef" :model="form" :rules="rules" label-width="0">
         <el-form-item prop="username"><el-input v-model="form.username" placeholder="用户名" :prefix-icon="User"/></el-form-item>
-        <el-form-item prop="password"><el-input v-model="form.password" type="password" placeholder="密码" :prefix-icon="Lock" show-password/></el-form-item>
+        <el-form-item prop="password"><el-input v-model="form.password" type="password" placeholder="密码" :prefix-icon="Lock" show-password @keyup.enter="handleLogin"/></el-form-item>
         <el-form-item><el-button type="primary" class="login-btn" :loading="logging" @click="handleLogin">登 录</el-button></el-form-item>
       </el-form>
       <div class="cas-login"><el-divider>或</el-divider><el-button @click="handleCasLogin" class="cas-btn" :loading="logging">广州大学 CAS 登录</el-button></div>
@@ -23,7 +23,7 @@ const form=reactive({username:'',password:''})
 const rules={username:[{required:true,message:'请输入用户名',trigger:'blur'}],password:[{required:true,message:'请输入密码',trigger:'blur'}]}
 
 onMounted(async()=>{
-  const token=route.query.token||route.query.uniToken||route.query.access_token
+  const token=route.query.token||route.query.uniToken||route.query.access_token||route.query.ticket
   if(token){
     try{const res=await authApi.casLogin(token,'');userStore.loginCas(res.data);router.push('/dashboard')}catch(e){ElMessage.error('CAS登录失败');router.replace({query:{}})}
   }
