@@ -17,7 +17,7 @@ const f=reactive({deviceIds:[],startTime:'',endTime:'',reason:'',approverId:null
 onMounted(async()=>{
   try{const{data}=await deviceApi.list({page:1,size:200,status:1});devices.value=data.records}
   catch{}
-  try{const{data}=await adminApi.getUsers({page:1,size:200});teachers.value=data.records.filter(u=>u.userType===1)}
+  try{const{data}=await adminApi.getUsers({page:1,size:500});teachers.value=data.records}
   catch{}
   if(route.query.deviceId) f.deviceIds=[Number(route.query.deviceId)]
 })

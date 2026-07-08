@@ -11,6 +11,13 @@ VALUES ('admin', '系统管理员', 3, '信息中心',
         'L', 1)
 ON DUPLICATE KEY UPDATE `real_name` = '系统管理员';
 
+-- 插入实验室管理员（密码: lab123456）
+INSERT INTO `sys_user` (`username`, `real_name`, `user_type`, `department`, `password`, `auth_source`, `status`)
+VALUES ('labadmin', '实验室管理员', 2, '建筑学院',
+        '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH',
+        'L', 1)
+ON DUPLICATE KEY UPDATE `real_name` = '实验室管理员';
+
 -- ============================================================
 -- 业务分类（10个一级分类）
 -- ============================================================
