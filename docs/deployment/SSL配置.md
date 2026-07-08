@@ -6,103 +6,42 @@
 - WebSocket 连接（通知推送）在 HTTPS 下使用 WSS 协议
 - CAS 登录回调要求回调地址为 HTTPS（部分浏览器策略）
 
-## 方案一：mkcert（推荐）
+## 方案一：mkcert（推荐，已配置）
 
-mkcert 是一个简单的工具，用于创建本地信任的开发证书。
+mkcert 是一个简单的工具，用于创建本地信任的开发证书。本项目已使用 mkcert 生成证书并配置 HTTPS。
 
-### 1. 安装 mkcert
+### 1. 证书文件
 
-**Windows**（在 Git Bash / PowerShell 中执行）：
-```bash
-# 使用 chocolatey
-choco install mkcert
-
-# 或手动下载
-# 从 https://github.com/FiloSottile/mkcert/releases 下载 mkcert-v1.4.4-windows-amd64.exe
-# 重命名为 mkcert.exe 并放入 PATH
+```
+certs/
+├── localhost.pem          # SSL 证书（mkcert 生成）
+├── localhost-key.pem      # 证书私钥
+└── mkcert-rootCA.pem      # mkcert 根 CA（安装到 Windows 后可消除浏览器警告）
 ```
 
-**WSL2 Ubuntu**（在 WSL2 中执行）：
-```bash
-sudo apt install libnss3-tools
-curl -JLO "https://dl.filippo.io/mkcert/latest?for=linux/amd64"
-chmod +x mkcert-v*-linux-amd64
-sudo mv mkcert-v*-linux-amd64 /usr/local/bin/mkcert
+### 2. 在 Windows 上信任 mkcert 根 CA
+
+双击 `certs/mkcert-rootCA.pem` → **安装证书** → **本地计算机** → **将所有证书放入下列存储** → **受信任的根证书颁发机构**。
+
+或用命令行（管理员 PowerShell）：
+```powershell
+certutil -addstore -f Root certs/mkcert-rootCA.pem
 ```
 
-### 2. 生成证书
+安装后浏览器打开 `https://localhost` 将不再显示证书警告。
+
+### 3. 重新生成证书（证书过期时）
 
 ```bash
-# 安装本地 CA（首次运行）
+# WSL2 Ubuntu 中执行
+wsl -u root -d Ubuntu bash -c '
 mkcert -install
-
-# 生成 localhost 证书
-mkcert -key-file=localhost-key.pem -cert-file=localhost.pem localhost 127.0.0.1 ::1
-```
-
-### 3. Nginx 配置 HTTPS
-
-将 `frontend/nginx-ssl.conf` 或修改 `frontend/nginx.conf`：
-
-```nginx
-server {
-    listen 443 ssl;
-    server_name localhost;
-
-    ssl_certificate     /etc/nginx/certs/localhost.pem;
-    ssl_certificate_key /etc/nginx/certs/localhost-key.pem;
-
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-
-    root /usr/share/nginx/html;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ /index.html;
-    }
-
-    location /api/ {
-        proxy_pass http://backend:8080/api/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    location /ws/ {
-        proxy_pass http://backend:8080/ws/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-    }
-
-    location /api/v1/files/ {
-        proxy_pass http://backend:8080/api/v1/files/;
-        proxy_cache_valid 200 1d;
-    }
-}
-
-server {
-    listen 80;
-    server_name localhost;
-    return 301 https://$host$request_uri;
-}
-```
-
-### 4. Docker Compose 挂载证书
-
-修改 `docker-compose.yml` 中 frontend 服务的 volumes：
-
-```yaml
-frontend:
-  build: ./frontend
-  volumes:
-    - ./certs/localhost.pem:/etc/nginx/certs/localhost.pem
-    - ./certs/localhost-key.pem:/etc/nginx/certs/localhost-key.pem
-  ports:
-    - "80:80"
-    - "443:443"
+mkcert -key-file=/app/certs/localhost-key.pem \
+       -cert-file=/app/certs/localhost.pem \
+       localhost 127.0.0.1 ::1
+docker compose build frontend
+docker compose up -d frontend
+'
 ```
 
 ## 方案二：Chrome/Edge 忽略 localhost 证书警告（临时调试）
