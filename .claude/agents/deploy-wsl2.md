@@ -7,6 +7,18 @@ description: 一键将项目搬运到 WSL2 并用 Docker Compose 构建部署
 
 将当前项目从 Windows 文件系统搬运到 WSL2 Ubuntu，安装 Docker 引擎并启动所有服务。
 
+## 已知问题与处理
+
+| 问题 | 处理方式 |
+|------|----------|
+| WSL2 Ubuntu 检测失败 | `wsl.exe -l -v` 输出含 UTF-16LE BOM，grep 可能匹配不到<br>脚本使用 `iconv -f UTF-16LE -t UTF-8` 或双重 grep 兜底 |
+| tar 排除 .env | `--exclude=.env` 避免泄露密钥，tar 完成后必须 `cat > .env` 重建 |
+| MySQL 数据卷已存在 | `sql/init/*.sql` 不会重新执行，需要手动 TRUNCATE 旧表后重新导入 |
+| 中文乱码 | MySQL 连接默认字符集可能不是 utf8mb4，导入时加 `--default-character-set=utf8mb4` |
+| Docker 构建缓存 | `COPY src ./src` 层可能被缓存，使用 `--no-cache` 强制重建 |
+| 重启未生效 | `docker compose up -d` 会重启旧容器，需要 `docker compose build --no-cache` 先重建镜像 |
+| CAS 登录 403 | 确认 `/auth/cas/credential-login` 在 SecurityConfig permitAll 中 |
+
 ## 触发词
 
 - "部署到 WSL2"
