@@ -93,7 +93,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             r.setCurrentStep(1); r.setApproveFlowDef(flowDef);
             borrowMapper.insert(r);
 
-            // 默认审批人：请求指定的 > 设备默认审批人 > 根据使用人查找 > null
+            // 一级审批人：请求指定的 > 设备默认审批人 > 根据使用人查找 > null
             Long approver = dto.getApproverId();
             if (approver == null) approver = device.getDefaultApproverId();
             if (approver == null && device.getCustodian() != null) {
@@ -102,6 +102,19 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
                 if (custodianUser != null) approver = custodianUser.getId();
             }
             createApprovalLog(r.getId(), 1, approver);
+
+            // 二级审批人：自动分配第一个实验室管理员（userType=2）
+            if (totalSteps >= 2) {
+                SysUser labAdmin = userMapper.selectOne(
+                        new LambdaQueryWrapper<SysUser>().eq(SysUser::getUserType, 2).eq(SysUser::getStatus, 1).last("LIMIT 1"));
+                createApprovalLog(r.getId(), 2, labAdmin != null ? labAdmin.getId() : null);
+            }
+            // 三级审批人：自动分配系统管理员
+            if (totalSteps >= 3) {
+                SysUser sysAdmin = userMapper.selectOne(
+                        new LambdaQueryWrapper<SysUser>().eq(SysUser::getUserType, 3).eq(SysUser::getStatus, 1).last("LIMIT 1"));
+                createApprovalLog(r.getId(), 3, sysAdmin != null ? sysAdmin.getId() : null);
+            }
             if (approver != null) notificationService.notifyBorrowSubmitted(approver, device.getName(), r.getId());
             records.add(r);
             log.info("借用申请已提交: borrowId={} deviceId={}", r.getId(), deviceId);
