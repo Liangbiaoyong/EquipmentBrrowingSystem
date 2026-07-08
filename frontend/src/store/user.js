@@ -4,10 +4,13 @@ import { ref, computed } from 'vue'
 
 export const useUserStore = defineStore('user', () => {
   const token = ref(localStorage.getItem('token') || '')
-  // 从localStorage恢复permissions，防止页面刷新后丢失导致403
-  const savedPerms = localStorage.getItem('permissions')
-  const permissions = ref(savedPerms ? JSON.parse(savedPerms) : [])
   const userInfo = ref(null)
+  // 从localStorage安全恢复permissions
+  const savedPerms = (() => {
+    try { const raw = localStorage.getItem('permissions'); return raw ? JSON.parse(raw) : []; }
+    catch { return []; }
+  })()
+  const permissions = ref(Array.isArray(savedPerms) ? savedPerms : [])
 
   const isLoggedIn = computed(() => !!token.value)
 

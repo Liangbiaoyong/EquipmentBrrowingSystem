@@ -2,6 +2,11 @@
   <div class="login-container">
     <el-card class="login-card">
       <h2 class="login-title">建筑学院设备借用系统</h2>
+      <el-alert type="info" :closable="false" show-icon style="margin-bottom:16px">
+        <template #title>首次使用？</template>
+        输入您的<strong>广州大学CAS统一认证</strong>账号密码即可登录，系统将自动创建账户。
+        <br/>账号密码与CAS登录一致，无需额外注册。
+      </el-alert>
       <el-form ref="formRef" :model="form" :rules="rules" label-width="0">
         <el-form-item prop="username"><el-input v-model="form.username" placeholder="用户名" :prefix-icon="User"/></el-form-item>
         <el-form-item prop="password"><el-input v-model="form.password" type="password" placeholder="密码" :prefix-icon="Lock" show-password/></el-form-item>

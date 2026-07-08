@@ -46,7 +46,7 @@ onUnmounted(()=>{if(ws)ws.close();window.removeEventListener('resize',onResize)}
 </script>
 <style scoped>
 .layout-container{height:100vh}
-.sidebar{background-color:#304156;transition:width 0.3s;overflow:hidden}
+.sidebar{background-color:#304156;transition:width 0.3s;overflow-y:auto;overflow-x:hidden}
 .sidebar.mobile{position:fixed;z-index:100;height:100vh}
 .logo{height:60px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:bold;border-bottom:1px solid rgba(255,255,255,0.1)}
 .header{background:#fff;border-bottom:1px solid #e6e6e6;display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:60px}
