@@ -8,6 +8,7 @@ import com.gzhu.equipment.entity.SysUser;
 import com.gzhu.equipment.security.JwtTokenProvider;
 import com.gzhu.equipment.security.PermissionConstants;
 import com.gzhu.equipment.security.UserDetailsServiceImpl;
+import com.gzhu.equipment.service.CasServerLoginService;
 import com.gzhu.equipment.service.AuthService;
 import com.gzhu.equipment.service.SysUserService;
 import com.gzhu.equipment.vo.LoginVO;
@@ -50,6 +51,7 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final ObjectMapper objectMapper;
     private final RestTemplate restTemplate;
+    private final CasServerLoginService casServerLoginService;
 
     @Value("${cas.userinfo-url:https://libbooking.gzhu.edu.cn/ic-web/auth/userInfo}")
     private String casUserInfoUrl;
@@ -58,6 +60,23 @@ public class AuthServiceImpl implements AuthService {
     private boolean casDevMode;
 
     // ==================== CAS 登录 ====================
+
+    @Override
+    public LoginVO casCredentialLogin(String username, String password) {
+        try {
+            JsonNode userData = casServerLoginService.login(username, password);
+            SysUser casUser = parseCasUserInfo(userData);
+            if (casUser.getUsername() == null || casUser.getUsername().isEmpty()) {
+                throw new BadCredentialsException("CAS返回的用户信息不完整");
+            }
+            SysUser savedUser = sysUserService.createOrUpdateCasUser(casUser);
+            return buildLoginVO(savedUser);
+        } catch (BadCredentialsException e) { throw e;
+        } catch (Exception e) {
+            log.error("CAS凭证登录失败: {}", e.getMessage(), e);
+            throw new BadCredentialsException("CAS登录失败: " + e.getMessage());
+        }
+    }
 
     @Override
     public LoginVO casLogin(CasLoginRequest request) {

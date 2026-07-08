@@ -11,13 +11,13 @@ import com.gzhu.equipment.vo.UserInfoVO;
 public interface AuthService {
 
     /**
-     * CAS统一认证登录
-     *
-     * 流程：
-     * 1. 使用frontend传来的token调用CAS userInfo API验证
-     * 2. 解析CAS返回的用户信息
-     * 3. 创建或更新本地用户记录
-     * 4. 签发JWT并返回
+     * CAS服务端无感登录（用户名+密码）
+     * 后端完成完整CAS流程：GET登录页→JS加密→POST→跟随跳转→提取token→调用userInfo→创建/更新用户→签发JWT
+     */
+    LoginVO casCredentialLogin(String username, String password);
+
+    /**
+     * CAS统一认证登录（前端token回调）
      */
     LoginVO casLogin(CasLoginRequest request);
 

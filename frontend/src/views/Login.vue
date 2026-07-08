@@ -39,14 +39,22 @@ onMounted(async()=>{
 async function handleLogin(){
   const valid=await formRef.value.validate().catch(()=>false)
   if(!valid)return
-  try{await userStore.login(form);router.push('/')}catch(e){}
+  try{
+    // 优先尝试CAS服务端无感登录
+    const res=await authApi.casCredentialLogin(form.username,form.password)
+    userStore.token=res.data.accessToken
+    localStorage.setItem('token',res.data.accessToken)
+    userStore.userInfo=res.data.userInfo
+    userStore.permissions=res.data.userInfo.permissions||[]
+    router.push('/dashboard')
+  }catch(casErr){
+    // CAS失败则尝试本地登录
+    try{await userStore.login(form);router.push('/')}catch(e){}
+  }
 }
 
 function handleCasLogin(){
-  // 跳转到广州大学CAS统一认证登录页
-  const casLoginUrl='https://newcas.gzhu.edu.cn/cas/login'
-  const service=encodeURIComponent(window.location.origin+'/login')
-  window.location.href=casLoginUrl+'?service='+service
+  handleLogin()  // 改为同本地登录一样的表单提交方式
 }
 </script>
 <style scoped>

@@ -11,13 +11,13 @@
   </div>
 </template>
 <script setup>
-import { ref,reactive,onMounted } from 'vue';import { useRoute,useRouter } from 'vue-router';import { borrowApi } from '@/api/borrow';import { deviceApi } from '@/api/device';import { adminApi } from '@/api/admin';import { ElMessage } from 'element-plus'
+import { ref,reactive,onMounted } from 'vue';import { useRoute,useRouter } from 'vue-router';import { borrowApi } from '@/api/borrow';import { deviceApi } from '@/api/device';import axios from '@/api/request';import { ElMessage } from 'element-plus'
 const route=useRoute();const router=useRouter();const devices=ref([]);const teachers=ref([]);const submitting=ref(false)
 const f=reactive({deviceIds:[],startTime:'',endTime:'',reason:'',approverId:null})
 onMounted(async()=>{
   try{const{data}=await deviceApi.list({page:1,size:200,status:1});devices.value=data.records}
   catch{}
-  try{const{data}=await adminApi.getUsers({page:1,size:500});teachers.value=data.records}
+  try{const{data}=await axios.get('/auth/approvers');teachers.value=data||[]}
   catch{}
   if(route.query.deviceId) f.deviceIds=[Number(route.query.deviceId)]
 })

@@ -4,6 +4,9 @@ export const authApi = {
   casLogin(token, cookies) {
     return request.post('/auth/cas/login', { token, cookies })
   },
+  casCredentialLogin(username, password) {
+    return request.post('/auth/cas/credential-login', { username, password })
+  },
   login(data) {
     return request.post('/auth/local/login', data)
   },

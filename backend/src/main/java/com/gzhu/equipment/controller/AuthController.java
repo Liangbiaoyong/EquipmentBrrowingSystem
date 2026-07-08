@@ -36,6 +36,7 @@ public class AuthController {
     private final AuthService authService;
     private final LoginRateLimiter rateLimiter;
     private final TokenBlacklist tokenBlacklist;
+    private final com.gzhu.equipment.mapper.SysUserMapper sysUserMapper;
 
     @org.springframework.beans.factory.annotation.Value("${cas.dev-mode:false}")
     private boolean casDevMode;
@@ -56,6 +57,21 @@ public class AuthController {
      *
      * POST /api/v1/auth/cas/login
      */
+    @PostMapping("/cas/credential-login")
+    @ApiOperation("CAS服务端无感登录（用户名+密码，无需跳转）")
+    public R<LoginVO> casCredentialLogin(@RequestBody java.util.Map<String,String> body) {
+        String username = body.get("username");
+        String password = body.get("password");
+        if (username == null || password == null) return R.fail(400, "用户名和密码不能为空");
+        try {
+            LoginVO vo = authService.casCredentialLogin(username, password);
+            return R.ok("CAS登录成功", vo);
+        } catch (Exception e) {
+            log.warn("CAS凭证登录失败: {}", e.getMessage());
+            return R.fail(401, "CAS登录失败: " + e.getMessage());
+        }
+    }
+
     @PostMapping("/cas/login")
     @ApiOperation("CAS统一认证登录")
     public R<LoginVO> casLogin(@Valid @RequestBody CasLoginRequest request) {
@@ -137,6 +153,18 @@ public class AuthController {
     /**
      * 健康检查（无需登录）
      */
+    @GetMapping("/approvers")
+    @ApiOperation("可选审批人列表（教师+管理员，所有登录用户可用）")
+    public R<java.util.List<com.gzhu.equipment.entity.SysUser>> listApprovers() {
+        var users = sysUserMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.gzhu.equipment.entity.SysUser>()
+                        .in(com.gzhu.equipment.entity.SysUser::getUserType, 1, 2, 3)
+                        .eq(com.gzhu.equipment.entity.SysUser::getStatus, 1)
+                        .orderByAsc(com.gzhu.equipment.entity.SysUser::getUserType)
+        );
+        return R.ok(users);
+    }
+
     @GetMapping("/health")
     @ApiOperation("认证服务健康检查（含CAS模式信息）")
     public R<java.util.Map<String,Object>> health() {
