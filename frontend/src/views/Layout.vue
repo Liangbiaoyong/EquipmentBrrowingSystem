@@ -13,7 +13,7 @@
       <el-header class="header">
         <div class="header-left"><el-icon class="collapse-btn" @click="isCollapse=!isCollapse"><Fold v-if="!isCollapse"/><Expand v-else/></el-icon></div>
         <div class="header-right">
-          <el-badge :value="unread" :hidden="!unread" class="notify-badge" @click="$router.push('/notifications')"><el-icon:size="20"><Bell/></el-icon></el-badge>
+          <el-badge :value="unread" :hidden="!unread" class="notify-badge" @click="$router.push('/notifications')"><el-icon :size="20"><Bell/></el-icon></el-badge>
           <el-dropdown trigger="click"><span class="user-info">{{userStore.userInfo?.realName||'用户'}}<el-icon><ArrowDown/></el-icon></span><template #dropdown><el-dropdown-menu><el-dropdown-item @click="$router.push('/profile')">个人中心</el-dropdown-item><el-dropdown-item divided @click="handleLogout">退出登录</el-dropdown-item></el-dropdown-menu></template></el-dropdown>
         </div>
       </el-header>

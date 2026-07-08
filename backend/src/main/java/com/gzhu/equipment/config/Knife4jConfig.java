@@ -12,7 +12,7 @@ import springfox.documentation.spring.web.plugins.Docket;
 /**
  * Knife4j (Swagger) 配置
  *
- * Knife4j 4.x 自动注册 Swagger 2 资源，无需 @EnableSwagger2
+ * Springfox 3.0.0 自动配置，@EnableOpenApi 可选。
  */
 @Configuration
 public class Knife4jConfig {

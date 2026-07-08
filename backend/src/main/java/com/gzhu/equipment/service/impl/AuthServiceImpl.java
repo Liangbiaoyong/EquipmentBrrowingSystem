@@ -59,14 +59,17 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public LoginVO casLogin(CasLoginRequest request) {
         // Step 1: 调用CAS用户信息API验证token
-        JsonNode userData = fetchCasUserInfo(request.getToken(), request.getCookies());
-        if (userData == null) {
-            throw new BadCredentialsException("CAS token无效或已过期");
+        CasResult casResult = fetchCasUserInfo(request.getToken(), request.getCookies());
+        if (casResult.error != null) {
+            throw new BadCredentialsException(casResult.error);
+        }
+        if (casResult.data == null || casResult.data.isNull() || casResult.data.isMissingNode()) {
+            throw new BadCredentialsException("CAS返回的用户信息为空");
         }
 
         // Step 2: 解析CAS返回的用户信息
-        SysUser casUser = parseCasUserInfo(userData);
-        if (casUser.getUsername() == null || casUser.getUsername().isEmpty()) {
+        SysUser casUser = parseCasUserInfo(casResult.data);
+        if (casUser == null || casUser.getUsername() == null || casUser.getUsername().isEmpty()) {
             throw new BadCredentialsException("CAS返回的用户信息不完整，缺少用户名");
         }
 
@@ -78,12 +81,25 @@ public class AuthServiceImpl implements AuthService {
     }
 
     /**
+     * CAS API 调用结果
+     */
+    private static class CasResult {
+        final JsonNode data;
+        final String error;
+
+        CasResult(JsonNode data, String error) {
+            this.data = data;
+            this.error = error;
+        }
+    }
+
+    /**
      * 调用CAS用户信息API —— GET https://libbooking.gzhu.edu.cn/ic-web/auth/userInfo
      *
      * 请求头：token, lan, accept, cookie
      * 响应格式：{"code":"0", "message":"success", "data":{...}}
      */
-    private JsonNode fetchCasUserInfo(String token, String cookies) {
+    private CasResult fetchCasUserInfo(String token, String cookies) {
         try {
             HttpHeaders headers = new HttpHeaders();
             headers.set("accept", "application/json, text/plain, */*");
@@ -103,24 +119,28 @@ public class AuthServiceImpl implements AuthService {
 
             if (response.getStatusCode() != HttpStatus.OK || response.getBody() == null) {
                 log.warn("CAS userInfo API返回非200: status={}", response.getStatusCodeValue());
-                return null;
+                return new CasResult(null, "CAS认证服务暂时不可用（" + response.getStatusCodeValue() + "）");
             }
 
             JsonNode root = objectMapper.readTree(response.getBody());
             String code = root.path("code").asText();
 
-            // code不为"0"即为失败（message字段仅供参考，不作为成功判定依据）
+            // code不为"0"即为失败
             if (!"0".equals(code)) {
-                log.warn("CAS userInfo API返回错误: code={}, message={}",
-                        code, root.path("message").asText(""));
-                return null;
+                String msg = root.path("message").asText("未知错误");
+                log.warn("CAS userInfo API返回错误: code={}, message={}", code, msg);
+                return new CasResult(null, "CAS认证失败: " + msg + "（code=" + code + "）");
             }
 
-            return root.path("data");
+            JsonNode data = root.path("data");
+            return new CasResult(data, null);
 
+        } catch (org.springframework.web.client.ResourceAccessException e) {
+            log.error("CAS API连接超时或网络不可达: {}", e.getMessage());
+            return new CasResult(null, "CAS认证服务连接超时，请检查网络连接");
         } catch (Exception e) {
             log.error("调用CAS userInfo API失败: {}", e.getMessage(), e);
-            return null;
+            return new CasResult(null, "CAS认证服务异常，请稍后重试");
         }
     }
 

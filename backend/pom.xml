@@ -72,10 +72,16 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- Knife4j (Swagger) — 2.0.9 兼容 Spring Boot 2.7.x + Java 8 -->
+        <!-- Springfox Boot Starter — 3.0.0 兼容 Spring Boot 2.7.x (OpenAPI 2/Swagger 2) -->
+        <dependency>
+            <groupId>io.springfox</groupId>
+            <artifactId>springfox-boot-starter</artifactId>
+            <version>3.0.0</version>
+        </dependency>
+        <!-- Knife4j UI (只使用UI, 不包含springfox) -->
         <dependency>
             <groupId>com.github.xiaoymin</groupId>
-            <artifactId>knife4j-spring-boot-starter</artifactId>
+            <artifactId>knife4j-spring-ui</artifactId>
             <version>${knife4j.version}</version>
         </dependency>
 

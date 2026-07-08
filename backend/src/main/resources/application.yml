@@ -1,3 +1,11 @@
 spring:
   profiles:
     active: dev
+  mvc:
+    pathmatch:
+      matching-strategy: ant_path_matcher
+
+# Springfox 3.0.0 兼容配置
+springfox:
+  documentation:
+    auto-startup: false
