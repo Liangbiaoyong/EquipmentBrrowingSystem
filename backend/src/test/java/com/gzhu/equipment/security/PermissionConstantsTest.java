@@ -37,13 +37,14 @@ class PermissionConstantsTest {
         assertThat(perms).hasSize(12);
     }
 
-    @Test @DisplayName("系统管理员 → 16个权限")
+    @Test @DisplayName("系统管理员 → 18个权限")
     void systemAdmin_shouldHaveAllPerms() {
         List<String> perms = PermissionConstants.getPermissionsByUserType(3);
         assertThat(perms).contains(
                 "admin:user", "admin:config", "admin:log", "admin:backup",
-                "device:manage", "approval:first", "approval:second");
-        assertThat(perms).hasSize(16);
+                "device:manage", "approval:first", "approval:second",
+                "borrow:create", "borrow:my");
+        assertThat(perms).hasSize(18);
     }
 
     @Test @DisplayName("null类型 → 空权限列表")

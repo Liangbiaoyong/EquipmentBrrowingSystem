@@ -65,7 +65,7 @@ public final class PermissionConstants {
     private static final List<String> SYSTEM_ADMIN_PERMS = Collections.unmodifiableList(Arrays.asList(
             DASHBOARD_VIEW, NOTIFICATION_VIEW, PROFILE_VIEW,
             DEVICE_VIEW, DEVICE_MANAGE,
-            BORROW_VIEW, BORROW_RETURN,
+            BORROW_CREATE, BORROW_MY, BORROW_VIEW, BORROW_RETURN,
             APPROVAL_FIRST, APPROVAL_SECOND,
             RETURN_MANAGE, REPAIR_MANAGE,
             STATISTICS_VIEW,

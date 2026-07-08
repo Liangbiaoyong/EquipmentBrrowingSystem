@@ -328,31 +328,32 @@ public class DeviceImportServiceImpl implements DeviceImportService {
      * CSV/XLSX 列 → Device 字段映射
      */
     private Device mapColumns(List<String> cols, Long userId, String batchId) {
-        String assetNo = getCol(cols, 2);
+        // CSV列索引从0开始(0=终审单位,1=资产编号,2=资产名称,...)
+        String assetNo = getCol(cols, 1);
         if (assetNo == null || assetNo.trim().isEmpty()) return null;
 
         Device d = new Device();
         d.setAssetNo(assetNo.trim());
-        d.setName(getCol(cols, 3));
-        d.setModel(getCol(cols, 4));
-        d.setSpecs(getCol(cols, 5));
-        d.setTotalQty(parseIntSafe(getCol(cols, 6), 1));
-        d.setUnitPrice(parseBigDecimalSafe(getCol(cols, 7)));
-        d.setTotalAmount(parseBigDecimalSafe(getCol(cols, 8)));
-        d.setPurchaseDate(parseExcelDate(getCol(cols, 9)));
-        d.setDepartment(getCol(cols, 10));
-        d.setCustodian(getCol(cols, 11));
-        d.setLocation(getCol(cols, 13));
-        d.setDescription(getCol(cols, 14));
-        d.setEduCategoryName(getCol(cols, 20));
-        d.setEduCategoryCode(getCol(cols, 21));
-        d.setGbCategoryName(getCol(cols, 22));
-        d.setGbCategoryCode(getCol(cols, 23));
-        d.setManufacturer(getCol(cols, 25));
-        d.setSupplier(getCol(cols, 32));
-        d.setInvoiceNo(getCol(cols, 33));
-        d.setContractNo(getCol(cols, 34));
-        d.setWarrantyPeriod(parseIntSafe(getCol(cols, 37), null));
+        d.setName(getCol(cols, 2));
+        d.setModel(getCol(cols, 3));
+        d.setSpecs(getCol(cols, 4));
+        d.setTotalQty(parseIntSafe(getCol(cols, 5), 1));
+        d.setUnitPrice(parseBigDecimalSafe(getCol(cols, 6)));
+        d.setTotalAmount(parseBigDecimalSafe(getCol(cols, 7)));
+        d.setPurchaseDate(parseExcelDate(getCol(cols, 8)));
+        d.setDepartment(getCol(cols, 9));
+        d.setCustodian(getCol(cols, 10));
+        d.setLocation(getCol(cols, 12));
+        d.setDescription(getCol(cols, 13));
+        d.setEduCategoryName(getCol(cols, 19));
+        d.setEduCategoryCode(getCol(cols, 20));
+        d.setGbCategoryName(getCol(cols, 21));
+        d.setGbCategoryCode(getCol(cols, 22));
+        d.setManufacturer(getCol(cols, 24));
+        d.setSupplier(getCol(cols, 31));
+        d.setInvoiceNo(getCol(cols, 32));
+        d.setContractNo(getCol(cols, 33));
+        d.setWarrantyPeriod(parseIntSafe(getCol(cols, 36), null));
         d.setImportBatchId(batchId);
         d.setStatus(1);
         d.setCreateBy(userId);

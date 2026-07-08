@@ -55,20 +55,20 @@ class DeviceImportServiceImplTest {
         // 数据行
         String[] cols = new String[40];
         for (int i = 0; i < 40; i++) cols[i] = "";
-        cols[2] = assetNo;   // 资产编号
-        cols[3] = name;      // 名称
-        cols[4] = "型号X";   // 型号
-        cols[5] = "规格Y";   // 规格
-        cols[6] = "1";       // 数量
-        cols[7] = "5000";    // 单价
-        cols[8] = "5000";    // 金额
-        cols[9] = "46182";   // 购置日期(Excel序列号)
-        cols[10] = "建筑学院"; // 使用单位
-        cols[11] = "张三";    // 使用人
-        cols[13] = "三楼";   // 存放地
-        cols[14] = "备注";   // 描述
-        cols[20] = "教育分类"; // 教育分类名
-        cols[22] = "计算机";  // 国标分类名
+        cols[1] = assetNo;   // 资产编号
+        cols[2] = name;      // 名称
+        cols[3] = "型号X";   // 型号
+        cols[4] = "规格Y";   // 规格
+        cols[5] = "1";       // 数量
+        cols[6] = "5000";    // 单价
+        cols[7] = "5000";    // 金额
+        cols[8] = "46182";   // 购置日期(Excel序列号)
+        cols[9] = "建筑学院"; // 使用单位
+        cols[10] = "张三";    // 使用人
+        cols[12] = "三楼";   // 存放地
+        cols[13] = "备注";   // 描述
+        cols[19] = "教育分类"; // 教育分类名
+        cols[21] = "计算机";  // 国标分类名
         return headerLine() + "\n" + String.join(",", cols);
     }
 
@@ -135,8 +135,8 @@ class DeviceImportServiceImplTest {
         // 名称(col[3])包含引号逗号 — 首行表头
         String csv = headerLine() + "\n";
         String[] cols = new String[40];
-        cols[2] = "ASSET001";
-        cols[3] = "\"测试,电脑\"";
+        cols[1] = "ASSET001";
+        cols[2] = "\"测试,电脑\"";  // col[2]=name
         csv += String.join(",", cols);
         when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(null);
 
@@ -150,9 +150,9 @@ class DeviceImportServiceImplTest {
     void importCsv_formattedAmount_shouldParse() throws Exception {
         String csv = headerLine() + "\n";
         String[] cols = new String[40];
-        cols[2] = "ASSET001";
-        cols[3] = "设备A";
-        cols[7] = "\"17,500\""; // 千分位金额
+        cols[1] = "ASSET001";
+        cols[2] = "设备A";
+        cols[6] = "\"17,500\""; // 单价(col[6]=unitPrice)
         csv += String.join(",", cols);
         when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(null);
 

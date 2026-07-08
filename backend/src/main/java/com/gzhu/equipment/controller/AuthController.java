@@ -37,6 +37,17 @@ public class AuthController {
     private final LoginRateLimiter rateLimiter;
     private final TokenBlacklist tokenBlacklist;
 
+    @org.springframework.beans.factory.annotation.Value("${cas.dev-mode:false}")
+    private boolean casDevMode;
+
+    @org.springframework.beans.factory.annotation.Value("${cas.userinfo-url:https://libbooking.gzhu.edu.cn/ic-web/auth/userInfo}")
+    private String casUserInfoUrl;
+
+    @javax.annotation.PostConstruct
+    void init() {
+        log.info("CAS配置: devMode={} userinfoUrl={}", casDevMode, casUserInfoUrl);
+    }
+
     /**
      * CAS 统一认证登录
      *
@@ -127,8 +138,14 @@ public class AuthController {
      * 健康检查（无需登录）
      */
     @GetMapping("/health")
-    @ApiOperation("认证服务健康检查")
-    public R<String> health() {
-        return R.ok("认证服务正常");
+    @ApiOperation("认证服务健康检查（含CAS模式信息）")
+    public R<java.util.Map<String,Object>> health() {
+        return R.ok(java.util.Map.of(
+            "status", "UP",
+            "casMode", java.util.Map.of(
+                "devMode", casDevMode,
+                "userinfoUrl", casUserInfoUrl
+            )
+        ));
     }
 }

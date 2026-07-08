@@ -54,16 +54,34 @@ public class AuthServiceImpl implements AuthService {
     @Value("${cas.userinfo-url:https://libbooking.gzhu.edu.cn/ic-web/auth/userInfo}")
     private String casUserInfoUrl;
 
+    @Value("${cas.dev-mode:false}")
+    private boolean casDevMode;
+
     // ==================== CAS 登录 ====================
 
     @Override
     public LoginVO casLogin(CasLoginRequest request) {
+        // Step 0: Dev模式绕过（仅开发/测试环境）
+        if (casDevMode && request.getToken() != null && request.getToken().startsWith("local:")) {
+            String username = request.getToken().substring(6);
+            SysUser user = sysUserService.getByUsername(username);
+            if (user == null) throw new BadCredentialsException("用户不存在: " + username);
+            return buildLoginVO(user);
+        }
+
         // Step 1: 调用CAS用户信息API验证token
+        log.info("CAS登录开始: token预览={}... cookies长度={}",
+                request.getToken() != null ? request.getToken().substring(0, Math.min(20, request.getToken().length())) : "null",
+                request.getCookies() != null ? request.getCookies().length() : 0);
+        log.info("CAS API地址: {}", casUserInfoUrl);
+
         CasResult casResult = fetchCasUserInfo(request.getToken(), request.getCookies());
         if (casResult.error != null) {
+            log.warn("CAS登录失败: {}", casResult.error);
             throw new BadCredentialsException(casResult.error);
         }
         if (casResult.data == null || casResult.data.isNull() || casResult.data.isMissingNode()) {
+            log.warn("CAS返回的用户信息为空");
             throw new BadCredentialsException("CAS返回的用户信息为空");
         }
 

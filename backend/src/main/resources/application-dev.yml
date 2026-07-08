@@ -5,7 +5,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/device_borrow?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+    url: jdbc:mysql://localhost:3306/device_borrow?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&useUnicode=true
     username: devuser
     password: devpass
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -73,6 +73,8 @@ cas:
   request-timeout: 15000
   # CAS服务端地址（前端跳转用，后端记录仅供参考）
   server-url: https://newcas.gzhu.edu.cn/cas
+  # Dev模式：token以"local:"开头时跳过CAS API，直接用用户名查本地库
+  dev-mode: true
 
 knife4j:
   enable: true
