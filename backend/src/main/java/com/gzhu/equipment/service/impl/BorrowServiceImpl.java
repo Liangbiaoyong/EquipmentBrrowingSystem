@@ -183,13 +183,18 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             throw new IllegalArgumentException("驳回时必须填写审批意见");
         }
 
-        // 更新审批记录
+        // 判断审批人身份
+        SysUser approverUser = userMapper.selectById(approverId);
+        boolean isApproverAdmin = approverUser != null && (approverUser.getUserType() == 2 || approverUser.getUserType() == 3);
+
+        // 查找审批记录：admin可处理未分配(null approverId)的记录
         ApprovalLog approvalLog = approvalMapper.selectOne(
                 new LambdaQueryWrapper<ApprovalLog>()
                         .eq(ApprovalLog::getBorrowId, dto.getBorrowId())
                         .eq(ApprovalLog::getStep, currentStep)
-                        .eq(ApprovalLog::getApproverId, approverId)
-                        .eq(ApprovalLog::getResult, "PENDING"));
+                        .eq(ApprovalLog::getResult, "PENDING")
+                        .and(w -> w.eq(ApprovalLog::getApproverId, approverId)
+                                .or(isApproverAdmin, w2 -> w2.isNull(ApprovalLog::getApproverId))));
         if (approvalLog == null) {
             throw new IllegalArgumentException("您不是当前审批节点的审批人");
         }

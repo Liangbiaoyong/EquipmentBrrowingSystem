@@ -76,6 +76,17 @@ public class AdminController {
         return R.ok();
     }
 
+    @DeleteMapping("/users/{id}")
+    @ApiOperation("删除用户")
+    @PreAuthorize("hasAuthority('admin:user')")
+    public R<String> deleteUser(@PathVariable Long id) {
+        SysUser user = userMapper.selectById(id);
+        if (user == null) return R.fail(404, "用户不存在");
+        if (user.getUsername().equals("admin")) return R.fail(400, "不能删除admin账户");
+        userMapper.deleteById(id);
+        return R.ok("已删除");
+    }
+
     @PutMapping("/users/{id}/status")
     @ApiOperation("启用/禁用用户")
     @PreAuthorize("hasAuthority('admin:user')")

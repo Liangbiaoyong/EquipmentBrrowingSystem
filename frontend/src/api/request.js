@@ -24,7 +24,7 @@ request.interceptors.response.use(
   (response) => {
     const res = response.data
     if (res.code !== 200) {
-      ElMessage.error(res.msg || '请求失败')
+      // 不弹窗，由业务层处理 ('请求失败')
       return Promise.reject(new Error(res.msg))
     }
     return res
@@ -33,9 +33,9 @@ request.interceptors.response.use(
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
       router.push('/login')
-      ElMessage.error('登录已过期，请重新登录')
+      localStorage.removeItem('permissions'); router.push('/login')
     } else {
-      ElMessage.error(error.message || '网络错误')
+      // 网络错误静默，由页面自行展示空状态
     }
     return Promise.reject(error)
   }

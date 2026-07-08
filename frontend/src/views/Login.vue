@@ -12,7 +12,7 @@
         <el-form-item prop="password"><el-input v-model="form.password" type="password" placeholder="密码" :prefix-icon="Lock" show-password/></el-form-item>
         <el-form-item><el-button type="primary" class="login-btn" :loading="logging" @click="handleLogin">登 录</el-button></el-form-item>
       </el-form>
-      <div class="cas-login"><el-divider>或</el-divider><el-button @click="handleLogin" class="cas-btn" :loading="logging">广州大学 CAS 登录</el-button></div>
+      <div class="cas-login"><el-divider>或</el-divider><el-button @click="handleCasLogin" class="cas-btn" :loading="logging">广州大学 CAS 登录</el-button></div>
     </el-card>
   </div>
 </template>
@@ -34,13 +34,21 @@ async function handleLogin(){
   if(!valid)return
   logging.value=true
   try{
-    // 优先CAS服务端无感登录
+    await userStore.login(form)
+    router.push('/')
+  }catch(e){}finally{logging.value=false}
+}
+
+async function handleCasLogin(){
+  logging.value=true
+  try{
     const res=await authApi.casCredentialLogin(form.username,form.password)
     userStore.loginCas(res.data)
     router.push('/dashboard')
-  }catch(casErr){
-    // CAS失败则尝试本地登录
-    try{await userStore.login(form);router.push('/')}catch(e){}
+  }catch(e){
+    // CAS失败走浏览器重定向
+    const service=encodeURIComponent(window.location.origin+'/login')
+    window.location.href='https://newcas.gzhu.edu.cn/cas/login?service='+service
   }finally{logging.value=false}
 }
 </script>

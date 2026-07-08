@@ -104,7 +104,7 @@ class BorrowServiceImplTest {
         assertThat(records.get(0).getStatus()).isEqualTo("PENDING_APPROVAL");
         assertThat(records.get(0).getCurrentStep()).isEqualTo(1);
         verify(borrowMapper).insert(any(BorrowRecord.class));
-        verify(approvalMapper).insert(any(ApprovalLog.class));
+        verify(approvalMapper, times(2)).insert(any(ApprovalLog.class));
     }
 
     @Test

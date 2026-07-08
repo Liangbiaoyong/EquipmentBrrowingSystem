@@ -66,6 +66,7 @@ public class SecurityConfig {
             // CAS/本地登录 + 健康检查
             .antMatchers(
                 "/auth/cas/login",
+                "/auth/cas/credential-login",
                 "/auth/local/login",
                 "/auth/health"
             ).permitAll()
