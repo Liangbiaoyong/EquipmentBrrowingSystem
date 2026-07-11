@@ -81,6 +81,9 @@ class DeviceControllerTest {
     @MockBean
     private com.gzhu.equipment.mapper.SysUserMapper sysUserMapper;
 
+    @MockBean
+    private com.gzhu.equipment.mapper.LaboratoryMapper laboratoryMapper;
+
     @BeforeEach
     void setUp() {
         // 设置认证上下文 — JwtUserPrincipal
@@ -98,7 +101,7 @@ class DeviceControllerTest {
     @DisplayName("GET /devices → 分页查询设备列表")
     void listDevices_shouldReturnPage() throws Exception {
         Page<Device> page = new Page<>(1, 20);
-        when(deviceService.pageQuery(anyInt(), anyInt(), any(), any(), any(), any(), any()))
+        when(deviceService.pageQuery(anyInt(), anyInt(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(page);
 
         mockMvc.perform(get("/devices"))
@@ -110,7 +113,7 @@ class DeviceControllerTest {
     @Test
     @DisplayName("GET /devices?keyword=电脑&categoryId=1 → 带筛选条件的分页")
     void listDevices_withFilters_shouldReturnPage() throws Exception {
-        when(deviceService.pageQuery(anyInt(), anyInt(), any(), any(), any(), any(), any()))
+        when(deviceService.pageQuery(anyInt(), anyInt(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(new Page<>());
 
         mockMvc.perform(get("/devices")
@@ -260,7 +263,7 @@ class DeviceControllerTest {
         device.setName("测试设备");
         Page<Device> page = new Page<>(1, 10000);
         page.setRecords(List.of(device));
-        when(deviceService.pageQuery(anyInt(), anyInt(), any(), any(), any(), any(), any()))
+        when(deviceService.pageQuery(anyInt(), anyInt(), any(), any(), any(), any(), any(), any(), any()))
                 .thenReturn(page);
 
         mockMvc.perform(get("/devices/export/csv"))

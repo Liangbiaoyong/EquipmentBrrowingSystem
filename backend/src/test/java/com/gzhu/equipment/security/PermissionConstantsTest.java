@@ -9,42 +9,43 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class PermissionConstantsTest {
 
-    @Test @DisplayName("学生 → 8个权限")
+    @Test @DisplayName("学生 → 9个权限")
     void student_shouldHave8Perms() {
         List<String> perms = PermissionConstants.getPermissionsByUserType(0);
         assertThat(perms).contains(
-                "dashboard:view", "device:view",
+                "dashboard:view", "device:view", "laboratory:view",
                 "borrow:create", "borrow:my", "borrow:view", "borrow:return")
                 .doesNotContain("device:manage", "approval:first", "admin:user");
-        assertThat(perms).hasSize(8);
+        assertThat(perms).hasSize(9);
     }
 
     @Test @DisplayName("教师 → 学生权限+一级审批+统计")
     void teacher_shouldHaveExtraPerms() {
         List<String> perms = PermissionConstants.getPermissionsByUserType(1);
         assertThat(perms).contains("approval:first", "statistics:view");
-        assertThat(perms).hasSize(10);
+        assertThat(perms).hasSize(11);
     }
 
-    @Test @DisplayName("实验室管理员 → 11个权限+一级审批=12")
+    @Test @DisplayName("实验室管理员 → 13+一级审批=14")
     void labAdmin_shouldHaveManagePerms() {
         List<String> perms = PermissionConstants.getPermissionsByUserType(2);
         assertThat(perms).contains(
-                "device:manage", "approval:second",
+                "device:manage", "laboratory:manage", "approval:second",
                 "return:manage", "repair:manage",
                 "approval:first")
                 .doesNotContain("admin:user", "admin:config");
-        assertThat(perms).hasSize(12);
+        assertThat(perms).hasSize(14);
     }
 
-    @Test @DisplayName("系统管理员 → 18个权限")
+    @Test @DisplayName("系统管理员 → 20个权限")
     void systemAdmin_shouldHaveAllPerms() {
         List<String> perms = PermissionConstants.getPermissionsByUserType(3);
         assertThat(perms).contains(
                 "admin:user", "admin:config", "admin:log", "admin:backup",
-                "device:manage", "approval:first", "approval:second",
+                "device:manage", "laboratory:manage",
+                "approval:first", "approval:second",
                 "borrow:create", "borrow:my");
-        assertThat(perms).hasSize(18);
+        assertThat(perms).hasSize(20);
     }
 
     @Test @DisplayName("null类型 → 空权限列表")

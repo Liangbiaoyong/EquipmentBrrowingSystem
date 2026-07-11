@@ -37,7 +37,7 @@ class RepairServiceImplTest {
 
         assertThat(result.getStatus()).isEqualTo("PENDING");
         assertThat(result.getDeviceId()).isEqualTo(1L);
-        assertThat(device.getStatus()).isEqualTo(2);
+        assertThat(device.getStatus()).isEqualTo(3);
         verify(deviceMapper).updateById(device);
         verify(repairMapper).insert(any(RepairRecord.class));
     }

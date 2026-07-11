@@ -41,7 +41,7 @@ class DeviceServiceImplTest {
     @Test
     @DisplayName("分页查询 → 调用 selectPage")
     void pageQuery_shouldCallSelectPage() {
-        deviceService.pageQuery(1, 20, "电脑", 1L, 1, "三楼", null);
+        deviceService.pageQuery(1, 20, "电脑", 1L, 1, "三楼", null, null, null);
 
         verify(deviceMapper).selectPage(any(), any());
     }
@@ -49,7 +49,7 @@ class DeviceServiceImplTest {
     @Test
     @DisplayName("分页查询（无筛选条件）→ 调用 selectPage")
     void pageQuery_noFilters_shouldCallSelectPage() {
-        deviceService.pageQuery(1, 10, null, null, null, null, null);
+        deviceService.pageQuery(1, 10, null, null, null, null, null, null, null);
 
         verify(deviceMapper).selectPage(any(), any());
     }

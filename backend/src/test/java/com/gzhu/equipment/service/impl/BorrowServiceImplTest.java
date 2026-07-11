@@ -380,7 +380,7 @@ class BorrowServiceImplTest {
 
         borrowService.returnDevice(100L, 10L, "镜头破损");
 
-        assertThat(device.getStatus()).isEqualTo(2); // 维修中
+        assertThat(device.getStatus()).isEqualTo(3); // 维修中/待报废
     }
 
     @Test

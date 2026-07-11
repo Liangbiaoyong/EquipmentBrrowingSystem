@@ -22,8 +22,8 @@ const routes = [
       { path: 'borrows/:id', name: 'BorrowDetail', component: () => import('@/views/borrow/BorrowDetail.vue'), meta: { title: '借用详情', perm: 'borrow:view' } },
       { path: 'borrows/:id/return', name: 'BorrowReturn', component: () => import('@/views/borrow/BorrowReturn.vue'), meta: { title: '归还登记', perm: 'borrow:return' } },
       // 审批
-      { path: 'approvals/first', name: 'ApprovalFirst', component: () => import('@/views/approval/ApprovalFirst.vue'), meta: { title: '一级审批', perm: 'approval:first' } },
-      { path: 'approvals/second', name: 'ApprovalSecond', component: () => import('@/views/approval/ApprovalSecond.vue'), meta: { title: '二级审批', perm: 'approval:second' } },
+      { path: 'approvals/first', name: 'ApprovalFirst', component: () => import('@/views/approval/ApprovalFirst.vue'), meta: { title: '初审', perm: 'approval:first' } },
+      { path: 'approvals/second', name: 'ApprovalSecond', component: () => import('@/views/approval/ApprovalSecond.vue'), meta: { title: '终审', perm: 'approval:second' } },
       // 归还管理
       { path: 'returns/overdue', name: 'OverdueList', component: () => import('@/views/borrow/OverdueList.vue'), meta: { title: '逾期管理', perm: 'return:manage' } },
       { path: 'returns/verify', name: 'ReturnVerify', component: () => import('@/views/borrow/ReturnVerify.vue'), meta: { title: '归还核验', perm: 'return:manage' } },
