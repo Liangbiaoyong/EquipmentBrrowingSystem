@@ -261,7 +261,7 @@ public class DeviceController {
         if (batchId != null) {
             devices = deviceService.listByBatchId(batchId);
         } else {
-            IPage<Device> page = deviceService.pageQuery(1, 10000, null, categoryId, null, null, null);
+            IPage<Device> page = deviceService.pageQuery(1, 10000, null, categoryId, null, null, null, null, null);
             devices = page.getRecords();
         }
 
