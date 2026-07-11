@@ -91,6 +91,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             r.setStartTime(dto.getStartTime()); r.setEndTime(dto.getEndTime());
             r.setReason(dto.getReason()); r.setPurpose(dto.getPurpose());
             r.setPurposeCategory(dto.getPurposeCategory());
+            r.setPurposeSubcategory(dto.getPurposeSubcategory());
             r.setStatus("PENDING_APPROVAL");
             r.setCurrentStep(1); r.setApproveFlowDef(flowDef);
             borrowMapper.insert(r);

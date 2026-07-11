@@ -158,7 +158,8 @@ CREATE TABLE IF NOT EXISTS `borrow_record` (
   `status` varchar(20) NOT NULL DEFAULT 'PENDING_APPROVAL' COMMENT '状态: PENDING_APPROVAL/APPROVED/REJECTED/BORROWING/RETURNED/OVERDUE/CANCELLED',
   `reason` text COMMENT '借用事由',
   `purpose` varchar(500) DEFAULT NULL COMMENT '借用目的（V4：申请时必填）',
-  `purpose_category` varchar(50) DEFAULT NULL COMMENT '目的分类: 教学/科研/行政办公/竞赛活动/其他',
+  `purpose_category` varchar(50) DEFAULT NULL COMMENT '目的大类',
+  `purpose_subcategory` varchar(50) DEFAULT NULL COMMENT '目的子分类',
   `approve_flow_def` text COMMENT '审批流定义JSON',
   `current_step` int DEFAULT '0' COMMENT '当前审批步骤',
   `real_return_time` datetime DEFAULT NULL COMMENT '实际归还时间',
@@ -174,6 +175,25 @@ CREATE TABLE IF NOT EXISTS `borrow_record` (
   KEY `idx_device` (`device_id`),
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='借用单表';
+
+-- -----------------------------------------------------------
+-- 6.5 借用成果表（V4.1新增）
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `borrow_outcome` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `borrow_id` bigint DEFAULT NULL COMMENT '关联借用单ID',
+  `device_id` bigint NOT NULL COMMENT '关联设备ID',
+  `outcome_type` varchar(50) NOT NULL COMMENT '成果类型',
+  `title` varchar(500) DEFAULT NULL COMMENT '成果标题',
+  `detail` text COMMENT '成果详情（JSON）',
+  `file_urls` text COMMENT '附件URL列表',
+  `recorded_by` bigint DEFAULT NULL COMMENT '录入人',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_borrow` (`borrow_id`),
+  KEY `idx_device` (`device_id`),
+  KEY `idx_type` (`outcome_type`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='借用成果记录表';
 
 -- -----------------------------------------------------------
 -- 7. 审批记录表

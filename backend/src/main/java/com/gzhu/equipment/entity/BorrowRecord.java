@@ -26,8 +26,10 @@ public class BorrowRecord implements Serializable {
     private String reason;
     /** V4: 借用目的（申请时必填） */
     private String purpose;
-    /** V4: 目的分类（教学/科研/行政办公/竞赛活动/其他） */
+    /** V4: 目的大类 */
     private String purposeCategory;
+    /** V4.1: 目的子分类 */
+    private String purposeSubcategory;
     private String approveFlowDef;  // JSON快照
     private Integer currentStep;
     private LocalDateTime realReturnTime;

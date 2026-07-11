@@ -15,6 +15,8 @@ const routes = [
       { path: 'devices/manage/list', name: 'DeviceManage', component: () => import('@/views/device/DeviceManage.vue'), meta: { title: '设备管理', perm: 'device:manage' } },
       { path: 'devices/manage/import', name: 'DeviceImport', component: () => import('@/views/device/DeviceImport.vue'), meta: { title: '批量导入', perm: 'device:manage' } },
       { path: 'devices/manage/missing-images', name: 'MissingImages', component: () => import('@/views/device/MissingImages.vue'), meta: { title: '缺少图片', perm: 'device:manage' } },
+      { path: 'devices/manage/categories', name: 'CategoryManage', component: () => import('@/views/device/CategoryManage.vue'), meta: { title: '分类管理', perm: 'device:manage' } },
+      { path: 'devices/manage/laboratories', name: 'LaboratoryManage', component: () => import('@/views/device/LaboratoryManage.vue'), meta: { title: '实验室管理', perm: 'laboratory:manage' } },
       { path: 'devices/:id', name: 'DeviceDetail', component: () => import('@/views/device/DeviceDetail.vue'), meta: { title: '设备详情', perm: 'device:view' } },
       // 借用
       { path: 'borrows/create', name: 'BorrowCreate', component: () => import('@/views/borrow/BorrowCreate.vue'), meta: { title: '借用申请', perm: 'borrow:create' } },
@@ -36,6 +38,7 @@ const routes = [
       { path: 'admin/settings', name: 'AdminSettings', component: () => import('@/views/admin/AdminSettings.vue'), meta: { title: '系统设置', perm: 'admin:config' } },
       { path: 'admin/logs', name: 'AdminLogs', component: () => import('@/views/admin/AdminLogs.vue'), meta: { title: '操作日志', perm: 'admin:log' } },
       { path: 'admin/data-tables', name: 'AdminDataTables', component: () => import('@/views/admin/AdminDataTables.vue'), meta: { title: '数据表管理', perm: 'admin:user' } },
+      { path: 'admin/backup', name: 'BackupManage', component: () => import('@/views/admin/BackupManage.vue'), meta: { title: '数据备份', perm: 'admin:backup' } },
       { path: 'repairs', name: 'RepairManage', component: () => import('@/views/repair/RepairManage.vue'), meta: { title: '维修管理', perm: 'repair:manage' } }
     ]
   }

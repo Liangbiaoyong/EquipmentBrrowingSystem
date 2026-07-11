@@ -225,6 +225,53 @@ public class BorrowController {
         return R.ok(borrowService.page(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), w));
     }
 
+    // ==================== V4 成果管理 ====================
+
+    private final com.gzhu.equipment.mapper.BorrowOutcomeMapper outcomeMapper;
+
+    @PostMapping("/{id}/outcomes")
+    @ApiOperation("新增成果记录")
+    @PreAuthorize("hasAnyAuthority('borrow:return','return:manage','laboratory:manage')")
+    public R<com.gzhu.equipment.entity.BorrowOutcome> addOutcome(@PathVariable Long id,
+             @RequestBody com.gzhu.equipment.entity.BorrowOutcome outcome) {
+        BorrowRecord record = borrowService.getDetail(id);
+        if (record == null) return R.fail(404, "借用单不存在");
+        outcome.setBorrowId(id);
+        outcome.setDeviceId(record.getDeviceId());
+        outcome.setRecordedBy(getCurrentUserId());
+        outcomeMapper.insert(outcome);
+        // 同时更新 borrow_record.outcome 摘要字段
+        if (record.getOutcome() == null) record.setOutcome(outcome.getTitle());
+        else record.setOutcome(record.getOutcome() + "；" + outcome.getTitle());
+        record.setOutcomeRecordedBy(getCurrentUserId());
+        record.setOutcomeRecordedTime(java.time.LocalDateTime.now());
+        borrowService.updateById(record);
+        return R.ok(outcome);
+    }
+
+    @GetMapping("/{id}/outcomes")
+    @ApiOperation("查看借用单的成果列表")
+    public R<java.util.List<com.gzhu.equipment.entity.BorrowOutcome>> listOutcomes(@PathVariable Long id) {
+        return R.ok(outcomeMapper.selectList(
+                new LambdaQueryWrapper<com.gzhu.equipment.entity.BorrowOutcome>().eq(com.gzhu.equipment.entity.BorrowOutcome::getBorrowId, id)));
+    }
+
+    @DeleteMapping("/outcomes/{outcomeId}")
+    @ApiOperation("删除成果记录")
+    @PreAuthorize("hasAnyAuthority('return:manage','laboratory:manage')")
+    public R<String> deleteOutcome(@PathVariable Long outcomeId) {
+        outcomeMapper.deleteById(outcomeId);
+        return R.ok("已删除");
+    }
+
+    @GetMapping("/device-outcomes")
+    @ApiOperation("按设备查询所有成果")
+    @PreAuthorize("hasAnyAuthority('statistics:view','laboratory:view')")
+    public R<java.util.List<com.gzhu.equipment.entity.BorrowOutcome>> deviceOutcomes(@RequestParam Long deviceId) {
+        return R.ok(outcomeMapper.selectList(
+                new LambdaQueryWrapper<com.gzhu.equipment.entity.BorrowOutcome>().eq(com.gzhu.equipment.entity.BorrowOutcome::getDeviceId, deviceId).orderByDesc(com.gzhu.equipment.entity.BorrowOutcome::getCreateTime)));
+    }
+
     // ==================== 辅助 ====================
 
     private Long getCurrentUserId() {

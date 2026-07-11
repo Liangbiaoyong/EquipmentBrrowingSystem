@@ -18,7 +18,9 @@ public class BorrowRequestDTO {
     /** V4: 借用目的（必填） */
     @NotEmpty(message = "请填写借用目的")
     private String purpose;
-    /** V4: 目的分类 */
+    /** V4: 目的大类 */
     private String purposeCategory;
+    /** V4.1: 目的子分类 */
+    private String purposeSubcategory;
     private Long approverId;
 }
