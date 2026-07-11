@@ -40,6 +40,9 @@ public class Device implements Serializable {
     /** 存放地名称 */
     private String location;
 
+    /** 所属实验室ID */
+    private Long laboratoryId;
+
     /** 使用单位 */
     private String department;
 
@@ -64,6 +67,9 @@ public class Device implements Serializable {
     /** 1可借用 2借用中 3维修中 4待报废 */
     private Integer status;
 
+    /** 借用类型: 1可现场借用 2可借出（默认） */
+    private Integer borrowType;
+
     /** 设备描述/备注 */
     private String description;
 
@@ -72,6 +78,10 @@ public class Device implements Serializable {
 
     /** 创建人ID */
     private Long createBy;
+
+    /** 实验室名称（非数据库字段，用于展示） */
+    @TableField(exist = false)
+    private String laboratoryName;
 
     // === 资产导入字段 ===
 

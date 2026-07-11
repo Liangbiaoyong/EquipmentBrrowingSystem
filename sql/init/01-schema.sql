@@ -73,6 +73,7 @@ CREATE TABLE IF NOT EXISTS `device` (
   `specs` text COMMENT '规格描述',
   `category_id` bigint DEFAULT NULL COMMENT '业务分类ID（关联device_category）',
   `location` varchar(500) DEFAULT NULL COMMENT '存放地名称',
+  `laboratory_id` bigint DEFAULT NULL COMMENT '所属实验室ID',
   `department` varchar(100) DEFAULT NULL COMMENT '使用单位',
   `custodian` varchar(50) DEFAULT NULL COMMENT '使用人姓名',
   `total_qty` int NOT NULL DEFAULT '1' COMMENT '数量',
@@ -81,6 +82,7 @@ CREATE TABLE IF NOT EXISTS `device` (
   `unit_price` decimal(12,2) DEFAULT NULL COMMENT '单价(元)',
   `total_amount` decimal(12,2) DEFAULT NULL COMMENT '金额(元)',
   `status` tinyint DEFAULT '1' COMMENT '1可借用 2借用中 3维修中 4待报废',
+  `borrow_type` tinyint DEFAULT '2' COMMENT '借用类型: 1可现场借用 2可借出（默认）',
   `description` text COMMENT '设备描述/备注',
   `cover_image` varchar(500) DEFAULT NULL COMMENT '封面图URL',
   `create_by` bigint DEFAULT NULL COMMENT '创建人ID',
@@ -105,7 +107,9 @@ CREATE TABLE IF NOT EXISTS `device` (
   KEY `idx_category` (`category_id`),
   KEY `idx_status` (`status`),
   KEY `idx_location` (`location`(100)),
-  KEY `idx_name` (`name`(50))
+  KEY `idx_name` (`name`(50)),
+  KEY `idx_borrow_type` (`borrow_type`),
+  KEY `idx_laboratory` (`laboratory_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='设备/资产表';
 
 -- -----------------------------------------------------------
@@ -241,6 +245,36 @@ CREATE TABLE IF NOT EXISTS `system_config` (
   PRIMARY KEY (`id`),
   UNIQUE KEY `uk_config_key` (`config_key`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统配置表';
+
+-- -----------------------------------------------------------
+-- 12. 实验室表
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `laboratory` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL COMMENT '实验室名称',
+  `code` varchar(50) DEFAULT NULL COMMENT '实验室编码',
+  `location_prefix` varchar(200) DEFAULT NULL COMMENT '存放地前缀',
+  `description` text COMMENT '实验室描述',
+  `status` tinyint DEFAULT '1' COMMENT '1启用 0禁用',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='实验室表';
+
+-- -----------------------------------------------------------
+-- 13. 实验室地点映射表
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `laboratory_room` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `laboratory_id` bigint NOT NULL COMMENT '关联实验室ID',
+  `room_name` varchar(100) NOT NULL COMMENT '房间/地点简称（如工程南501）',
+  `full_location` varchar(500) DEFAULT NULL COMMENT '完整存放地名称',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_laboratory` (`laboratory_id`),
+  KEY `idx_room_name` (`room_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='实验室地点映射表';
 
 -- 预置默认配置
 INSERT INTO `system_config` (`config_key`, `config_value`, `description`) VALUES

@@ -15,7 +15,8 @@ public interface DeviceService extends IService<Device> {
     IPage<Device> pageQuery(int page, int size,
                             String keyword, Long categoryId,
                             Integer status, String location,
-                            String gbCategoryName);
+                            String gbCategoryName,
+                            Integer borrowType, Long laboratoryId);
 
     /** 按分类统计设备数量 */
     List<Long> countByCategory();

@@ -7,6 +7,7 @@ import com.gzhu.equipment.entity.*;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceCategoryMapper;
 import com.gzhu.equipment.mapper.DeviceImageMapper;
+import com.gzhu.equipment.mapper.LaboratoryMapper;
 import com.gzhu.equipment.service.DeviceImportService;
 import com.gzhu.equipment.service.DeviceService;
 import com.gzhu.equipment.vo.DeviceDetailVO;
@@ -46,6 +47,7 @@ public class DeviceController {
     private final BorrowRecordMapper borrowMapper;
     private final com.gzhu.equipment.mapper.DeviceMapper deviceMapper;
     private final com.gzhu.equipment.mapper.SysUserMapper sysUserMapper;
+    private final LaboratoryMapper laboratoryMapper;
 
     // ==================== 查询 ====================
 
@@ -57,9 +59,11 @@ public class DeviceController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) Integer borrowType,
+            @RequestParam(required = false) Long laboratoryId,
             @RequestParam(required = false) String location,
             @RequestParam(required = false) String gbCategoryName) {
-        return R.ok(deviceService.pageQuery(page, size, keyword, categoryId, status, location, gbCategoryName));
+        return R.ok(deviceService.pageQuery(page, size, keyword, categoryId, status, location, gbCategoryName, borrowType, laboratoryId));
     }
 
     @GetMapping("/by-status/{type}")
@@ -129,6 +133,16 @@ public class DeviceController {
                     ? currentBorrow.getEndTime().toString() : null;
         }
 
+        // 借用类型
+        Integer borrowType = device.getBorrowType();
+
+        // 实验室名称
+        String laboratoryName = null;
+        if (device.getLaboratoryId() != null) {
+            var lab = laboratoryMapper.selectById(device.getLaboratoryId());
+            laboratoryName = lab != null ? lab.getName() : null;
+        }
+
         DeviceDetailVO vo = DeviceDetailVO.builder()
                 .device(device)
                 .images(images != null ? images : List.of())
@@ -137,6 +151,8 @@ public class DeviceController {
                 .currentBorrower(borrower)
                 .expectedReturnTime(returnTime)
                 .borrowCount(borrowCount)
+                .borrowType(borrowType)
+                .laboratoryName(laboratoryName)
                 .build();
 
         return R.ok(vo);

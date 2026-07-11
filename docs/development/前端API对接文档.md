@@ -3,6 +3,7 @@
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | V1.0 | 2026-07-07 | 初始版本，覆盖所有后端已实现接口 |
+| V2.0 | 2026-07-11 | 新增：实验室管理API + 设备借用类型 |
 
 ---
 
@@ -157,6 +158,8 @@ GET /devices?page=1&size=20&keyword=&categoryId=&status=&location=&gbCategoryNam
   categoryId     业务分类ID（1=计算机 2=摄影摄像 3=音频 4=空调 5=仪器仪表
                               6=家具 7=无人机 8=软件 9=安全监控 10=其他）
   status         1可借用 2借用中 3维修中 4待报废
+  borrowType     借用类型: 1可现场借用 2可借出（V2新增）
+  laboratoryId   所属实验室ID（V2新增）
   location       存放地（模糊匹配）
 
 响应:
@@ -203,7 +206,9 @@ GET /devices/{id}
     "isBorrowing": false,           // 当前是否被借出
     "currentBorrower": null,        // 当前借用人
     "expectedReturnTime": null,     // 预计归还时间
-    "borrowCount": 12               // 历史借用次数
+    "borrowCount": 12,              // 历史借用次数
+    "borrowType": 2,                // 借用类型: 1可现场借用 2可借出
+    "laboratoryName": "建成环境气候模拟实验室"  // 所属实验室名称
   }
 }
 ```
@@ -214,14 +219,16 @@ GET /devices/{id}
 GET /devices/by-asset-no/{assetNo}
 ```
 
-### 4. 更新设备
+### 4. 更新设备（V2支持borrowType和laboratoryId）
 
 ```
 PUT /devices/{id}
 Content-Type: application/json
 权限: device:manage
 
-请求体: Device对象（JSON）
+请求体: Device对象（JSON），新增字段:
+  borrowType    借用类型: 1可现场借用 2可借出
+  laboratoryId  所属实验室ID
 ```
 
 ### 5. 删除设备
@@ -570,7 +577,160 @@ type取值: APPROVAL / REMIND / SYSTEM
 
 ---
 
-## 九、系统管理 `/admin`
+## 九、实验室管理 `/laboratories`（V2 新增）
+
+### 1. 实验室列表（分页）
+
+```
+GET /laboratories?page=1&size=20&keyword=
+权限: laboratory:view
+
+参数:
+  page      默认1
+  size      默认20
+  keyword   搜索关键词（匹配名称/编码）
+
+响应:
+{
+  "code": 200,
+  "data": {
+    "records": [
+      {
+        "id": 1,
+        "name": "建成环境气候模拟实验室",
+        "code": "LAB-CLIMATE",
+        "locationPrefix": "工程实验楼南楼＞5＞",
+        "description": null,
+        "status": 1,
+        "createTime": "2026-07-11T00:00:00",
+        "updateTime": "2026-07-11T00:00:00"
+      }
+    ],
+    "total": 5,
+    "current": 1,
+    "size": 20
+  }
+}
+```
+
+### 2. 实验室下拉列表（所有启用）
+
+```
+GET /laboratories/list
+权限: laboratory:view
+
+响应: Laboratory数组（仅status=1的实验室）
+```
+
+### 3. 实验室详情
+
+```
+GET /laboratories/{id}
+权限: laboratory:view
+```
+
+### 4. 新增实验室
+
+```
+POST /laboratories
+Content-Type: application/json
+权限: laboratory:manage
+
+请求体:
+{
+  "name": "新实验室名称",
+  "code": "LAB-CODE",
+  "locationPrefix": "存放地前缀",
+  "description": "描述",
+  "status": 1
+}
+```
+
+### 5. 更新实验室
+
+```
+PUT /laboratories/{id}
+Content-Type: application/json
+权限: laboratory:manage
+
+请求体: 同上（部分字段更新）
+```
+
+### 6. 删除实验室（同时删除关联地点映射）
+
+```
+DELETE /laboratories/{id}
+权限: laboratory:manage
+```
+
+### 7. 地点映射列表（分页）
+
+```
+GET /laboratories/rooms?page=1&size=20&laboratoryId=&roomName=
+权限: laboratory:view
+
+参数:
+  laboratoryId   按实验室筛选（可选）
+  roomName       按房间名搜索（可选）
+```
+
+### 8. 新增地点映射
+
+```
+POST /laboratories/rooms
+Content-Type: application/json
+权限: laboratory:manage
+
+请求体:
+{
+  "laboratoryId": 1,
+  "roomName": "工程南501",
+  "fullLocation": "工程实验楼南楼＞5＞建成环境气候模拟实验室-501"
+}
+```
+
+### 9. 更新地点映射
+
+```
+PUT /laboratories/rooms/{id}
+Content-Type: application/json
+权限: laboratory:manage
+请求体: 同上
+```
+
+### 10. 删除地点映射
+
+```
+DELETE /laboratories/rooms/{id}
+权限: laboratory:manage
+```
+
+### 11. 同步设备实验室（按当前映射规则批量更新）
+
+```
+POST /laboratories/sync-devices
+权限: laboratory:manage
+
+响应:
+{
+  "code": 200,
+  "data": 5,       // 更新了多少台设备的laboratory_id
+  "msg": "同步完成，5 台设备已更新"
+}
+```
+
+### 12. 获取所有不重复存放地（供映射配置）
+
+```
+GET /laboratories/locations
+权限: laboratory:view
+
+响应: [ "工程实验楼南楼＞5＞绿色智慧建筑实验室1室-520", "工程南522", ... ]
+```
+
+---
+
+## 十、系统管理 `/admin`（原章节九）
 
 ### 1. 用户管理
 
@@ -609,7 +769,7 @@ GET /admin/logs?page=1&size=20&username=&status=
 
 ---
 
-## 十、前端路由权限对照表
+## 十二、前端路由权限对照表
 
 | 路由 | 所需权限 | 组件 |
 |------|----------|------|
@@ -634,11 +794,15 @@ GET /admin/logs?page=1&size=20&username=&status=
 | `/admin/users` | `admin:user` | AdminUsers |
 | `/admin/settings` | `admin:config` | AdminSettings |
 | `/admin/logs` | `admin:log` | AdminLogs |
+| `/laboratories` | `laboratory:view` | LaboratoryList |
+| `/laboratories/:id` | `laboratory:view` | LaboratoryDetail |
+| `/laboratories/manage` | `laboratory:manage` | LaboratoryManage |
+| `/laboratories/rooms` | `laboratory:manage` | LaboratoryRooms |
 | `/403` | 无 | Forbidden |
 
 ---
 
-## 十一、DTO/VO 类型定义（TypeScript 参考）
+## 十三、DTO/VO 类型定义（TypeScript 参考）
 
 ```typescript
 // 登录
@@ -677,6 +841,8 @@ interface Device {
   unitPrice: number;
   totalAmount: number;
   status: number;          // 1可借用 2借用中 3维修中 4待报废
+  borrowType: number;      // 1可现场借用 2可借出（默认）
+  laboratoryId: number | null;
   gbCategoryName: string;
   gbCategoryCode: string;
   eduCategoryName: string;
@@ -693,6 +859,8 @@ interface DeviceDetailVO {
   isBorrowing: boolean;
   currentBorrower: string | null;
   expectedReturnTime: string | null;
+  borrowType: number;          // 1可现场借用 2可借出
+  laboratoryName: string | null;
   borrowCount: number;
 }
 
@@ -738,6 +906,26 @@ interface Notification {
   content: string;
   type: string;            // SYSTEM/APPROVAL/REMIND
   isRead: number;           // 0未读 1已读
+  createTime: string;
+}
+
+// 实验室（V2新增）
+interface Laboratory {
+  id: number;
+  name: string;
+  code: string;
+  locationPrefix: string;
+  description: string;
+  status: number;           // 1启用 0禁用
+  createTime: string;
+  updateTime: string;
+}
+
+interface LaboratoryRoom {
+  id: number;
+  laboratoryId: number;
+  roomName: string;
+  fullLocation: string;
   createTime: string;
 }
 

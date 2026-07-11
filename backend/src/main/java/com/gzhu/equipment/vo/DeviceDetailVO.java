@@ -39,4 +39,10 @@ public class DeviceDetailVO {
 
     /** 该设备的历史借用次数 */
     private long borrowCount;
+
+    /** 借用类型: 1可现场借用 2可借出 */
+    private Integer borrowType;
+
+    /** 所属实验室名称 */
+    private String laboratoryName;
 }

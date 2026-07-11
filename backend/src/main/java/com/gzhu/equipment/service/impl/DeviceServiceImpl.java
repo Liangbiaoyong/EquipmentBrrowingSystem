@@ -29,7 +29,8 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     public IPage<Device> pageQuery(int page, int size,
                                    String keyword, Long categoryId,
                                    Integer status, String location,
-                                   String gbCategoryName) {
+                                   String gbCategoryName,
+                                   Integer borrowType, Long laboratoryId) {
         LambdaQueryWrapper<Device> wrapper = new LambdaQueryWrapper<>();
 
         // 关键词：匹配名称、资产编号、型号
@@ -45,6 +46,12 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         }
         if (status != null) {
             wrapper.eq(Device::getStatus, status);
+        }
+        if (borrowType != null) {
+            wrapper.eq(Device::getBorrowType, borrowType);
+        }
+        if (laboratoryId != null) {
+            wrapper.eq(Device::getLaboratoryId, laboratoryId);
         }
         if (StringUtils.hasText(location)) {
             wrapper.like(Device::getLocation, location);

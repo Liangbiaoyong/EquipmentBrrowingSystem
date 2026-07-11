@@ -39,12 +39,15 @@ public final class PermissionConstants {
     public static final String ADMIN_LOG         = "admin:log";
     public static final String ADMIN_BACKUP      = "admin:backup";
 
+    public static final String LAB_VIEW          = "laboratory:view";
+    public static final String LAB_MANAGE        = "laboratory:manage";
+
     // ==================== 用户类型 → 权限映射 ====================
 
     /** 学生权限 */
     private static final List<String> STUDENT_PERMS = Collections.unmodifiableList(Arrays.asList(
             DASHBOARD_VIEW, NOTIFICATION_VIEW, PROFILE_VIEW,
-            DEVICE_VIEW,
+            DEVICE_VIEW, LAB_VIEW,
             BORROW_CREATE, BORROW_MY, BORROW_VIEW, BORROW_RETURN
     ));
 
@@ -55,6 +58,7 @@ public final class PermissionConstants {
     private static final List<String> LAB_ADMIN_PERMS = Collections.unmodifiableList(Arrays.asList(
             DASHBOARD_VIEW, NOTIFICATION_VIEW, PROFILE_VIEW,
             DEVICE_VIEW, DEVICE_MANAGE,
+            LAB_VIEW, LAB_MANAGE,
             BORROW_VIEW, BORROW_RETURN,
             APPROVAL_SECOND,
             RETURN_MANAGE, REPAIR_MANAGE,
@@ -65,6 +69,7 @@ public final class PermissionConstants {
     private static final List<String> SYSTEM_ADMIN_PERMS = Collections.unmodifiableList(Arrays.asList(
             DASHBOARD_VIEW, NOTIFICATION_VIEW, PROFILE_VIEW,
             DEVICE_VIEW, DEVICE_MANAGE,
+            LAB_VIEW, LAB_MANAGE,
             BORROW_CREATE, BORROW_MY, BORROW_VIEW, BORROW_RETURN,
             APPROVAL_FIRST, APPROVAL_SECOND,
             RETURN_MANAGE, REPAIR_MANAGE,
