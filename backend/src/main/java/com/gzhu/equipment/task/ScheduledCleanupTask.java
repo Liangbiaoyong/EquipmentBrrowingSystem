@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gzhu.equipment.entity.ApprovalLog;
 import com.gzhu.equipment.entity.Attachment;
 import com.gzhu.equipment.entity.BorrowRecord;
+import com.gzhu.equipment.entity.Device;
 import com.gzhu.equipment.entity.Notification;
 import com.gzhu.equipment.mapper.*;
 import com.gzhu.equipment.service.MinioFileService;
@@ -46,6 +47,7 @@ public class ScheduledCleanupTask {
     private final ApprovalLogMapper approvalLogMapper;
     private final AttachmentMapper attachmentMapper;
     private final BorrowRecordMapper borrowMapper;
+    private final com.gzhu.equipment.mapper.DeviceMapper deviceMapper;
     private final NotificationService notificationService;
     private final SystemConfigService configService;
     private final MinioFileService minioFileService;
@@ -115,6 +117,12 @@ public class ScheduledCleanupTask {
             br.setStatus("OVERDUE");
             br.setOverdueDays((int) days);
             borrowMapper.updateById(br);
+            // V3: 同步更新设备借还状态为逾期
+            Device device = deviceMapper.selectById(br.getDeviceId());
+            if (device != null && device.getBorrowStatus() != null && device.getBorrowStatus() == 2) {
+                device.setBorrowStatus(4); // 逾期
+                deviceMapper.updateById(device);
+            }
             notificationService.notifyOverdue(br.getUserId(), "设备#" + br.getDeviceId(), br.getId(), (int) days);
             overdueCount++;
         }

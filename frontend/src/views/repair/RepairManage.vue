@@ -1,36 +1,66 @@
 <template>
   <div class="repair"><h2>维修管理</h2>
-    <el-tabs v-model="tab" @tab-change="load"><el-tab-pane label="待维修" name="PENDING"/><el-tab-pane label="维修中" name="REPAIRING"/><el-tab-pane label="已修复" name="FIXED"/></el-tabs>
-    <el-card>
-      <el-table :data="list" v-loading="loading"><el-table-column label="ID" prop="id" width="80"/><el-table-column label="设备ID" prop="deviceId" width="80"/><el-table-column label="借用单ID" prop="borrowId" width="90"/><el-table-column label="故障描述" prop="faultDescription" min-width="160" show-overflow-tooltip/><el-table-column label="状态" width="90"><template #default="{row}"><el-tag :type="row.status==='PENDING'?'warning':row.status==='REPAIRING'?'':'success'">{{ row.status==='PENDING'?'待维修':row.status==='REPAIRING'?'维修中':'已修复' }}</el-tag></template></el-table-column>
-      <el-table-column label="操作" width="160" fixed="right"><template #default="{row}"><el-button v-if="row.status==='PENDING'" size="small" type="warning" @click="start(row.id)">开始维修</el-button><el-button v-if="row.status==='REPAIRING'" size="small" type="success" @click="fix(row.id)">修复完成</el-button><el-button v-if="row.status==='FIXED'" size="small" disabled>已修复</el-button></template></el-table-column></el-table>
-      <el-empty v-if="!loading&&!list.length" description="暂无维修记录"/>
-      <div v-if="total>size" style="margin-top:15px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total,prev,pager,next" @current-change="load"/></div></el-card>
-    <el-dialog v-model="fixVisible" title="修复备注" width="400px"><el-input v-model="fixComment" type="textarea" placeholder="维修方案/备注"/><template #footer><el-button @click="fixVisible=false">取消</el-button><el-button type="primary" @click="doFix">确认修复</el-button></template></el-dialog>
+    <el-card style="margin-bottom:15px">
+      <el-radio-group v-model="deviceStatusFilter" @change="loadDevices">
+        <el-radio-button :value="null">全部维修设备</el-radio-button>
+        <el-radio-button :value="2">待维修</el-radio-button>
+        <el-radio-button :value="3">维修中</el-radio-button>
+        <el-radio-button :value="4">待报废</el-radio-button>
+      </el-radio-group>
+      <el-button type="primary" style="margin-left:15px" @click="createVisible=true">+ 创建维修记录</el-button>
+    </el-card>
+
+    <el-card><el-table :data="devices" stripe v-loading="devLoading">
+      <el-table-column prop="assetNo" label="资产编号" width="140"/>
+      <el-table-column prop="name" label="设备名称" min-width="160"/>
+      <el-table-column prop="location" label="存放地" width="140"/>
+      <el-table-column label="设备状态" width="100"><template #default="{row}"><el-tag :type="dsType(row.deviceStatus)">{{ dsText(row.deviceStatus) }}</el-tag></template></el-table-column>
+      <el-table-column label="操作" width="320"><template #default="{row}">
+        <el-button v-if="row.deviceStatus===2" size="small" type="warning" @click="startRepair(row.id)">开始维修</el-button>
+        <el-button v-if="row.deviceStatus===3" size="small" type="success" @click="fixDevice(row.id)">修复完成</el-button>
+        <el-button v-if="row.deviceStatus===3" size="small" type="danger" @click="scrapDevice(row.id)">待报废</el-button>
+        <el-button v-if="row.deviceStatus===4" size="small" type="danger" @click="confirmScrap(row.id)">确认报废</el-button>
+      </template></el-table-column>
+    </el-table>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="devPage" :page-size="devSize" :total="devTotal" layout="prev,pager,next" @current-change="loadDevices"/></div></el-card>
+
+    <el-card style="margin-top:15px" header="维修记录"><el-table :data="records" stripe v-loading="recLoading">
+      <el-table-column prop="id" label="ID" width="80"/><el-table-column prop="deviceId" label="设备" width="80"/>
+      <el-table-column prop="faultDescription" label="故障描述" min-width="200"/>
+      <el-table-column label="状态" width="90"><template #default="{row}"><el-tag :type="row.status==='PENDING'?'warning':row.status==='REPAIRING'?'danger':'success'">{{ row.status==='PENDING'?'待维修':row.status==='REPAIRING'?'维修中':'已修复' }}</el-tag></template></el-table-column>
+      <el-table-column prop="repairComment" label="备注" min-width="150"/><el-table-column prop="fixedTime" label="完成时间" width="160"/>
+    </el-table>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="recPage" :page-size="recSize" :total="recTotal" layout="prev,pager,next" @current-change="loadRecords"/></div></el-card>
+
+    <el-dialog v-model="createVisible" title="创建维修记录" width="500px"><el-form :model="cf" label-width="100px">
+      <el-form-item label="设备ID" required><el-input-number v-model="cf.deviceId" :min="1" placeholder="输入设备ID"/></el-form-item>
+      <el-form-item label="关联借用单"><el-input-number v-model="cf.borrowId" :min="1" placeholder="可选"/></el-form-item>
+      <el-form-item label="故障描述" required><el-input v-model="cf.faultDescription" type="textarea" :rows="3"/></el-form-item>
+    </el-form><template #footer><el-button @click="createVisible=false">取消</el-button><el-button type="primary" @click="submitCreate">创建</el-button></template></el-dialog>
+
+    <el-dialog v-model="commentVisible" title="备注" width="400px"><el-input v-model="commentText" type="textarea" :rows="2" placeholder="备注(可选)"/><template #footer><el-button @click="commentVisible=false">取消</el-button><el-button type="primary" @click="commentOk">确定</el-button></template></el-dialog>
   </div>
 </template>
 <script setup>
-import { ref,onMounted } from 'vue';import axios from '@/api/request';import { ElMessage } from 'element-plus'
-const tab=ref('PENDING');const loading=ref(false);const list=ref([]);const page=ref(1);const size=ref(20);const total=ref(0)
-const fixVisible=ref(false);const fixId=ref(null);const fixComment=ref('')
-async function load(){
-  loading.value=true
-  try{
-    const res=await axios.get('/repairs',{params:{page:page.value,size:size.value,status:tab.value==='FIXED'?'FIXED':tab.value==='REPAIRING'?'REPAIRING':'PENDING'}})
-    if(res&&res.data){list.value=res.data.records||[];total.value=res.data.total||0}
-    else{list.value=[];total.value=0}
-  }catch(e){
-    console.error('维修列表加载失败:',e)
-    list.value=[];total.value=0
-  }finally{loading.value=false}
-}
-async function start(id){
-  try{await axios.put(`/repairs/${id}/start`);ElMessage.success('已开始维修');load()}catch(e){ElMessage.error('操作失败')}
-}
-function fix(id){fixId.value=id;fixComment.value='';fixVisible.value=true}
-async function doFix(){
-  try{await axios.put(`/repairs/${fixId.value}/fix`,null,{params:{comment:fixComment.value}});ElMessage.success('设备已恢复正常');fixVisible.value=false;load()}catch(e){ElMessage.error('操作失败')}
-}
-onMounted(load)
+import { ref,onMounted } from 'vue';import axios from '@/api/request';import { ElMessage,ElMessageBox } from 'element-plus'
+const devices=ref([]);const records=ref([]);const devLoading=ref(false);const recLoading=ref(false)
+const devPage=ref(1);const devSize=ref(20);const devTotal=ref(0);const recPage=ref(1);const recSize=ref(20);const recTotal=ref(0)
+const deviceStatusFilter=ref(null)
+const dsMap={1:'success',2:'warning',3:'danger',4:'info',5:'info'};const dsTxt={1:'正常',2:'待维修',3:'维修中',4:'待报废',5:'已报废'}
+function dsType(v){return dsMap[v]||'info'}function dsText(v){return dsTxt[v]||'未知'}
+const createVisible=ref(false);const cf=ref({deviceId:null,borrowId:null,faultDescription:''})
+const commentVisible=ref(false);const commentText=ref('');let pa=null
+
+async function loadDevices(){devLoading.value=true;try{const{data}=await axios.get('/repairs/devices',{params:{page:devPage.value,size:devSize.value,deviceStatus:deviceStatusFilter.value}});devices.value=data.records||[];devTotal.value=data.total||0}catch{}finally{devLoading.value=false}}
+async function loadRecords(){recLoading.value=true;try{const{data}=await axios.get('/repairs',{params:{page:recPage.value,size:recSize.value}});records.value=data.records||[];recTotal.value=data.total||0}catch{}finally{recLoading.value=false}}
+async function submitCreate(){try{await axios.post('/repairs',null,{params:cf.value});ElMessage.success('已创建');createVisible.value=false;loadDevices();loadRecords()}catch(e){ElMessage.error(e?.response?.data?.msg||'失败')}}
+
+function findRec(deviceId,status){return records.value.find(r=>r.deviceId===deviceId&&r.status===status)}
+function startRepair(deviceId){ElMessageBox.confirm('确认开始维修？','操作确认',{type:'warning'}).then(async()=>{const rec=findRec(deviceId,'PENDING');if(rec){await axios.put(`/repairs/${rec.id}/start`);ElMessage.success('维修已开始');loadDevices();loadRecords()}else ElMessage.warning('未找到待维修记录')}).catch(()=>{})}
+function fixDevice(deviceId){commentText.value='';commentVisible.value=true;pa=async()=>{const rec=findRec(deviceId,'REPAIRING');if(rec){await axios.put(`/repairs/${rec.id}/fix`,null,{params:{comment:commentText.value}});ElMessage.success('设备已恢复正常');loadDevices();loadRecords()}else ElMessage.warning('未找到维修中记录')}}
+function scrapDevice(deviceId){ElMessageBox.confirm('确认标记为待报废？','危险操作',{type:'error'}).then(async()=>{commentText.value='';commentVisible.value=true;pa=async()=>{const rec=findRec(deviceId,'REPAIRING');if(rec){await axios.put(`/repairs/${rec.id}/scrap`,null,{params:{comment:commentText.value}});ElMessage.success('已标记待报废');loadDevices();loadRecords()}else ElMessage.warning('未找到维修记录')}}).catch(()=>{})}
+function confirmScrap(deviceId){ElMessageBox.confirm('确认报废？不可恢复！','最终操作',{type:'error'}).then(async()=>{commentText.value='';commentVisible.value=true;pa=async()=>{await axios.post('/repairs/confirm-scrap',null,{params:{deviceId,comment:commentText.value}});ElMessage.success('已报废');loadDevices();loadRecords()}}).catch(()=>{})}
+function commentOk(){commentVisible.value=false;if(pa)pa();pa=null}
+onMounted(()=>{loadDevices();loadRecords()})
 </script>
 <style scoped>.repair{padding:20px}</style>
