@@ -32,6 +32,9 @@ public class ImportResultDTO {
     /** 失败数 */
     private int failCount;
 
+    /** 删除数（旧数据中不在新数据里的记录） */
+    private int deleteCount;
+
     /** 自动分类命中数 */
     private int autoCategoryCount;
 

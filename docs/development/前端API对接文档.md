@@ -3,7 +3,7 @@
 | 版本 | 日期 | 说明 |
 |------|------|------|
 | V1.0 | 2026-07-07 | 初始版本，覆盖所有后端已实现接口 |
-| V2.0 | 2026-07-11 | 新增：实验室管理API + 设备借用类型 |
+| V2.1 | 2026-07-11 | 批量导入修复：GBK编码检测 + 智能导入(主键识别+增量更新) |
 
 ---
 
@@ -238,32 +238,49 @@ DELETE /devices/{id}
 权限: admin:user (SYSTEM_ADMIN)
 ```
 
-### 6. 批量导入（CSV/XLSX）
+### 6. 批量导入（CSV/XLSX/XLS）【V2更新：智能导入】
 
 ```
 POST /devices/import
 Content-Type: multipart/form-data
 权限: device:manage
 
-参数: file (文件)
+参数: file (文件，支持 .csv / .xlsx / .xls)
+
+编码说明: CSV自动检测编码（UTF-8/GBK），解决中文Windows导出乱码问题
+格式兼容: 同时支持 .xlsx (XSSF) 和 .xls (HSSF) 格式
+
+智能导入逻辑（V2新增）：
+1. 以资产编号(asset_no)为主键识别数据
+2. 导入时对比新旧数据：
+   - 删除：旧数据中在新数据里不存在的设备记录
+   - 更新：旧数据中存在的设备，按新数据更新业务字段，但保留旧记录的：
+     * borrowType（借用类型）
+     * laboratoryId（所属实验室）
+     * coverImage（封面图）
+     * description（备注/描述，如新数据有则覆盖）
+     * defaultApproverId（默认审批人）
+     * 关联的图片列表（device_image）
+   - 新增：旧数据中没有的新设备，缺失值设置为默认值或空
 
 响应:
 {
   "code": 200,
   "data": {
-    "totalRows": 2469,
-    "successCount": 2100,
-    "updateCount": 369,
-    "failCount": 0,
-    "autoCategoryCount": 2300,
-    "uncategorizedCount": 169,
+    "totalRows": 2469,          // 新文件中的数据行数
+    "successCount": 500,        // 新增的记录数
+    "updateCount": 1969,        // 更新的记录数
+    "deleteCount": 150,         // 删除的旧记录数（V2新增）
+    "failCount": 0,             // 失败的记录数
+    "autoCategoryCount": 2300,  // 自动分类命中数
+    "uncategorizedCount": 169,  // 未分类数
     "batchId": "a1b2c3d4",
     "errors": []
   }
 }
 ```
 
-### 7. 导入预览（Dry-Run）
+### 7. 导入预览（Dry-Run）【V2更新：前端预览前20条+统计信息】
 
 ```
 POST /devices/import/dry-run
@@ -271,7 +288,9 @@ Content-Type: multipart/form-data
 权限: device:manage
 
 参数: file (文件)
-返回前20条解析结果+分类统计，不写入数据库
+返回前20条解析结果+分类统计，不写入数据库，不执行删除操作
+
+编码兼容: 同样支持UTF-8/GBK自动检测 + XLSX/XLS格式
 ```
 
 ### 8. CSV 导出
@@ -892,6 +911,7 @@ interface ImportResultDTO {
   totalRows: number;
   successCount: number;
   updateCount: number;
+  deleteCount: number;       // V2新增: 删除的旧记录数
   failCount: number;
   autoCategoryCount: number;
   uncategorizedCount: number;

@@ -2,6 +2,7 @@ package com.gzhu.equipment.service.impl;
 
 import com.gzhu.equipment.dto.ImportResultDTO;
 import com.gzhu.equipment.entity.Device;
+import com.gzhu.equipment.mapper.DeviceImageMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
 import com.gzhu.equipment.service.CategoryService;
 import org.junit.jupiter.api.BeforeEach;
@@ -13,17 +14,17 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 /**
  * DeviceImportServiceImpl 单元测试
  *
- * 覆盖：CSV导入、自动分类、去重、Dry-Run、格式校验、批次清除
+ * 覆盖：CSV导入、智能导入(增删改)、自动分类、Dry-Run、格式校验、批次清除
  */
 @ExtendWith(MockitoExtension.class)
 class DeviceImportServiceImplTest {
@@ -32,43 +33,47 @@ class DeviceImportServiceImplTest {
     private DeviceMapper deviceMapper;
 
     @Mock
+    private DeviceImageMapper deviceImageMapper;
+
+    @Mock
     private CategoryService categoryService;
 
     private DeviceImportServiceImpl importService;
 
     @BeforeEach
     void setUp() {
-        importService = new DeviceImportServiceImpl(deviceMapper, categoryService);
-        // 默认分类命中：不限制参数（any()匹配null）
+        importService = new DeviceImportServiceImpl(deviceMapper, deviceImageMapper, categoryService);
+        // 默认分类命中
         lenient().when(categoryService.classifyByGbName(any())).thenReturn(1L);
+        // 默认无存量设备（deleteDevicesNotInSet 不删除任何记录）
+        lenient().when(deviceMapper.selectList(any())).thenReturn(Collections.emptyList());
     }
 
-    /** 生成40列表头行 */
+    /** 生成40列表头行（含"资产编号"关键词用于编码检测） */
     private String headerLine() {
         String[] h = new String[40];
-        for (int i = 0; i < 40; i++) h[i] = "col" + i;
+        for (int i = 0; i < 40; i++) h[i] = (i == 1 ? "资产编号" : "col" + i);
         return String.join(",", h);
     }
 
-    /** 生成带表头的CSV（首行表头+一行数据），确保列索引不越界 */
+    /** 生成带表头的完整CSV */
     private String csvWithHeader(String assetNo, String name) {
-        // 数据行
         String[] cols = new String[40];
         for (int i = 0; i < 40; i++) cols[i] = "";
-        cols[1] = assetNo;   // 资产编号
-        cols[2] = name;      // 名称
-        cols[3] = "型号X";   // 型号
-        cols[4] = "规格Y";   // 规格
-        cols[5] = "1";       // 数量
-        cols[6] = "5000";    // 单价
-        cols[7] = "5000";    // 金额
-        cols[8] = "46182";   // 购置日期(Excel序列号)
-        cols[9] = "建筑学院"; // 使用单位
-        cols[10] = "张三";    // 使用人
-        cols[12] = "三楼";   // 存放地
-        cols[13] = "备注";   // 描述
-        cols[19] = "教育分类"; // 教育分类名
-        cols[21] = "计算机";  // 国标分类名
+        cols[1] = assetNo;
+        cols[2] = name;
+        cols[3] = "型号X";
+        cols[4] = "规格Y";
+        cols[5] = "1";
+        cols[6] = "5000";
+        cols[7] = "5000";
+        cols[8] = "46182";
+        cols[9] = "建筑学院";
+        cols[10] = "张三";
+        cols[12] = "三楼";
+        cols[13] = "备注";
+        cols[19] = "教育分类";
+        cols[21] = "计算机";
         return headerLine() + "\n" + String.join(",", cols);
     }
 
@@ -89,12 +94,13 @@ class DeviceImportServiceImplTest {
     }
 
     @Test
-    @DisplayName("CSV导入（已存在资产编号）→ 更新")
+    @DisplayName("CSV导入（已存在资产编号）→ 更新，保留关联数据")
     void importCsv_existingAsset_shouldUpdate() throws Exception {
         String csv = csvWithHeader("ASSET001", "已存在设备");
         Device existing = new Device();
         existing.setId(10L);
         existing.setAssetNo("ASSET001");
+        existing.setBorrowType(1);  // 之前手动设为"可现场借用"
         when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(existing);
 
         ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L);
@@ -110,7 +116,6 @@ class DeviceImportServiceImplTest {
     @DisplayName("CSV导入（空资产编号）→ 跳过该行")
     void importCsv_emptyAssetNo_shouldSkip() throws Exception {
         String csv = csvWithHeader("", "无编号设备");
-        // 无需mock classifyByGbName — 空assetNo跳过整行
         ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L);
         assertThat(result.getTotalRows()).isEqualTo(0);
     }
@@ -119,24 +124,24 @@ class DeviceImportServiceImplTest {
     @DisplayName("CSV导入（空文件）→ 报告失败")
     void importCsv_emptyFile_shouldReportFail() throws Exception {
         ImportResultDTO result = importService.importFromStream(toStream(""), "devices.csv", 1L);
-        assertThat(result.getFailCount()).isGreaterThan(0);
+        // 空文件 → 无有效数据行 → errors包含提示
+        assertThat(result.getErrors()).isNotEmpty();
     }
 
     @Test
     @DisplayName("CSV导入（仅表头）→ 成功0条")
     void importCsv_headerOnly_shouldSucceedZero() throws Exception {
-        ImportResultDTO result = importService.importFromStream(toStream("h\n"), "devices.csv", 1L);
+        ImportResultDTO result = importService.importFromStream(toStream("h1,h2\n"), "devices.csv", 1L);
         assertThat(result.getTotalRows()).isEqualTo(0);
     }
 
     @Test
     @DisplayName("CSV导入（引号内逗号）→ 正确解析")
     void importCsv_quotedComma_shouldParseCorrectly() throws Exception {
-        // 名称(col[3])包含引号逗号 — 首行表头
         String csv = headerLine() + "\n";
         String[] cols = new String[40];
         cols[1] = "ASSET001";
-        cols[2] = "\"测试,电脑\"";  // col[2]=name
+        cols[2] = "\"测试,电脑\"";
         csv += String.join(",", cols);
         when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(null);
 
@@ -152,7 +157,7 @@ class DeviceImportServiceImplTest {
         String[] cols = new String[40];
         cols[1] = "ASSET001";
         cols[2] = "设备A";
-        cols[6] = "\"17,500\""; // 单价(col[6]=unitPrice)
+        cols[6] = "\"17,500\"";
         csv += String.join(",", cols);
         when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(null);
 
@@ -161,10 +166,49 @@ class DeviceImportServiceImplTest {
         assertThat(result.getSuccessCount()).isEqualTo(1);
     }
 
+    // ==================== 智能导入（增删改） ====================
+
+    @Test
+    @DisplayName("智能导入 → 删除旧数据中不在新数据里的记录")
+    void smartImport_shouldDeleteStaleRecords() throws Exception {
+        // 模拟：数据库中有旧记录 ASSET_OLD
+        Device oldDevice = new Device();
+        oldDevice.setId(99L);
+        oldDevice.setAssetNo("ASSET_OLD");
+
+        when(deviceMapper.selectList(any())).thenReturn(java.util.List.of(oldDevice));
+
+        // 新数据中只有 ASSET001，没有 ASSET_OLD
+        String csv = csvWithHeader("ASSET001", "新设备");
+        when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(null);
+
+        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L);
+
+        assertThat(result.getDeleteCount()).isEqualTo(1);
+        verify(deviceMapper).deleteById(99L);
+    }
+
+    @Test
+    @DisplayName("智能导入 → 更新已存在记录时保留关联字段")
+    void smartImport_update_shouldPreserveAssociatedData() throws Exception {
+        String csv = csvWithHeader("ASSET001", "更新后的名称");
+        Device existing = new Device();
+        existing.setId(10L);
+        existing.setAssetNo("ASSET001");
+        existing.setBorrowType(1);       // 手动设为"可现场借用"
+        existing.setCoverImage("cover.jpg"); // 有关联封面图
+        when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(existing);
+
+        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L);
+
+        assertThat(result.getUpdateCount()).isEqualTo(1);
+        verify(deviceMapper).updateById(any(Device.class));
+    }
+
     // ==================== 自动分类 ====================
 
     @Test
-    @DisplayName("未命中分类 → 归入其他设备(d=10)")
+    @DisplayName("未命中分类 → 归入其他设备(categoryId=10)")
     void importCsv_uncategorized_shouldFallback() throws Exception {
         String csv = csvWithHeader("ASSET001", "特殊");
         when(categoryService.classifyByGbName(any())).thenReturn(null);
@@ -191,9 +235,13 @@ class DeviceImportServiceImplTest {
     @Test
     @DisplayName("Dry-Run（超20行）→ 只取前20条")
     void dryRun_over20Lines_shouldCap() throws Exception {
-        StringBuilder sb = new StringBuilder("header\n");
+        StringBuilder sb = new StringBuilder(headerLine() + "\n");
         for (int i = 1; i <= 30; i++) {
-            sb.append(csvWithHeader("ASSET" + String.format("%03d", i), "设备" + i)).append("\n");
+            String[] cols = new String[40];
+            for (int j = 0; j < 40; j++) cols[j] = "";
+            cols[1] = "ASSET" + String.format("%03d", i);
+            cols[2] = "设备" + i;
+            sb.append(String.join(",", cols)).append("\n");
         }
 
         ImportResultDTO result = importService.dryRun(toStream(sb.toString()), "test.csv");

@@ -99,6 +99,7 @@ public class ImportCommandLineRunner implements CommandLineRunner {
         log.info("  总行数:     {}", result.getTotalRows());
         log.info("  新增:       {}", result.getSuccessCount());
         log.info("  更新:       {}", result.getUpdateCount());
+        log.info("  删除:       {}", result.getDeleteCount());
         log.info("  失败:       {}", result.getFailCount());
         log.info("  自动分类:   {}", result.getAutoCategoryCount());
         log.info("  未分类:     {}", result.getUncategorizedCount());

@@ -2,49 +2,49 @@ package com.gzhu.equipment.service.impl;
 
 import com.gzhu.equipment.dto.ImportResultDTO;
 import com.gzhu.equipment.entity.Device;
+import com.gzhu.equipment.entity.DeviceImage;
+import com.gzhu.equipment.mapper.DeviceImageMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
 import com.gzhu.equipment.service.CategoryService;
 import com.gzhu.equipment.service.DeviceImportService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.poi.hssf.usermodel.HSSFWorkbook;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
- * 设备批量导入服务 — 支持 CSV（UTF-8）和 XLSX 格式
+ * 设备批量导入服务 — CSV / XLSX / XLS 智能导入
  *
- * CSV 列映射（基于学校资产系统导出的49列）：
- * col[2]  = assetNo         资产编号
- * col[3]  = name            资产名称
- * col[4]  = model           型号/品牌
- * col[5]  = specs           规格
- * col[6]  = totalQty        数量
- * col[7]  = unitPrice       单价
- * col[8]  = totalAmount     金额
- * col[9]  = purchaseDate    购置日期（Excel序列号格式）
- * col[10] = department      使用单位
- * col[11] = custodian       使用人
- * col[13] = location        存放地
- * col[14] = description     备注
- * col[20] = eduCategoryName 教育分类名
- * col[22] = gbCategoryName  国标分类名
- * col[23] = gbCategoryCode  国标分类号
- * col[25] = manufacturer    厂家
- * col[32] = supplier        供货商
- * col[33] = invoiceNo       发票号
- * col[34] = contractNo      合同号
- * col[37] = warrantyPeriod  保修期限
+ * <h3>CSV 编码自动检测</h3>
+ * 中文 Windows Excel 导出 CSV 默认 GBK 编码。
+ * 本实现通过 BOM 头 + 尝试验证两种方式自动选择正确编码：
+ * <ol>
+ *   <li>有 BOM(0xEF 0xBB 0xBF) → UTF-8</li>
+ *   <li>UTF-8 解码后验证首行表头是否含关键中文字段 → 无乱码则 UTF-8</li>
+ *   <li>否则 → GBK</li>
+ * </ol>
+ *
+ * <h3>Excel 格式兼容</h3>
+ * 同时支持 .xlsx (XSSFWorkbook) 和 .xls (HSSFWorkbook)。
+ *
+ * <h3>智能导入策略</h3>
+ * 以 asset_no 为主键，分三步：
+ * <ol>
+ *   <li>扫描新文件中所有 asset_no，构建集合</li>
+ *   <li>删除旧数据中不在新集合中的记录（保留关联的图片/借用记录）</li>
+ *   <li>逐行处理：已有记录→更新业务字段保留关联数据；新记录→插入</li>
+ * </ol>
  */
 @Slf4j
 @Service
@@ -52,25 +52,37 @@ import java.util.UUID;
 public class DeviceImportServiceImpl implements DeviceImportService {
 
     private final DeviceMapper deviceMapper;
+    private final DeviceImageMapper deviceImageMapper;
     private final CategoryService categoryService;
 
     private static final int BATCH_SIZE = 200;
-
-    // Excel 日期基准：1900-01-01 = 1
     private static final LocalDate EXCEL_EPOCH = LocalDate.of(1899, 12, 30);
 
+    // 用于编码检测的中文关键词（表头中一定包含）
+    private static final String ENCODING_CHECK_WORD = "资产编号";
+
     @Override
+    @Transactional
     public ImportResultDTO importFromStream(InputStream inputStream, String fileName, Long userId) {
         String batchId = UUID.randomUUID().toString().substring(0, 8);
         String lowerName = fileName != null ? fileName.toLowerCase() : "";
 
+        log.info("开始批量导入: fileName={} batchId={} userId={}", fileName, batchId, userId);
+
+        ImportResultDTO result;
         if (lowerName.endsWith(".csv")) {
-            return importCsv(inputStream, userId, batchId);
-        } else if (lowerName.endsWith(".xlsx")) {
-            return importXlsx(inputStream, userId, batchId);
+            result = importCsv(inputStream, userId, batchId);
+        } else if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
+            result = importExcel(inputStream, userId, batchId, lowerName);
         } else {
-            throw new IllegalArgumentException("不支持的文件格式，仅支持 .csv 和 .xlsx");
+            throw new IllegalArgumentException("不支持的文件格式，仅支持 .csv / .xlsx / .xls");
         }
+
+        log.info("导入完成: batchId={} total={} new={} update={} delete={} fail={} autoCate={} uncate={}",
+                batchId, result.getTotalRows(), result.getSuccessCount(), result.getUpdateCount(),
+                result.getDeleteCount(), result.getFailCount(),
+                result.getAutoCategoryCount(), result.getUncategorizedCount());
+        return result;
     }
 
     @Override
@@ -78,13 +90,37 @@ public class DeviceImportServiceImpl implements DeviceImportService {
         String batchId = "DRY-RUN-" + UUID.randomUUID().toString().substring(0, 6);
         String lowerName = fileName != null ? fileName.toLowerCase() : "";
 
+        ImportResultDTO result = ImportResultDTO.builder()
+                .batchId(batchId)
+                .errors(new ArrayList<>())
+                .build();
+
+        List<String[]> parsedRows = new ArrayList<>();
+
         if (lowerName.endsWith(".csv")) {
-            return dryRunCsv(inputStream, batchId);
-        } else if (lowerName.endsWith(".xlsx")) {
-            return dryRunXlsx(inputStream, batchId);
-        } else {
-            throw new IllegalArgumentException("不支持的文件格式，仅支持 .csv 和 .xlsx");
+            parsedRows = parseCsvForDryRun(inputStream);
+        } else if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
+            parsedRows = parseExcelForDryRun(inputStream, lowerName);
         }
+
+        int count = 0;
+        for (String[] cols : parsedRows) {
+            if (count >= 20) break;
+            Device device = mapColumns(cols, null, batchId);
+            if (device == null) continue;
+            Long categoryId = categoryService.classifyByGbName(device.getGbCategoryName());
+            if (categoryId != null) {
+                device.setCategoryId(categoryId);
+                result.setAutoCategoryCount(result.getAutoCategoryCount() + 1);
+            } else {
+                device.setCategoryId(10L);
+                result.setUncategorizedCount(result.getUncategorizedCount() + 1);
+            }
+            result.setTotalRows(result.getTotalRows() + 1);
+            count++;
+        }
+
+        return result;
     }
 
     @Override
@@ -92,281 +128,420 @@ public class DeviceImportServiceImpl implements DeviceImportService {
         log.info("清除导入批次: batchId={}", batchId);
         return deviceMapper.delete(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Device>()
-                        .eq(Device::getImportBatchId, batchId)
-        );
+                        .eq(Device::getImportBatchId, batchId));
     }
 
-    // ==================== Dry-Run 预览 ====================
+    // ==================== CSV 智能导入 ====================
 
-    private ImportResultDTO dryRunCsv(InputStream inputStream, String batchId) {
-        ImportResultDTO result = createDryRunResult(batchId);
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(inputStream, java.nio.charset.StandardCharsets.UTF_8))) {
-            reader.readLine(); // 跳过表头
-            String line;
-            int rowNum = 1;
-            while ((line = reader.readLine()) != null) {
-                rowNum++;
-                List<String> cols = parseCsvLine(line);
-                if (cols.size() < 5) continue;
-                Device device = mapColumns(cols, null, batchId);
-                if (device == null) continue;
-                classifyAndRecord(device, result);
-                if (result.getTotalRows() >= 20) break; // 只取前20条预览
-            }
-        } catch (IOException e) {
-            result.addError(0, "-", "-", "文件读取失败: " + e.getMessage());
-        }
-        return result;
-    }
-
-    private ImportResultDTO dryRunXlsx(InputStream inputStream, String batchId) {
-        ImportResultDTO result = createDryRunResult(batchId);
-        try (Workbook workbook = new XSSFWorkbook(inputStream)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            int lastRow = Math.min(sheet.getLastRowNum(), 21); // 最多读21行（含表头）
-            for (int i = 1; i <= lastRow; i++) {
-                Row row = sheet.getRow(i);
-                if (row == null) continue;
-                List<String> cols = new ArrayList<>();
-                int lastCol = Math.max(row.getLastCellNum(), 49);
-                for (int c = 0; c < lastCol; c++) {
-                    cols.add(getCellString(row.getCell(c)));
-                }
-                Device device = mapColumns(cols, null, batchId);
-                if (device == null) continue;
-                classifyAndRecord(device, result);
-                if (result.getTotalRows() >= 20) break;
-            }
-        } catch (IOException e) {
-            result.addError(0, "-", "-", "文件读取失败: " + e.getMessage());
-        }
-        return result;
-    }
-
-    private ImportResultDTO createDryRunResult(String batchId) {
-        ImportResultDTO result = ImportResultDTO.builder()
-                .batchId(batchId)
-                .errors(new ArrayList<>())
-                .build();
-        return result;
-    }
-
-    private void classifyAndRecord(Device device, ImportResultDTO result) {
-        Long categoryId = categoryService.classifyByGbName(device.getGbCategoryName());
-        if (categoryId != null) {
-            device.setCategoryId(categoryId);
-            result.setAutoCategoryCount(result.getAutoCategoryCount() + 1);
-        } else {
-            device.setCategoryId(10L);
-            result.setUncategorizedCount(result.getUncategorizedCount() + 1);
-        }
-        result.setTotalRows(result.getTotalRows() + 1);
-    }
-
-    // ==================== CSV 导入 ====================
-
+    /**
+     * 读取 CSV 所有行（自动检测编码），构建 newAssetNoSet，删除旧数据中不存在的记录，再逐行 upsert
+     */
     private ImportResultDTO importCsv(InputStream inputStream, Long userId, String batchId) {
         ImportResultDTO result = ImportResultDTO.builder()
                 .batchId(batchId)
                 .errors(new ArrayList<>())
                 .build();
 
-        List<Device> batch = new ArrayList<>(BATCH_SIZE);
-
-        try (BufferedReader reader = new BufferedReader(
-                new InputStreamReader(inputStream, java.nio.charset.StandardCharsets.UTF_8))) {
-
-            // 跳过表头
-            String header = reader.readLine();
-            if (header == null) {
-                result.setFailCount(1);
-                result.addError(0, "-", "-", "文件为空");
-                return result;
+        // 1. 将所有行读入内存（自动检测编码）
+        List<String[]> allRows = parseCsvWithEncodingDetection(inputStream, result);
+        if (allRows.isEmpty()) {
+            if (result.getErrors().isEmpty()) {
+                result.addError(0, "-", "-", "文件中无有效数据行（至少需要资产编号列）");
             }
-
-            String line;
-            int rowNum = 1;
-            while ((line = reader.readLine()) != null) {
-                rowNum++;
-                try {
-                    List<String> cols = parseCsvLine(line);
-                    if (cols.size() < 5) continue; // 空行跳过
-
-                    Device device = mapColumns(cols, userId, batchId);
-                    if (device == null) continue; // asset_no为空跳过
-
-                    // 自动分类
-                    Long categoryId = categoryService.classifyByGbName(device.getGbCategoryName());
-                    if (categoryId != null) {
-                        device.setCategoryId(categoryId);
-                        result.setAutoCategoryCount(result.getAutoCategoryCount() + 1);
-                    } else {
-                        // 未命中 → 归入"其他设备" (category_id = 10)
-                        device.setCategoryId(10L);
-                        result.setUncategorizedCount(result.getUncategorizedCount() + 1);
-                    }
-
-                    batch.add(device);
-                    result.setTotalRows(result.getTotalRows() + 1);
-
-                    if (batch.size() >= BATCH_SIZE) {
-                        flushBatch(batch, result);
-                        batch.clear();
-                    }
-                } catch (Exception e) {
-                    result.setFailCount(result.getFailCount() + 1);
-                    result.addError(rowNum, "", "", e.getMessage());
-                }
-            }
-
-            if (!batch.isEmpty()) {
-                flushBatch(batch, result);
-            }
-
-        } catch (IOException e) {
-            log.error("读取CSV文件失败: {}", e.getMessage(), e);
-            result.addError(0, "-", "-", "文件读取失败: " + e.getMessage());
+            return result;
         }
 
-        log.info("CSV导入完成: batchId={} total={} success={} update={} fail={} autoCate={} uncate={}",
-                batchId, result.getTotalRows(), result.getSuccessCount(), result.getUpdateCount(),
-                result.getFailCount(), result.getAutoCategoryCount(), result.getUncategorizedCount());
+        log.info("CSV解析完成: 共 {} 行", allRows.size());
+
+        // 2. 收集新文件中的 asset_no 集合
+        Set<String> newAssetNos = new HashSet<>();
+        for (String[] cols : allRows) {
+            String assetNo = cols.length > 1 ? cols[1] : null;
+            if (assetNo != null && !assetNo.trim().isEmpty()) {
+                newAssetNos.add(assetNo.trim());
+            }
+        }
+
+        // 3. 删除旧数据中不在新文件中的记录
+        int deleted = deleteDevicesNotInSet(newAssetNos);
+        result.setDeleteCount(deleted);
+        log.info("已删除 {} 条旧数据中不存在的设备记录", deleted);
+
+        // 4. 逐行 upsert
+        List<Device> batch = new ArrayList<>(BATCH_SIZE);
+        for (String[] cols : allRows) {
+            try {
+                Device device = mapColumns(cols, userId, batchId);
+                if (device == null) continue;
+
+                // 自动分类
+                Long categoryId = categoryService.classifyByGbName(device.getGbCategoryName());
+                if (categoryId != null) {
+                    device.setCategoryId(categoryId);
+                    result.setAutoCategoryCount(result.getAutoCategoryCount() + 1);
+                } else {
+                    device.setCategoryId(10L);
+                    result.setUncategorizedCount(result.getUncategorizedCount() + 1);
+                }
+
+                batch.add(device);
+                result.setTotalRows(result.getTotalRows() + 1);
+
+                if (batch.size() >= BATCH_SIZE) {
+                    smartFlushBatch(batch, result);
+                    batch.clear();
+                }
+            } catch (Exception e) {
+                result.setFailCount(result.getFailCount() + 1);
+                result.addError(0, cols.length > 1 ? cols[1] : "", cols.length > 2 ? cols[2] : "",
+                        e.getMessage());
+            }
+        }
+
+        if (!batch.isEmpty()) {
+            smartFlushBatch(batch, result);
+        }
+
         return result;
     }
 
-    // ==================== XLSX 导入 ====================
+    // ==================== Excel 智能导入 ====================
 
-    private ImportResultDTO importXlsx(InputStream inputStream, Long userId, String batchId) {
+    private ImportResultDTO importExcel(InputStream inputStream, Long userId, String batchId, String lowerName) {
         ImportResultDTO result = ImportResultDTO.builder()
                 .batchId(batchId)
                 .errors(new ArrayList<>())
                 .build();
 
-        List<Device> batch = new ArrayList<>(BATCH_SIZE);
-
-        try (Workbook workbook = new XSSFWorkbook(inputStream)) {
-            Sheet sheet = workbook.getSheetAt(0);
-            int lastRow = sheet.getLastRowNum();
-
-            for (int i = 1; i <= lastRow; i++) { // 跳过表头（row 0）
-                Row row = sheet.getRow(i);
-                if (row == null) continue;
-
-                try {
-                    List<String> cols = new ArrayList<>();
-                    int lastCol = row.getLastCellNum();
-                    for (int c = 0; c < Math.max(lastCol, 49); c++) {
-                        Cell cell = row.getCell(c);
-                        cols.add(getCellString(cell));
-                    }
-
-                    Device device = mapColumns(cols, userId, batchId);
-                    if (device == null) continue;
-
-                    Long categoryId = categoryService.classifyByGbName(device.getGbCategoryName());
-                    if (categoryId != null) {
-                        device.setCategoryId(categoryId);
-                        result.setAutoCategoryCount(result.getAutoCategoryCount() + 1);
-                    } else {
-                        device.setCategoryId(10L);
-                        result.setUncategorizedCount(result.getUncategorizedCount() + 1);
-                    }
-
-                    batch.add(device);
-                    result.setTotalRows(result.getTotalRows() + 1);
-
-                    if (batch.size() >= BATCH_SIZE) {
-                        flushBatch(batch, result);
-                        batch.clear();
-                    }
-                } catch (Exception e) {
-                    result.setFailCount(result.getFailCount() + 1);
-                    result.addError(i + 1, "", "", e.getMessage());
-                }
+        List<String[]> allRows = parseExcelAll(inputStream, lowerName, result);
+        if (allRows.isEmpty()) {
+            if (result.getErrors().isEmpty()) {
+                result.addError(0, "-", "-", "文件中无有效数据行");
             }
-
-            if (!batch.isEmpty()) {
-                flushBatch(batch, result);
-            }
-
-        } catch (IOException e) {
-            log.error("读取XLSX文件失败: {}", e.getMessage(), e);
-            result.addError(0, "-", "-", "文件读取失败: " + e.getMessage());
+            return result;
         }
 
-        log.info("XLSX导入完成: batchId={} total={} success={} update={} fail={}",
-                batchId, result.getTotalRows(), result.getSuccessCount(),
-                result.getUpdateCount(), result.getFailCount());
+        log.info("Excel解析完成: 共 {} 行", allRows.size());
+
+        // 收集 asset_no 集合
+        Set<String> newAssetNos = new HashSet<>();
+        for (String[] cols : allRows) {
+            String assetNo = cols.length > 1 ? cols[1] : null;
+            if (assetNo != null && !assetNo.trim().isEmpty()) {
+                newAssetNos.add(assetNo.trim());
+            }
+        }
+
+        // 删除旧数据
+        int deleted = deleteDevicesNotInSet(newAssetNos);
+        result.setDeleteCount(deleted);
+        log.info("已删除 {} 条旧数据中不存在的设备记录", deleted);
+
+        // 逐行 upsert
+        List<Device> batch = new ArrayList<>(BATCH_SIZE);
+        for (String[] cols : allRows) {
+            try {
+                Device device = mapColumns(cols, userId, batchId);
+                if (device == null) continue;
+
+                Long categoryId = categoryService.classifyByGbName(device.getGbCategoryName());
+                if (categoryId != null) {
+                    device.setCategoryId(categoryId);
+                    result.setAutoCategoryCount(result.getAutoCategoryCount() + 1);
+                } else {
+                    device.setCategoryId(10L);
+                    result.setUncategorizedCount(result.getUncategorizedCount() + 1);
+                }
+
+                batch.add(device);
+                result.setTotalRows(result.getTotalRows() + 1);
+
+                if (batch.size() >= BATCH_SIZE) {
+                    smartFlushBatch(batch, result);
+                    batch.clear();
+                }
+            } catch (Exception e) {
+                result.setFailCount(result.getFailCount() + 1);
+                result.addError(0, cols.length > 1 ? cols[1] : "", cols.length > 2 ? cols[2] : "",
+                        e.getMessage());
+            }
+        }
+
+        if (!batch.isEmpty()) {
+            smartFlushBatch(batch, result);
+        }
+
         return result;
     }
 
-    // ==================== 批量写入 ====================
+    // ==================== 智能 Upsert ====================
 
-    private void flushBatch(List<Device> batch, ImportResultDTO result) {
+    /**
+     * 智能批量写入：已有记录→更新业务字段但保留关联数据；新记录→插入
+     */
+    private void smartFlushBatch(List<Device> batch, ImportResultDTO result) {
         for (Device device : batch) {
             try {
                 Device existing = deviceMapper.selectByAssetNo(device.getAssetNo());
                 if (existing != null) {
+                    // 已存在 → 更新业务字段，保留关联数据
                     device.setId(existing.getId());
+
+                    // 保留旧记录中用户维护的字段（不覆盖）
+                    if (device.getBorrowType() == null) device.setBorrowType(existing.getBorrowType());
+                    if (device.getLaboratoryId() == null) device.setLaboratoryId(existing.getLaboratoryId());
+                    if (device.getDescription() == null) device.setDescription(existing.getDescription());
+                    // 保留封面图（新数据通常没有封面图）
+                    if (device.getCoverImage() == null) device.setCoverImage(existing.getCoverImage());
+                    // 保留 defaultApproverId
+                    if (device.getDefaultApproverId() == null)
+                        device.setDefaultApproverId(existing.getDefaultApproverId());
+
                     deviceMapper.updateById(device);
                     result.setUpdateCount(result.getUpdateCount() + 1);
                 } else {
+                    // 新记录 → 插入，缺失值使用默认值
+                    if (device.getBorrowType() == null) device.setBorrowType(2);
+                    if (device.getStatus() == null) device.setStatus(1);
+                    if (device.getTotalQty() == null) device.setTotalQty(1);
+                    if (device.getAvailableQty() == null) device.setAvailableQty(device.getTotalQty());
+
                     deviceMapper.insert(device);
                     result.setSuccessCount(result.getSuccessCount() + 1);
                 }
             } catch (Exception e) {
                 result.setFailCount(result.getFailCount() + 1);
                 result.addError(0, device.getAssetNo(), device.getName(), e.getMessage());
+                log.warn("导入记录失败: assetNo={} name={} error={}",
+                        device.getAssetNo(), device.getName(), e.getMessage());
             }
         }
     }
 
-    // ==================== 列映射 ====================
+    /**
+     * 删除数据库中 asset_no 不在给定集合中的设备记录
+     */
+    private int deleteDevicesNotInSet(Set<String> newAssetNos) {
+        if (newAssetNos.isEmpty()) return 0;
+
+        // 查出现有所有 asset_no
+        List<Device> allExisting = deviceMapper.selectList(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Device>()
+                        .select(Device::getId, Device::getAssetNo)
+                        .isNotNull(Device::getAssetNo));
+
+        int deleted = 0;
+        for (Device existing : allExisting) {
+            if (!newAssetNos.contains(existing.getAssetNo())) {
+                deviceMapper.deleteById(existing.getId());
+                deleted++;
+            }
+        }
+        return deleted;
+    }
+
+    // ==================== CSV 编码检测 ====================
 
     /**
-     * CSV/XLSX 列 → Device 字段映射
+     * 自动检测 CSV 编码并解析所有行
+     * 顺序：BOM检测 → UTF-8尝试验证 → GBK回退
      */
-    private Device mapColumns(List<String> cols, Long userId, String batchId) {
-        // CSV列索引从0开始(0=终审单位,1=资产编号,2=资产名称,...)
-        String assetNo = getCol(cols, 1);
+    private List<String[]> parseCsvWithEncodingDetection(InputStream inputStream, ImportResultDTO result) {
+        try {
+            byte[] bytes = readAllBytes(inputStream);
+            if (bytes.length == 0) return Collections.emptyList();
+
+            String content;
+            String detectedEncoding;
+
+            // 1. 检查 BOM (UTF-8: EF BB BF)
+            if (bytes.length >= 3 && (bytes[0] & 0xFF) == 0xEF
+                    && (bytes[1] & 0xFF) == 0xBB && (bytes[2] & 0xFF) == 0xBF) {
+                content = new String(bytes, 3, bytes.length - 3, java.nio.charset.StandardCharsets.UTF_8);
+                detectedEncoding = "UTF-8-BOM";
+            } else {
+                // 2. 尝试 UTF-8
+                content = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+                // 验证：表头是否包含中文关键词且无乱码
+                if (content.contains(ENCODING_CHECK_WORD)) {
+                    detectedEncoding = "UTF-8";
+                } else {
+                    // 3. 回退 GBK
+                    content = new String(bytes, java.nio.charset.Charset.forName("GBK"));
+                    detectedEncoding = "GBK";
+                }
+            }
+
+            log.info("CSV编码检测: {} (文件大小 {} KB)", detectedEncoding, bytes.length / 1024);
+
+            List<String[]> rows = new ArrayList<>();
+            try (BufferedReader reader = new BufferedReader(new StringReader(content))) {
+                // 跳过表头
+                String header = reader.readLine();
+                if (header == null) return rows;
+
+                String line;
+                while ((line = reader.readLine()) != null) {
+                    if (line.trim().isEmpty()) continue;
+                    String[] cols = parseCsvLineToArray(line);
+                    if (cols.length < 2) continue; // 至少需要资产编号
+                    rows.add(cols);
+                }
+            }
+
+            return rows;
+        } catch (IOException e) {
+            log.error("CSV解析失败: {}", e.getMessage(), e);
+            result.addError(0, "-", "-", "CSV文件解析失败: " + e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    // ==================== Excel 解析（全部行） ====================
+
+    private List<String[]> parseExcelAll(InputStream inputStream, String lowerName, ImportResultDTO result) {
+        try {
+            byte[] bytes = readAllBytes(inputStream);
+            if (bytes.length == 0) return Collections.emptyList();
+
+            Workbook workbook;
+            try {
+                workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes));
+                log.info("Excel格式: XLSX");
+            } catch (Exception e) {
+                // 尝试 HSSF (.xls) 格式
+                try {
+                    workbook = new HSSFWorkbook(new ByteArrayInputStream(bytes));
+                    log.info("Excel格式: XLS (HSSF)");
+                } catch (Exception ex) {
+                    log.error("无法识别Excel格式，既不是XLSX也不是XLS: {}", ex.getMessage());
+                    result.addError(0, "-", "-", "无法识别文件格式，请确认是有效的 .xlsx 或 .xls 文件");
+                    return Collections.emptyList();
+                }
+            }
+
+            List<String[]> rows = new ArrayList<>();
+            Sheet sheet = workbook.getSheetAt(0);
+            int lastRow = sheet.getLastRowNum();
+
+            if (lastRow < 1) {
+                workbook.close();
+                log.warn("Excel工作表为空或无数据行: lastRow={}", lastRow);
+                return rows;
+            }
+
+            for (int i = 1; i <= lastRow; i++) { // 跳过表头（row 0）
+                Row row = sheet.getRow(i);
+                if (row == null) continue;
+
+                int lastCol = row.getLastCellNum();
+                if (lastCol < 2) continue; // 至少需要前两列
+                String[] cols = new String[Math.max(lastCol, 49)];
+                for (int c = 0; c < lastCol; c++) {
+                    cols[c] = getCellString(row.getCell(c));
+                }
+                rows.add(cols);
+            }
+
+            workbook.close();
+            log.info("Excel解析完成: {} 行数据", rows.size());
+            return rows;
+        } catch (IOException e) {
+            log.error("Excel解析失败: {}", e.getMessage(), e);
+            result.addError(0, "-", "-", "Excel文件解析失败: " + e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+
+    // ==================== Dry-Run 解析 ====================
+
+    private List<String[]> parseCsvForDryRun(InputStream inputStream) {
+        try {
+            byte[] bytes = readAllBytes(inputStream);
+            String content;
+            if (bytes.length >= 3 && (bytes[0] & 0xFF) == 0xEF
+                    && (bytes[1] & 0xFF) == 0xBB && (bytes[2] & 0xFF) == 0xBF) {
+                content = new String(bytes, 3, bytes.length - 3, java.nio.charset.StandardCharsets.UTF_8);
+            } else {
+                content = new String(bytes, java.nio.charset.StandardCharsets.UTF_8);
+                if (!content.contains(ENCODING_CHECK_WORD)) {
+                    content = new String(bytes, java.nio.charset.Charset.forName("GBK"));
+                }
+            }
+            List<String[]> rows = new ArrayList<>();
+            try (BufferedReader reader = new BufferedReader(new StringReader(content))) {
+                reader.readLine(); // skip header
+                String line;
+                while ((line = reader.readLine()) != null && rows.size() < 20) {
+                    if (line.trim().isEmpty()) continue;
+                    String[] cols = parseCsvLineToArray(line);
+                    if (cols.length >= 2) rows.add(cols);
+                }
+            }
+            return rows;
+        } catch (IOException e) {
+            return Collections.emptyList();
+        }
+    }
+
+    private List<String[]> parseExcelForDryRun(InputStream inputStream, String lowerName) {
+        ImportResultDTO dummy = ImportResultDTO.builder().errors(new ArrayList<>()).build();
+        List<String[]> all = parseExcelAll(inputStream, lowerName, dummy);
+        // 只返回前20条
+        return all.size() > 20 ? all.subList(0, 20) : all;
+    }
+
+    // ==================== 列映射（String[] 版本） ====================
+
+    private Device mapColumns(String[] cols, Long userId, String batchId) {
+        String assetNo = getArrCol(cols, 1);
         if (assetNo == null || assetNo.trim().isEmpty()) return null;
 
         Device d = new Device();
         d.setAssetNo(assetNo.trim());
-        d.setName(getCol(cols, 2));
-        d.setModel(getCol(cols, 3));
-        d.setSpecs(getCol(cols, 4));
-        d.setTotalQty(parseIntSafe(getCol(cols, 5), 1));
-        d.setUnitPrice(parseBigDecimalSafe(getCol(cols, 6)));
-        d.setTotalAmount(parseBigDecimalSafe(getCol(cols, 7)));
-        d.setPurchaseDate(parseExcelDate(getCol(cols, 8)));
-        d.setDepartment(getCol(cols, 9));
-        d.setCustodian(getCol(cols, 10));
-        d.setLocation(getCol(cols, 12));
-        d.setDescription(getCol(cols, 13));
-        d.setEduCategoryName(getCol(cols, 19));
-        d.setEduCategoryCode(getCol(cols, 20));
-        d.setGbCategoryName(getCol(cols, 21));
-        d.setGbCategoryCode(getCol(cols, 22));
-        d.setManufacturer(getCol(cols, 24));
-        d.setSupplier(getCol(cols, 31));
-        d.setInvoiceNo(getCol(cols, 32));
-        d.setContractNo(getCol(cols, 33));
-        d.setWarrantyPeriod(parseIntSafe(getCol(cols, 36), null));
+        d.setName(getArrCol(cols, 2));
+        d.setModel(getArrCol(cols, 3));
+        d.setSpecs(getArrCol(cols, 4));
+        d.setTotalQty(parseIntSafe(getArrCol(cols, 5), 1));
+        d.setAvailableQty(parseIntSafe(getArrCol(cols, 5), 1)); // 初始可借量=总量
+        d.setUnitPrice(parseBigDecimalSafe(getArrCol(cols, 6)));
+        d.setTotalAmount(parseBigDecimalSafe(getArrCol(cols, 7)));
+        d.setPurchaseDate(parseExcelDate(getArrCol(cols, 8)));
+        d.setDepartment(getArrCol(cols, 9));
+        d.setCustodian(getArrCol(cols, 10));
+        d.setLocation(getArrCol(cols, 12));
+        d.setDescription(getArrCol(cols, 13));
+        d.setEduCategoryName(getArrCol(cols, 19));
+        d.setEduCategoryCode(getArrCol(cols, 20));
+        d.setGbCategoryName(getArrCol(cols, 21));
+        d.setGbCategoryCode(getArrCol(cols, 22));
+        d.setManufacturer(getArrCol(cols, 24));
+        d.setSupplier(getArrCol(cols, 31));
+        d.setInvoiceNo(getArrCol(cols, 32));
+        d.setContractNo(getArrCol(cols, 33));
+        d.setWarrantyPeriod(parseIntSafe(getArrCol(cols, 36), null));
         d.setImportBatchId(batchId);
         d.setStatus(1);
+        d.setBorrowType(2);  // 默认：可借出
         d.setCreateBy(userId);
         return d;
     }
 
-    // ==================== CSV 解析 ====================
+    private String getArrCol(String[] cols, int index) {
+        if (index < cols.length) {
+            String val = cols[index];
+            return (val != null && !val.trim().isEmpty()) ? val.trim() : null;
+        }
+        return null;
+    }
+
+    // ==================== CSV 行解析 ====================
 
     /**
-     * 解析一行 CSV（处理引号内的逗号）
+     * 解析一行CSV为字符串数组（不含引号），比 List 版本性能更好
      */
-    private List<String> parseCsvLine(String line) {
-        List<String> result = new ArrayList<>();
+    private String[] parseCsvLineToArray(String line) {
+        List<String> result = new ArrayList<>(50);
         boolean inQuotes = false;
         StringBuilder sb = new StringBuilder();
 
@@ -382,23 +557,16 @@ public class DeviceImportServiceImpl implements DeviceImportService {
             }
         }
         result.add(sb.toString());
-        return result;
+        return result.toArray(new String[0]);
     }
 
-    // ==================== 类型转换帮助方法 ====================
-
-    private String getCol(List<String> cols, int index) {
-        if (index < cols.size()) {
-            String val = cols.get(index);
-            return (val != null && !val.trim().isEmpty()) ? val.trim() : null;
-        }
-        return null;
-    }
+    // ==================== 类型转换工具 ====================
 
     private Integer parseIntSafe(String val, Integer defaultVal) {
         if (val == null) return defaultVal;
         try {
-            return Integer.parseInt(val.replace(",", "").replace("，", ""));
+            String clean = val.replace(",", "").replace("，", "").replace("\"", "").trim();
+            return Integer.parseInt(clean);
         } catch (NumberFormatException e) {
             return defaultVal;
         }
@@ -407,30 +575,26 @@ public class DeviceImportServiceImpl implements DeviceImportService {
     private BigDecimal parseBigDecimalSafe(String val) {
         if (val == null) return null;
         try {
-            String clean = val.replace(",", "").replace("，", "").replace("\"", "");
+            String clean = val.replace(",", "").replace("，", "").replace("\"", "").trim();
+            if (clean.isEmpty()) return null;
             return new BigDecimal(clean);
         } catch (NumberFormatException e) {
             return null;
         }
     }
 
-    /**
-     * 解析 Excel 序列号日期 → LocalDate
-     * 支持格式：纯数字（Excel序列号）或 yyyy-MM-dd / yyyy/MM/dd
-     */
     private LocalDate parseExcelDate(String val) {
         if (val == null || val.isEmpty()) return null;
         try {
-            // 尝试解析为纯数字 → Excel 序列号
-            int serial = Integer.parseInt(val.replace(",", "").trim());
-            return EXCEL_EPOCH.plusDays(serial);
+            double d = Double.parseDouble(val.replace(",", "").trim());
+            // Excel序列号：整数部分=日期，小数部分=时间
+            return EXCEL_EPOCH.plusDays((long) d);
         } catch (NumberFormatException ignored) {
-            // 尝试日期字符串
             try {
-                return LocalDate.parse(val, DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+                return LocalDate.parse(val.trim(), DateTimeFormatter.ofPattern("yyyy-MM-dd"));
             } catch (DateTimeParseException ignored2) {
                 try {
-                    return LocalDate.parse(val, DateTimeFormatter.ofPattern("yyyy/MM/dd"));
+                    return LocalDate.parse(val.trim(), DateTimeFormatter.ofPattern("yyyy/MM/dd"));
                 } catch (DateTimeParseException ignored3) {
                     return null;
                 }
@@ -445,10 +609,8 @@ public class DeviceImportServiceImpl implements DeviceImportService {
                 return cell.getStringCellValue();
             case NUMERIC:
                 if (DateUtil.isCellDateFormatted(cell)) {
-                    // 返回 Excel 序列号数字，后续由 parseExcelDate 统一解析
                     return String.valueOf(cell.getNumericCellValue());
                 }
-                // 避免科学计数法
                 double dv = cell.getNumericCellValue();
                 if (dv == Math.floor(dv) && !Double.isInfinite(dv)) {
                     return String.valueOf((long) dv);
@@ -465,5 +627,15 @@ public class DeviceImportServiceImpl implements DeviceImportService {
             default:
                 return "";
         }
+    }
+
+    private byte[] readAllBytes(InputStream inputStream) throws IOException {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+        byte[] data = new byte[8192];
+        int n;
+        while ((n = inputStream.read(data)) != -1) {
+            buffer.write(data, 0, n);
+        }
+        return buffer.toByteArray();
     }
 }
