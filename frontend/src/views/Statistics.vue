@@ -3,8 +3,8 @@
     <el-tabs v-model="tab" @tab-change="switchTab">
       <el-tab-pane label="概览" name="overview"/>
       <el-tab-pane label="借用趋势" name="trend"/>
-      <el-tab-pane label="热门设备 TOP10" name="topDevices"/>
-      <el-tab-pane label="高频用户 TOP10" name="topUsers"/>
+      <el-tab-pane label="热门设备 Top10" name="topDevices"/>
+      <el-tab-pane label="高频用户 Top10" name="topUsers"/>
       <el-tab-pane label="分类利用率" name="utilization"/>
     </el-tabs>
     <el-card v-loading="loading">
