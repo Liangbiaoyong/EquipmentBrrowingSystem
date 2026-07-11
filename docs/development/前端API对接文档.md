@@ -2,6 +2,8 @@
 
 | 版本 | 日期 | 说明 |
 |------|------|------|
+| V3.0 | 2026-07-11 | 设备状态重构(borrowStatus+deviceStatus)+选择器+数据表管理 |
+| V2.1 | 2026-07-11 | 批量导入修复：GBK编码检测 + 智能导入(主键识别+增量更新) |
 | V1.0 | 2026-07-07 | 初始版本，覆盖所有后端已实现接口 |
 | V2.1 | 2026-07-11 | 批量导入修复：GBK编码检测 + 智能导入(主键识别+增量更新) |
 
@@ -157,7 +159,8 @@ GET /devices?page=1&size=20&keyword=&categoryId=&status=&location=&gbCategoryNam
   keyword        搜索关键词（匹配名称/资产编号/型号）
   categoryId     业务分类ID（1=计算机 2=摄影摄像 3=音频 4=空调 5=仪器仪表
                               6=家具 7=无人机 8=软件 9=安全监控 10=其他）
-  status         1可借用 2借用中 3维修中 4待报废
+  borrowStatus   借还状态: 1可借用 2借用中 3不可借 4逾期（V3替换旧status）
+  deviceStatus   设备状态: 1正常 2待维修 3维修中 4待报废 5已报废（V3新增）
   borrowType     借用类型: 1可现场借用 2可借出（V2新增）
   laboratoryId   所属实验室ID（V2新增）
   location       存放地（模糊匹配）
@@ -307,6 +310,22 @@ GET /devices/export/csv?categoryId=1&batchId=xxx
 GET    /devices/batches              → 所有导入批次列表
 GET    /devices/batches/{batchId}    → 按批次查询设备
 DELETE /devices/batches/{batchId}    → 按批次清除（admin:user）
+```
+
+### 10. 设备快速选择器（V3新增，用于借用申请页）
+
+```
+GET /devices/picker?page=1&size=50&keyword=ThinkPad&categoryId=1&borrowType=2
+
+参数:
+  page         默认1
+  size         默认50
+  keyword      搜索关键词（匹配名称/资产编号/型号）
+  categoryId   业务分类筛选
+  borrowType   借用类型筛选
+
+说明: 仅返回borrowStatus=1(可借用)的设备，精简字段（不含规格/国标/供货商等大字段）
+用途: 借用申请页面的设备搜索下拉框
 ```
 
 ---
@@ -596,7 +615,72 @@ type取值: APPROVAL / REMIND / SYSTEM
 
 ---
 
-## 九、实验室管理 `/laboratories`（V2 新增）
+## 九、数据表管理 `/admin/data-tables`（V3 新增）
+
+> **权限分级**：系统管理员可访问所有表（含sys_user/system_config为只读）；实验室管理员仅可访问设备相关表（白名单：device/device_image/borrow_record等14张表）。
+
+### 1. 获取表列表
+
+```
+GET /admin/data-tables/tables
+权限: admin:user 或 laboratory:manage
+
+响应: [{ "TABLE_NAME":"device", "TABLE_ROWS":2469, "TABLE_COMMENT":"设备/资产表", "SIZE_MB":2.5 }, ...]
+```
+
+### 2. 查询表数据（分页+排序+关键词搜索）
+
+```
+GET /admin/data-tables/{tableName}?page=1&size=50&sort=id&order=desc&keyword=xxx
+
+参数:
+  page     默认1
+  size     默认50
+  sort     排序列名（必须是表中存在的列）
+  order    asc/desc，默认asc
+  keyword  关键词（模糊搜索所有字符串列）
+
+响应:
+{
+  "columns": [{ "COLUMN_NAME":"id","DATA_TYPE":"bigint","COLUMN_COMMENT":"主键",... }],
+  "rows": [{ "id":1,"name":"设备A",... }],
+  "total": 2469,
+  "page": 1,
+  "size": 50,
+  "readOnly": false
+}
+```
+
+### 3. 更新单行数据
+
+```
+PUT /admin/data-tables/{tableName}/{id}
+Content-Type: application/json
+权限: admin:user 或 laboratory:manage（readOnly表禁止编辑）
+
+请求体: { "字段名": "新值", ... }
+```
+
+### 4. 批量更新
+
+```
+PUT /admin/data-tables/{tableName}/batch
+Content-Type: application/json
+权限: admin:user（仅系统管理员）
+
+请求体: { "ids": [1,2,3], "updates": { "字段名": "新值" } }
+```
+
+### 5. 删除单行
+
+```
+DELETE /admin/data-tables/{tableName}/{id}
+权限: admin:user（仅系统管理员，readOnly表禁止删除）
+```
+
+---
+
+## 十、实验室管理 `/laboratories`（V2 新增）
 
 ### 1. 实验室列表（分页）
 
@@ -859,7 +943,11 @@ interface Device {
   availableQty: number;
   unitPrice: number;
   totalAmount: number;
-  status: number;          // 1可借用 2借用中 3维修中 4待报废
+  status: number;          // 【废弃】旧状态，V3起使用 borrowStatus + deviceStatus
+  borrowStatus: number;    // 借还状态: 1可借用 2借用中 3不可借 4逾期
+  deviceStatus: number;    // 设备状态: 1正常 2待维修 3维修中 4待报废 5已报废
+  borrowStatusName: string; // 借还状态中文名（非DB字段，后端填充）
+  deviceStatusName: string; // 设备状态中文名（非DB字段，后端填充）
   borrowType: number;      // 1可现场借用 2可借出（默认）
   laboratoryId: number | null;
   gbCategoryName: string;

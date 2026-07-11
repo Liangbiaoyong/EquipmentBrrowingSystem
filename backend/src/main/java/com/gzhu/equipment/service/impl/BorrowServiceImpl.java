@@ -82,7 +82,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         List<BorrowRecord> records = new java.util.ArrayList<>();
         for (Long deviceId : deviceIds) {
             Device device = deviceMapper.selectById(deviceId);
-            if (device == null || device.getStatus() != 1) continue;
+            if (device == null || device.getBorrowStatus() == null || device.getBorrowStatus() != 1) continue;
             if (device.getAvailableQty() == null || device.getAvailableQty() <= 0) continue;
             if (hasTimeConflict(deviceId, dto.getStartTime(), dto.getEndTime())) continue;
 
@@ -223,7 +223,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             Device device = deviceMapper.selectById(record.getDeviceId());
             if (device != null) {
                 device.setAvailableQty(Math.max(0, device.getAvailableQty() - 1));
-                device.setStatus(2); // 标记为借用中
+                device.setBorrowStatus(2); // 借用中
                 deviceMapper.updateById(device);
             }
             notificationService.notifyApprovalResult(record.getUserId(),
@@ -273,9 +273,10 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         Device device = deviceMapper.selectById(record.getDeviceId());
         if (device != null) {
             device.setAvailableQty(Math.min(device.getAvailableQty() + 1, device.getTotalQty()));
-            // 有损坏报告 → 标记维修中 + 自动创建维修记录
+            // 有损坏报告 → 标记设备待维修 + 自动创建维修记录
             if (damageReport != null && !damageReport.trim().isEmpty()) {
-                device.setStatus(3); // 维修中
+                device.setBorrowStatus(3); // 不可借
+                device.setDeviceStatus(2); // 待维修
                 com.gzhu.equipment.entity.RepairRecord repair = new com.gzhu.equipment.entity.RepairRecord();
                 repair.setDeviceId(record.getDeviceId());
                 repair.setBorrowId(record.getId());
@@ -284,7 +285,8 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
                 repairMapper.insert(repair);
                 log.info("损坏归还自动创建维修记录: repairId={} deviceId={}", repair.getId(), record.getDeviceId());
             } else {
-                device.setStatus(1); // 可借用
+                device.setBorrowStatus(1); // 可借用
+                device.setDeviceStatus(1); // 正常
             }
             deviceMapper.updateById(device);
         }

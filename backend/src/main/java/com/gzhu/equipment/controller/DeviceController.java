@@ -57,27 +57,28 @@ public class DeviceController {
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String assetNo,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String model,
             @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) Integer status,
+            @RequestParam(required = false) Integer borrowStatus,
+            @RequestParam(required = false) Integer deviceStatus,
             @RequestParam(required = false) Integer borrowType,
             @RequestParam(required = false) Long laboratoryId,
             @RequestParam(required = false) String location,
             @RequestParam(required = false) String gbCategoryName) {
-        return R.ok(deviceService.pageQuery(page, size, keyword, categoryId, status, location, gbCategoryName, borrowType, laboratoryId));
+        return R.ok(deviceService.pageQuery(page, size, keyword, assetNo, name, model,
+                categoryId, borrowStatus, deviceStatus, location, gbCategoryName, borrowType, laboratoryId));
     }
 
     @GetMapping("/by-status/{type}")
     @ApiOperation("按状态分类查询设备：idle闲置 / borrowing借用中 / unavailable不可借 / repair待维修")
     public R<List<Device>> listByStatus(@PathVariable String type) {
-        List<Device> all = deviceMapper.selectList(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 1));
         switch (type) {
-            case "idle": return R.ok(all.stream().filter(d -> d.getAvailableQty() != null && d.getAvailableQty() > 0).collect(java.util.stream.Collectors.toList()));
-            case "borrowing": {
-                var borrowingIds = borrowMapper.selectList(new LambdaQueryWrapper<com.gzhu.equipment.entity.BorrowRecord>().eq(com.gzhu.equipment.entity.BorrowRecord::getStatus, "BORROWING")).stream().map(com.gzhu.equipment.entity.BorrowRecord::getDeviceId).collect(java.util.stream.Collectors.toSet());
-                return R.ok(all.stream().filter(d -> borrowingIds.contains(d.getId())).collect(java.util.stream.Collectors.toList()));
-            }
-            case "unavailable": return R.ok(all.stream().filter(d -> d.getAvailableQty() == null || d.getAvailableQty() == 0).collect(java.util.stream.Collectors.toList()));
-            case "repair": return R.ok(deviceService.list(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 3)));
+            case "idle": return R.ok(deviceService.list(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 1)));
+            case "borrowing": return R.ok(deviceService.list(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 2)));
+            case "unavailable": return R.ok(deviceService.list(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 3)));
+            case "repair": return R.ok(deviceService.list(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 3)));
             default: return R.fail("无效类型: idle/borrowing/unavailable/repair");
         }
     }
@@ -142,6 +143,12 @@ public class DeviceController {
             var lab = laboratoryMapper.selectById(device.getLaboratoryId());
             laboratoryName = lab != null ? lab.getName() : null;
         }
+
+        // 状态名称（V3新增）
+        device.setBorrowStatusName(com.gzhu.equipment.common.DeviceStatusConstants.borrowStatusName(
+                device.getBorrowStatus() != null ? device.getBorrowStatus() : 1));
+        device.setDeviceStatusName(com.gzhu.equipment.common.DeviceStatusConstants.deviceStatusName(
+                device.getDeviceStatus() != null ? device.getDeviceStatus() : 1));
 
         DeviceDetailVO vo = DeviceDetailVO.builder()
                 .device(device)
@@ -248,6 +255,28 @@ public class DeviceController {
         return R.ok(deviceService.listByBatchId(batchId));
     }
 
+    // ==================== 设备快速选择（V3新增） ====================
+
+    @GetMapping("/picker")
+    @ApiOperation("设备快速选择器：关键词搜索+分类筛选+分页，返回精简字段")
+    public R<IPage<Device>> picker(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Integer borrowType) {
+        IPage<Device> result = deviceService.pageQuery(page, size, keyword, null, null, null,
+                categoryId, 1, null, null, null, borrowType, null);
+        // 精简返回字段：只保留选择器需要的字段
+        for (Device d : result.getRecords()) {
+            d.setSpecs(null); d.setGbCategoryName(null); d.setGbCategoryCode(null);
+            d.setEduCategoryName(null); d.setEduCategoryCode(null);
+            d.setManufacturer(null); d.setSupplier(null); d.setInvoiceNo(null);
+            d.setContractNo(null); d.setDepartment(null);
+        }
+        return R.ok(result);
+    }
+
     // ==================== 导出 ====================
 
     @GetMapping("/export/csv")
@@ -261,7 +290,7 @@ public class DeviceController {
         if (batchId != null) {
             devices = deviceService.listByBatchId(batchId);
         } else {
-            IPage<Device> page = deviceService.pageQuery(1, 10000, null, categoryId, null, null, null, null, null);
+            IPage<Device> page = deviceService.pageQuery(1, 10000, null, null, null, null, categoryId, null, null, null, null, null, null);
             devices = page.getRecords();
         }
 

@@ -64,11 +64,26 @@ public class Device implements Serializable {
     /** 金额(元) */
     private BigDecimal totalAmount;
 
-    /** 1可借用 2借用中 3维修中 4待报废 */
+    /** 【废弃】旧状态字段，V3起使用 borrowStatus + deviceStatus */
+    @Deprecated
     private Integer status;
 
     /** 借用类型: 1可现场借用 2可借出（默认） */
     private Integer borrowType;
+
+    /** 借还状态: 1可借用 2借用中 3不可借 4逾期 */
+    private Integer borrowStatus;
+
+    /** 设备物理状态: 1正常 2待维修 3维修中 4待报废 5已报废 */
+    private Integer deviceStatus;
+
+    /** 借还状态名称（非数据库字段，展示用） */
+    @TableField(exist = false)
+    private String borrowStatusName;
+
+    /** 设备状态名称（非数据库字段，展示用） */
+    @TableField(exist = false)
+    private String deviceStatusName;
 
     /** 设备描述/备注 */
     private String description;

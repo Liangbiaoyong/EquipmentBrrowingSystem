@@ -30,14 +30,15 @@ class RepairServiceImplTest {
 
     @Test @DisplayName("创建维修记录 → 设备标记维修中")
     void createFromDamage_shouldMarkDeviceStatus() {
-        Device device = new Device(); device.setId(1L); device.setStatus(1);
+        Device device = new Device(); device.setId(1L); device.setBorrowStatus(1); device.setDeviceStatus(1);
         when(deviceMapper.selectById(1L)).thenReturn(device);
 
         RepairRecord result = repairService.createFromDamage(1L, 100L, "镜头破损");
 
         assertThat(result.getStatus()).isEqualTo("PENDING");
         assertThat(result.getDeviceId()).isEqualTo(1L);
-        assertThat(device.getStatus()).isEqualTo(3);
+        assertThat(device.getBorrowStatus()).isEqualTo(3);
+        assertThat(device.getDeviceStatus()).isEqualTo(3);
         verify(deviceMapper).updateById(device);
         verify(repairMapper).insert(any(RepairRecord.class));
     }
@@ -58,14 +59,15 @@ class RepairServiceImplTest {
     void markFixed_shouldSetFixedAndRestoreDevice() {
         RepairRecord r = new RepairRecord(); r.setId(1L); r.setDeviceId(1L); r.setStatus("REPAIRING");
         when(repairMapper.selectById(1L)).thenReturn(r);
-        Device device = new Device(); device.setId(1L); device.setStatus(3);
+        Device device = new Device(); device.setId(1L); device.setBorrowStatus(3); device.setDeviceStatus(3);
         when(deviceMapper.selectById(1L)).thenReturn(device);
 
         repairService.markFixed(1L, "已修好");
 
         assertThat(r.getStatus()).isEqualTo("FIXED");
         assertThat(r.getRepairComment()).isEqualTo("已修好");
-        assertThat(device.getStatus()).isEqualTo(1);
+        assertThat(device.getBorrowStatus()).isEqualTo(1);
+        assertThat(device.getDeviceStatus()).isEqualTo(1);
         verify(repairMapper).updateById(r);
         verify(deviceMapper).updateById(device);
     }

@@ -69,7 +69,7 @@ class BorrowServiceImplTest {
         Device d = new Device();
         d.setId(1L);
         d.setName("测试设备");
-        d.setStatus(1);
+        d.setBorrowStatus(1); d.setDeviceStatus(1);
         d.setTotalQty(5);
         d.setAvailableQty(3);
         return d;
@@ -120,7 +120,7 @@ class BorrowServiceImplTest {
     @DisplayName("提交借用（设备不可借）→ 抛出异常")
     void submitBorrow_deviceNotAvailable_shouldThrow() {
         Device device = createAvailableDevice();
-        device.setStatus(3); // 维修中
+        device.setBorrowStatus(3); device.setDeviceStatus(3); // 不可借+维修中
         when(deviceMapper.selectById(1L)).thenReturn(device);
 
         assertThatThrownBy(() -> borrowService.submitBorrow(createBorrowRequest(1L), 1L))
@@ -380,7 +380,8 @@ class BorrowServiceImplTest {
 
         borrowService.returnDevice(100L, 10L, "镜头破损");
 
-        assertThat(device.getStatus()).isEqualTo(3); // 维修中/待报废
+        assertThat(device.getBorrowStatus()).isEqualTo(3); // 不可借
+        assertThat(device.getDeviceStatus()).isEqualTo(2); // 待维修
     }
 
     @Test

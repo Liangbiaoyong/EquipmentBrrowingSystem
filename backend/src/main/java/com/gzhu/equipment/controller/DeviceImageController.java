@@ -127,7 +127,7 @@ public class DeviceImageController {
                 .map(DeviceImage::getDeviceId).distinct().collect(Collectors.toList());
 
         LambdaQueryWrapper<Device> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Device::getStatus, 1);
+        wrapper.eq(Device::getDeviceStatus, 1); // 仅设备正常状态的设备
         if (!idsWithImages.isEmpty()) wrapper.notIn(Device::getId, idsWithImages);
         wrapper.last("LIMIT " + ((page - 1) * size) + "," + size);
         return R.ok(deviceMapper.selectList(wrapper));

@@ -302,7 +302,8 @@ public class DeviceImportServiceImpl implements DeviceImportService {
                 } else {
                     // 新记录 → 插入，缺失值使用默认值
                     if (device.getBorrowType() == null) device.setBorrowType(2);
-                    if (device.getStatus() == null) device.setStatus(1);
+                    if (device.getBorrowStatus() == null) device.setBorrowStatus(1);
+                    if (device.getDeviceStatus() == null) device.setDeviceStatus(1);
                     if (device.getTotalQty() == null) device.setTotalQty(1);
                     if (device.getAvailableQty() == null) device.setAvailableQty(device.getTotalQty());
 
@@ -521,7 +522,8 @@ public class DeviceImportServiceImpl implements DeviceImportService {
         d.setContractNo(getArrCol(cols, 33));
         d.setWarrantyPeriod(parseIntSafe(getArrCol(cols, 36), null));
         d.setImportBatchId(batchId);
-        d.setStatus(1);
+        d.setBorrowStatus(1);  // 默认：可借用
+        d.setDeviceStatus(1);  // 默认：正常
         d.setBorrowType(2);  // 默认：可借出
         d.setCreateBy(userId);
         return d;

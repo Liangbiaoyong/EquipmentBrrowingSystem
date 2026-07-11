@@ -13,9 +13,10 @@ public interface DeviceService extends IService<Device> {
 
     /** 分页查询（含多条件筛选） */
     IPage<Device> pageQuery(int page, int size,
-                            String keyword, Long categoryId,
-                            Integer status, String location,
-                            String gbCategoryName,
+                            String keyword, String assetNo, String name, String model,
+                            Long categoryId,
+                            Integer borrowStatus, Integer deviceStatus,
+                            String location, String gbCategoryName,
                             Integer borrowType, Long laboratoryId);
 
     /** 按分类统计设备数量 */

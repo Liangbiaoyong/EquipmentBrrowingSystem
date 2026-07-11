@@ -27,25 +27,41 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
 
     @Override
     public IPage<Device> pageQuery(int page, int size,
-                                   String keyword, Long categoryId,
-                                   Integer status, String location,
-                                   String gbCategoryName,
+                                   String keyword, String assetNo, String name, String model,
+                                   Long categoryId,
+                                   Integer borrowStatus, Integer deviceStatus,
+                                   String location, String gbCategoryName,
                                    Integer borrowType, Long laboratoryId) {
         LambdaQueryWrapper<Device> wrapper = new LambdaQueryWrapper<>();
 
-        // 关键词：匹配名称、资产编号、型号
+        // 分离字段精确搜索（优先于keyword）
+        if (StringUtils.hasText(assetNo)) {
+            wrapper.like(Device::getAssetNo, assetNo);
+        }
+        if (StringUtils.hasText(name)) {
+            wrapper.like(Device::getName, name);
+        }
+        if (StringUtils.hasText(model)) {
+            wrapper.like(Device::getModel, model);
+        }
+        // 关键词：同时匹配名称、资产编号、型号（仅当未使用分离字段时）
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w
                     .like(Device::getName, keyword)
                     .or().like(Device::getAssetNo, keyword)
                     .or().like(Device::getModel, keyword)
+                    .or().like(Device::getLocation, keyword)
+                    .or().like(Device::getGbCategoryName, keyword)
             );
         }
         if (categoryId != null) {
             wrapper.eq(Device::getCategoryId, categoryId);
         }
-        if (status != null) {
-            wrapper.eq(Device::getStatus, status);
+        if (borrowStatus != null) {
+            wrapper.eq(Device::getBorrowStatus, borrowStatus);
+        }
+        if (deviceStatus != null) {
+            wrapper.eq(Device::getDeviceStatus, deviceStatus);
         }
         if (borrowType != null) {
             wrapper.eq(Device::getBorrowType, borrowType);

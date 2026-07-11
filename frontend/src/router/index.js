@@ -35,6 +35,7 @@ const routes = [
       { path: 'admin/users', name: 'AdminUsers', component: () => import('@/views/admin/AdminUsers.vue'), meta: { title: '用户管理', perm: 'admin:user' } },
       { path: 'admin/settings', name: 'AdminSettings', component: () => import('@/views/admin/AdminSettings.vue'), meta: { title: '系统设置', perm: 'admin:config' } },
       { path: 'admin/logs', name: 'AdminLogs', component: () => import('@/views/admin/AdminLogs.vue'), meta: { title: '操作日志', perm: 'admin:log' } },
+      { path: 'admin/data-tables', name: 'AdminDataTables', component: () => import('@/views/admin/AdminDataTables.vue'), meta: { title: '数据表管理', perm: 'admin:user' } },
       { path: 'repairs', name: 'RepairManage', component: () => import('@/views/repair/RepairManage.vue'), meta: { title: '维修管理', perm: 'repair:manage' } }
     ]
   }
