@@ -40,6 +40,6 @@
 <script setup>
 import { ref,onMounted } from 'vue';import { useRoute } from 'vue-router';import { deviceApi } from '@/api/device'
 const route=useRoute();const loading=ref(true);const detail=ref(null)
-onMounted(async()=>{try{const{data}=await deviceApi.getById(route.params.id);detail.value=data}catch{}finally{loading.value=false}})
+onMounted(async()=>{try{const{data}=await deviceApi.getById(route.params.id);detail.value=data}catch(e){console.error('加载设备详情失败',e)}finally{loading.value=false}})
 </script>
 <style scoped>.device-detail{padding:20px}.img-error{width:100%;height:200px;display:flex;align-items:center;justify-content:center;background:#f0f2f5;border-radius:4px}</style>

@@ -14,8 +14,8 @@ import { ref,reactive,onMounted } from 'vue';import { deviceApi } from '@/api/de
 const loading=ref(false);const list=ref([]);const total=ref(0);const editVisible=ref(false);const approverVisible=ref(false);const approverCurrentId=ref(null);const approverId=ref(null);const users=ref([])
 const q=reactive({page:1,size:20,keyword:''});const form=reactive({id:null,name:'',model:'',location:'',status:1,description:''})
 function getApproverName(id){if(!id)return'未设置';const u=users.value.find(x=>x.id===id);return u?u.realName||u.username:`ID:${id}`}
-async function load(){loading.value=true;try{const{data}=await deviceApi.list({...q});list.value=data.records;total.value=data.total}catch{}finally{loading.value=false}}
-async function loadUsers(){try{const{data}=await axios.get('/admin/users',{params:{page:1,size:500}});users.value=data.records}catch{}}
+async function load(){loading.value=true;try{const{data}=await deviceApi.list({...q});list.value=data.records||[];total.value=data.total||0}catch(e){console.error('加载设备失败',e)}finally{loading.value=false}}
+async function loadUsers(){try{const{data}=await axios.get('/admin/users',{params:{page:1,size:500}});users.value=data.records||[]}catch(e){console.error('加载用户列表失败',e)}}
 function openEdit(row){Object.assign(form,{id:row.id,name:row.name||'',model:row.model||'',location:row.location||'',status:row.status||1,description:row.description||''});editVisible.value=true}
 function openApprover(row){approverCurrentId.value=row.id;approverId.value=row.defaultApproverId;approverVisible.value=true}
 async function doEdit(){try{await deviceApi.update(form.id,{name:form.name,model:form.model,location:form.location,status:form.status,description:form.description});ElMessage.success('已更新');editVisible.value=false;load()}catch{}}

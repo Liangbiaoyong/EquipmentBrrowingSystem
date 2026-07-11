@@ -11,8 +11,8 @@ const deviceNames=ref({});const userNames=ref({})
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
 function getDeviceName(id){return deviceNames.value[id]||`设备#${id}`}
 function getUserName(id){return userNames.value[id]||`用户#${id}`}
-async function fetchNames(){try{const[devs,users]=await Promise.all([axios.get('/devices',{params:{page:1,size:2000}}),axios.get('/admin/users',{params:{page:1,size:2000}})]);devs.data.records.forEach(d=>deviceNames.value[d.id]=d.name);users.data.records.forEach(u=>userNames.value[u.id]=u.realName||u.username)}catch{}}
-async function load(){loading.value=true;try{const{data}=await axios.get('/borrows/my',{params:{page:page.value,size:size.value,status:'RETURNED'}});list.value=data.records.filter(r=>!r._verified);total.value=list.value.length}catch{}finally{loading.value=false}}
+async function fetchNames(){try{const[devs,users]=await Promise.all([axios.get('/devices',{params:{page:1,size:2000}}),axios.get('/admin/users',{params:{page:1,size:2000}})]);(devs.data.records||[]).forEach(d=>deviceNames.value[d.id]=d.name);(users.data.records||[]).forEach(u=>userNames.value[u.id]=u.realName||u.username)}catch(e){console.error('加载名称映射失败',e)}}
+async function load(){loading.value=true;try{const{data}=await axios.get('/borrows/my',{params:{page:page.value,size:size.value,status:'RETURNED'}});list.value=(data.records||[]).filter(r=>!r._verified);total.value=list.value.length}catch(e){console.error('加载归还列表失败',e)}finally{loading.value=false}}
 async function doVerify(id){try{await axios.post(`/borrows/${id}/verify`);ElMessage.success('已核验');load()}catch{}}
 onMounted(async()=>{await fetchNames();load()})
 </script>

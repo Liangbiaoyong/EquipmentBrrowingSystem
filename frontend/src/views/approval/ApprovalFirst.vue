@@ -39,7 +39,7 @@ async function fetchNames(){
       axios.get('/admin/users',{params:{page:1,size:2000}})
     ]);
     (devs.data.records||[]).forEach(d=>{deviceNames.value[d.id]=d.name;deviceCustodians.value[d.id]=d.custodian||''})
-    users.data.records.forEach(u=>userNames.value[u.id]=u.realName||u.username)
+    (users.data.records||[]).forEach(u=>userNames.value[u.id]=u.realName||u.username)
   }catch(e){console.error(e)}
 }
 async function fetchApprovalLogs(records){
@@ -56,7 +56,7 @@ async function load(){
     const{data}=await fn({page:page.value,size:size.value})
     list.value=data.records||[];total.value=data.total||0
     await fetchApprovalLogs(list.value)
-  }catch(e){console.error(e)}
+  }catch(e){console.error('加载审批列表失败',e)}
   finally{loading.value=false}
 }
 function doApprove(borrowId,approved){d.borrowId=borrowId;d.approved=approved;d.comment='';d.visible=true}

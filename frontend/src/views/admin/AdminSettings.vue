@@ -8,7 +8,7 @@
 import { ref,reactive,onMounted } from 'vue';import { adminApi } from '@/api/admin';import { ElMessage } from 'element-plus'
 const loading=ref(false);const list=ref([])
 const dialog=reactive({visible:false,key:'',value:'',desc:''})
-async function load(){loading.value=true;try{const{data}=await adminApi.getConfigs();list.value=data}catch{}finally{loading.value=false}}
+async function load(){loading.value=true;try{const{data}=await adminApi.getConfigs();list.value=data||[]}catch(e){console.error('加载配置失败',e)}finally{loading.value=false}}
 function edit(row){dialog.key=row.configKey;dialog.value=row.configValue;dialog.desc=row.description||'';dialog.visible=true}
 async function doSave(){try{await adminApi.setConfig(dialog.key,dialog.value,dialog.desc);ElMessage.success('已保存');dialog.visible=false;load()}catch{}}
 onMounted(load)

@@ -8,7 +8,7 @@
 <script setup>
 import { ref,onMounted } from 'vue';import { adminApi } from '@/api/admin';import request from '@/api/request';import { ElMessage } from 'element-plus'
 const loading=ref(false);const list=ref([]);const page=ref(1);const size=ref(20);const total=ref(0);const uname=ref('');const ustatus=ref(null)
-async function load(){loading.value=true;try{const{data}=await adminApi.getLogs({page:page.value,size:size.value,username:uname.value||undefined,status:ustatus.value});list.value=data.records;total.value=data.total}catch{}finally{loading.value=false}}
+async function load(){loading.value=true;try{const{data}=await adminApi.getLogs({page:page.value,size:size.value,username:uname.value||undefined,status:ustatus.value});list.value=data.records||[];total.value=data.total||0}catch(e){console.error('加载日志失败',e)}finally{loading.value=false}}
 onMounted(load)
 async function doExport(){
   try{const r=await request.get('/admin/logs/export',{responseType:'blob'});const blob=new Blob([r.data],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='logs.csv';a.click()}catch(e){ElMessage.error('导出失败')}

@@ -8,7 +8,7 @@
 import { ref,onMounted } from 'vue';import { borrowApi } from '@/api/borrow'
 const loading=ref(false);const list=ref([]);const page=ref(1);const size=ref(20);const total=ref(0)
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
-async function load(){loading.value=true;try{const{data}=await borrowApi.getOverdue({page:page.value,size:size.value});list.value=data.records;total.value=data.total}catch{}finally{loading.value=false}}
+async function load(){loading.value=true;try{const{data}=await borrowApi.getOverdue({page:page.value,size:size.value});list.value=data.records||[];total.value=data.total||0}catch(e){console.error('加载逾期列表失败',e)}finally{loading.value=false}}
 onMounted(load)
 </script>
 <style scoped>.overdue{padding:20px}</style>

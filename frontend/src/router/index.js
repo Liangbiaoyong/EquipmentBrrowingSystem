@@ -11,10 +11,11 @@ const routes = [
       { path: 'profile', name: 'Profile', component: () => import('@/views/Profile.vue'), meta: { title: '个人中心', perm: 'profile:view' } },
       // 设备
       { path: 'devices', name: 'DeviceList', component: () => import('@/views/device/DeviceList.vue'), meta: { title: '设备列表', perm: 'device:view' } },
-      { path: 'devices/:id', name: 'DeviceDetail', component: () => import('@/views/device/DeviceDetail.vue'), meta: { title: '设备详情', perm: 'device:view' } },
+      // 设备管理子路由（必须放在 devices/:id 之前，避免被 :id 吞掉）
       { path: 'devices/manage/list', name: 'DeviceManage', component: () => import('@/views/device/DeviceManage.vue'), meta: { title: '设备管理', perm: 'device:manage' } },
       { path: 'devices/manage/import', name: 'DeviceImport', component: () => import('@/views/device/DeviceImport.vue'), meta: { title: '批量导入', perm: 'device:manage' } },
       { path: 'devices/manage/missing-images', name: 'MissingImages', component: () => import('@/views/device/MissingImages.vue'), meta: { title: '缺少图片', perm: 'device:manage' } },
+      { path: 'devices/:id', name: 'DeviceDetail', component: () => import('@/views/device/DeviceDetail.vue'), meta: { title: '设备详情', perm: 'device:view' } },
       // 借用
       { path: 'borrows/create', name: 'BorrowCreate', component: () => import('@/views/borrow/BorrowCreate.vue'), meta: { title: '借用申请', perm: 'borrow:create' } },
       { path: 'borrows/my', name: 'MyBorrows', component: () => import('@/views/borrow/MyBorrows.vue'), meta: { title: '我的借用', perm: 'borrow:my' } },

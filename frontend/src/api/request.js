@@ -32,11 +32,10 @@ request.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       localStorage.removeItem('token')
+      localStorage.removeItem('permissions')
       router.push('/login')
-      localStorage.removeItem('permissions'); router.push('/login')
-    } else {
-      // 网络错误静默，由页面自行展示空状态
     }
+    // 非401错误静默，由页面自行处理
     return Promise.reject(error)
   }
 )

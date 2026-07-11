@@ -41,7 +41,7 @@ async function fetchUnread(){try{const r=await notifyApi.unreadCount();unread.va
 function handleLogout(){if(ws)ws.close();userStore.logout();router.push('/login')}
 function onResize(){isMobile.value=window.innerWidth<768;if(isMobile.value)isCollapse.value=true}
 
-onMounted(async()=>{if(!userStore.userInfo)await userStore.fetchUserInfo();fetchUnread();connectWs();window.addEventListener('resize',onResize);onResize()})
+onMounted(async()=>{if(!userStore.userInfo)try{await userStore.fetchUserInfo()}catch(e){console.error('获取用户信息失败',e)};fetchUnread();connectWs();window.addEventListener('resize',onResize);onResize()})
 onUnmounted(()=>{if(ws)ws.close();window.removeEventListener('resize',onResize)})
 </script>
 <style scoped>

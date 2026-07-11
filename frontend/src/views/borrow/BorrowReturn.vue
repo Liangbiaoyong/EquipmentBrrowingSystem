@@ -15,7 +15,7 @@ import { ref,onMounted } from 'vue';import { useRoute,useRouter } from 'vue-rout
 const route=useRoute();const router=useRouter();const record=ref(null);const damage=ref('');const file=ref(null);const sub=ref(false)
 function onFile(f){file.value=f.raw}
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
-onMounted(async()=>{try{const{data}=await borrowApi.getById(route.params.id);record.value=data}catch{}})
-async function submit(){sub.value=true;try{await borrowApi.returnDevice(route.params.id,{damageReport:damage.value,file:file.value});ElMessage.success('归还成功');router.push('/borrows/my')}catch{}finally{sub.value=false}}
+onMounted(async()=>{try{const{data}=await borrowApi.getById(route.params.id);record.value=data}catch(e){console.error('加载借用单失败',e)}})
+async function submit(){sub.value=true;try{await borrowApi.returnDevice(route.params.id,{damageReport:damage.value,file:file.value});ElMessage.success('归还成功');router.push('/borrows/my')}catch(e){ElMessage.error(e?.response?.data?.msg||e?.message||'归还失败')}finally{sub.value=false}}
 </script>
 <style scoped>.return{padding:20px}</style>

@@ -18,7 +18,7 @@ const route=useRoute();const router=useRouter();const devices=ref([]);const subm
 const approverLevel1=ref('');const approverLevel2=ref('')
 const f=reactive({deviceIds:[],startTime:'',endTime:'',reason:'',approverId:null})
 onMounted(async()=>{
-  try{const{data}=await deviceApi.list({page:1,size:200,status:1});devices.value=data.records}catch{}
+  try{const{data}=await deviceApi.list({page:1,size:200,status:1});devices.value=data.records||[]}catch(e){console.error('加载设备列表失败',e)}
   try{const{data}=await axios.get('/auth/approvers');const labAdmins=(data||[]).filter(u=>u.userType===2);if(labAdmins.length)approverLevel2.value=labAdmins[0].realName||labAdmins[0].username}catch{}
   if(route.query.deviceId){f.deviceIds=[Number(route.query.deviceId)];updateApproverInfo()}
 })
@@ -28,7 +28,7 @@ function updateApproverInfo(){if(f.deviceIds.length){const d=devices.value.find(
 async function submit(){
   if(!f.deviceIds.length||!f.startTime||!f.endTime){ElMessage.warning('请填写必填项');return}
   submitting.value=true
-  try{await borrowApi.create({...f});ElMessage.success('申请已提交');router.push('/borrows/my')}catch(e){console.error(e)}finally{submitting.value=false}
+  try{await borrowApi.create({...f});ElMessage.success('申请已提交');router.push('/borrows/my')}catch(e){ElMessage.error(e?.response?.data?.msg||e?.message||'提交失败，请稍后重试')}finally{submitting.value=false}
 }
 </script>
 <style scoped>.create{padding:20px}</style>

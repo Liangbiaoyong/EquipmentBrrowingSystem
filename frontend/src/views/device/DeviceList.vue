@@ -12,7 +12,7 @@ const router=useRouter();const loading=ref(false);const list=ref([]);const total
 const q=reactive({page:1,size:20,keyword:'',categoryId:null,status:null,statusType:null})
 const sm={1:'success',2:'warning',3:'danger',4:'info'};const sx={1:'可借用',2:'借用中',3:'维修中',4:'待报废'}
 function st(v){return sm[v]||'info'}function stx(v){return sx[v]||'未知'}function catName(id){const c=categories.value.find(x=>x.id===id);return c?c.name:''}function toDetail(row){router.push(`/devices/${row.id}`)}
-async function search(){loading.value=true;try{const{data}=await axios.get('/devices',{params:{page:q.page,size:q.size,keyword:q.keyword||undefined,categoryId:q.categoryId,status:q.status}});list.value=data.records;total.value=data.total}catch{}finally{loading.value=false}}
+async function search(){loading.value=true;try{const{data}=await axios.get('/devices',{params:{page:q.page,size:q.size,keyword:q.keyword||undefined,categoryId:q.categoryId,status:q.status}});list.value=data.records||[];total.value=data.total||0}catch(e){console.error('搜索设备失败',e)}finally{loading.value=false}}
 async function searchByStatus(){if(!q.statusType){search();return};loading.value=true;try{const{data}=await axios.get(`/devices/by-status/${q.statusType}`);list.value=data;total.value=data.length}catch{}finally{loading.value=false}}
 onMounted(async()=>{try{const{data}=await categoryApi.topLevel();categories.value=data}catch{};search()})
 </script>

@@ -13,8 +13,8 @@ function stc(s){const m={'PENDING_APPROVAL':'warning','APPROVED':'success','BORR
 function stx(s){const m={'PENDING_APPROVAL':'待审批','APPROVED':'已通过','BORROWING':'借用中','RETURNED':'已归还','REJECTED':'已驳回','CANCELLED':'已取消','OVERDUE':'逾期'};return m[s]||s}
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
 function getDeviceName(id){return deviceNames.value[id]||`设备#${id}`}
-async function fetchDeviceNames(){try{const{data}=await axios.get('/devices',{params:{page:1,size:2000}});data.records.forEach(d=>deviceNames.value[d.id]=d.name)}catch{}}
-async function load(){loading.value=true;try{const{data}=await borrowApi.getMyBorrows({page:page.value,size:size.value,status:activeTab.value||undefined});list.value=data.records;total.value=data.total}catch{}finally{loading.value=false}}
+async function fetchDeviceNames(){try{const{data}=await axios.get('/devices',{params:{page:1,size:2000}});(data.records||[]).forEach(d=>deviceNames.value[d.id]=d.name)}catch(e){console.error('加载设备名失败',e)}}
+async function load(){loading.value=true;try{const{data}=await borrowApi.getMyBorrows({page:page.value,size:size.value,status:activeTab.value||undefined});list.value=data.records||[];total.value=data.total||0}catch(e){console.error('加载借用列表失败',e)}finally{loading.value=false}}
 async function doCancel(id){try{await borrowApi.cancel(id);ElMessage.success('已取消');load()}catch{}}
 onMounted(async()=>{await fetchDeviceNames();load()})
 </script>

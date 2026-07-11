@@ -11,7 +11,7 @@ import { ref,reactive,onMounted } from 'vue';import { adminApi } from '@/api/adm
 const loading=ref(false);const list=ref([]);const page=ref(1);const size=ref(20);const total=ref(0);const keyword=ref('');const showCreate=ref(false)
 const c=reactive({username:'',realName:'',userType:2,password:'',department:''})
 function ut(t){const m={0:'学生',1:'教师',2:'实验室管理员',3:'系统管理员'};return m[t]||'未知'}
-async function load(){loading.value=true;try{const{data}=await adminApi.getUsers({page:page.value,size:size.value,keyword:keyword.value});list.value=data.records.map(u=>({...u,_newType:u.userType}));total.value=data.total}catch{}finally{loading.value=false}}
+async function load(){loading.value=true;try{const{data}=await adminApi.getUsers({page:page.value,size:size.value,keyword:keyword.value});list.value=(data.records||[]).map(u=>({...u,_newType:u.userType}));total.value=data.total||0}catch(e){console.error('加载用户列表失败',e)}finally{loading.value=false}}
 async function changeRole(id,t){try{await adminApi.updateRole(id,t);ElMessage.success('角色已变更');load()}catch{}}
 async function toggle(row){try{await adminApi.toggleStatus(row.id);ElMessage.success('已更新');load()}catch{}}
 async function doDelete(id){try{await axios.delete(`/admin/users/${id}`);ElMessage.success('已删除');load()}catch{}}
