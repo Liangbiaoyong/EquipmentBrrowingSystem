@@ -43,7 +43,9 @@
         <el-form-item label="使用时间"><el-tag type="warning">现场借用默认为当天使用</el-tag></el-form-item>
       </template>
 
-      <el-form-item label="借用事由"><el-input v-model="f.reason" type="textarea" :rows="2"/></el-form-item>
+      <el-form-item label="借用目的" required><el-select v-model="f.purposeCategory" placeholder="选择目的分类" style="width:100%"><el-option label="教学" value="教学"/><el-option label="科研" value="科研"/><el-option label="行政办公" value="行政办公"/><el-option label="竞赛活动" value="竞赛活动"/><el-option label="其他" value="其他"/></el-select></el-form-item>
+      <el-form-item label="目的详情" required><el-input v-model="f.purpose" type="textarea" :rows="2" placeholder="请详细描述借用目的..."/></el-form-item>
+      <el-form-item label="备注"><el-input v-model="f.reason" type="textarea" :rows="1" placeholder="其他补充说明(可选)"/></el-form-item>
       <el-divider content-position="left">审批流程</el-divider>
       <el-form-item label="初审人"><el-tag type="primary">{{ approverLevel1 || '设备使用人（自动匹配）' }}</el-tag></el-form-item>
       <el-form-item label="终审人"><el-tag type="success">{{ approverLevel2 || '实验室管理员（自动分配）' }}</el-tag></el-form-item>
@@ -55,7 +57,7 @@
 import { ref,reactive,onMounted,computed } from 'vue';import { useRoute,useRouter } from 'vue-router';import { borrowApi } from '@/api/borrow';import axios from '@/api/request';import { ElMessage } from 'element-plus'
 const route=useRoute();const router=useRouter();const deviceOptions=ref([]);const deviceLoading=ref(false);const submitting=ref(false)
 const approverLevel1=ref('');const approverLevel2=ref('');const fromDetailDeviceId=ref(null)
-const f=reactive({deviceIds:[],startTime:'',endTime:'',reason:'',approverId:null})
+const f=reactive({deviceIds:[],startTime:'',endTime:'',reason:'',purpose:'',purposeCategory:'教学',approverId:null})
 
 const hasOnsiteDevice=computed(()=>f.deviceIds.some(id=>{const d=deviceOptions.value.find(x=>x.id===id);return d&&d.borrowType===1}))
 const allOnsite=computed(()=>f.deviceIds.length>0&&f.deviceIds.every(id=>{const d=deviceOptions.value.find(x=>x.id===id);return d&&d.borrowType===1}))
@@ -87,6 +89,7 @@ function updateApproverInfo(){if(f.deviceIds.length){const d=deviceOptions.value
 
 async function submit(){
   if(!f.deviceIds.length){ElMessage.warning('请选择设备');return}
+  if(!f.purpose||!f.purpose.trim()){ElMessage.warning('请填写借用目的');return}
   if(!allOnsite.value&&(!f.startTime||!f.endTime)){ElMessage.warning('请选择借用时间');return}
   if(allOnsite.value){const now=new Date();f.startTime=now.toISOString().slice(0,19);f.endTime=new Date(now.getTime()+8*3600000).toISOString().slice(0,19)}
   submitting.value=true

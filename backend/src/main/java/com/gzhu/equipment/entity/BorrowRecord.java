@@ -24,11 +24,21 @@ public class BorrowRecord implements Serializable {
     private String status;
 
     private String reason;
+    /** V4: 借用目的（申请时必填） */
+    private String purpose;
+    /** V4: 目的分类（教学/科研/行政办公/竞赛活动/其他） */
+    private String purposeCategory;
     private String approveFlowDef;  // JSON快照
     private Integer currentStep;
     private LocalDateTime realReturnTime;
     private Integer overdueDays;
     private String damageReport;
+    /** V4: 借用成果（归还时可选填写/管理员后续补充） */
+    private String outcome;
+    /** V4: 成果录入人ID */
+    private Long outcomeRecordedBy;
+    /** V4: 成果录入时间 */
+    private LocalDateTime outcomeRecordedTime;
 
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;

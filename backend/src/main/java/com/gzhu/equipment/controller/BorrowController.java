@@ -191,6 +191,40 @@ public class BorrowController {
         borrowService.verifyReturn(id, getCurrentUserId()); return R.ok("已核验");
     }
 
+    // ==================== V4 目的与成果 ====================
+
+    @PutMapping("/{id}/outcome")
+    @ApiOperation("录入/更新借用成果（管理员或借用人）")
+    @PreAuthorize("hasAnyAuthority('borrow:return','return:manage','laboratory:manage')")
+    public R<String> recordOutcome(@PathVariable Long id, @RequestParam String outcome) {
+        BorrowRecord record = borrowService.getDetail(id);
+        if (record == null) return R.fail(404, "借用单不存在");
+        record.setOutcome(outcome);
+        record.setOutcomeRecordedBy(getCurrentUserId());
+        record.setOutcomeRecordedTime(java.time.LocalDateTime.now());
+        borrowService.updateById(record);
+        return R.ok("成果已记录");
+    }
+
+    @GetMapping("/outcomes")
+    @ApiOperation("成果列表（按设备/时间范围查询）")
+    @PreAuthorize("hasAnyAuthority('statistics:view','laboratory:view')")
+    public R<IPage<BorrowRecord>> listOutcomes(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) Long deviceId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        var w = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>()
+                .isNotNull(BorrowRecord::getOutcome)
+                .ne(BorrowRecord::getOutcome, "")
+                .orderByDesc(BorrowRecord::getOutcomeRecordedTime);
+        if (deviceId != null) w.eq(BorrowRecord::getDeviceId, deviceId);
+        if (startDate != null) w.ge(BorrowRecord::getCreateTime, java.time.LocalDate.parse(startDate).atStartOfDay());
+        if (endDate != null) w.le(BorrowRecord::getCreateTime, java.time.LocalDate.parse(endDate).plusDays(1).atStartOfDay());
+        return R.ok(borrowService.page(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), w));
+    }
+
     // ==================== 辅助 ====================
 
     private Long getCurrentUserId() {

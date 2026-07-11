@@ -186,4 +186,86 @@ public class StatisticsController {
         headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=statistics_export_" + System.currentTimeMillis() + ".csv");
         return ResponseEntity.ok().headers(headers).body(bos.toByteArray());
     }
+
+    // ==================== V4 目的与成果统计 ====================
+
+    @GetMapping("/purposes")
+    @ApiOperation("借用目的分布统计")
+    @PreAuthorize("hasAuthority('statistics:view')")
+    public R<List<Map<String, Object>>> purposeStats(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        var w = new QueryWrapper<BorrowRecord>()
+                .select("COALESCE(NULLIF(purpose_category,''),'未分类') as name", "COUNT(*) as value")
+                .isNotNull("purpose_category").ne("purpose_category", "")
+                .groupBy("purpose_category").orderByDesc("value");
+        if (startDate != null) w.ge("create_time", startDate + " 00:00:00");
+        if (endDate != null) w.le("create_time", endDate + " 23:59:59");
+        var rows = borrowMapper.selectMaps(w);
+        // 补充未分类统计
+        var uncat = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+                .select("'未分类' as name", "COUNT(*) as value")
+                .and(qw -> qw.isNull("purpose_category").or().eq("purpose_category", "")));
+        if (uncat != null && !uncat.isEmpty() && uncat.get(0) != null) {
+            Long v = (Long) uncat.get(0).get("value");
+            if (v != null && v > 0) {
+                Map<String, Object> m = new java.util.LinkedHashMap<>(); m.put("name", "未分类"); m.put("value", v); rows.add(m);
+            }
+        }
+        return R.ok(rows);
+    }
+
+    @GetMapping("/outcomes/stats")
+    @ApiOperation("成果产出统计（按设备/按时间）")
+    @PreAuthorize("hasAuthority('statistics:view')")
+    public R<Map<String, Object>> outcomeStats(
+            @RequestParam(required = false) Long deviceId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+
+        // 有成果记录的借用总数
+        var outcomeW = new QueryWrapper<BorrowRecord>()
+                .isNotNull("outcome").ne("outcome", "");
+        if (deviceId != null) outcomeW.eq("device_id", deviceId);
+        if (startDate != null) outcomeW.ge("create_time", startDate + " 00:00:00");
+        if (endDate != null) outcomeW.le("create_time", endDate + " 23:59:59");
+        Long outcomeTotal = borrowMapper.selectCount(outcomeW);
+
+        // 按设备统计成果数 TOP10
+        var deviceOutcomeW = new QueryWrapper<BorrowRecord>()
+                .select("d.name as deviceName", "COUNT(*) as count")
+                .isNotNull("outcome").ne("outcome", "")
+                .apply("LEFT JOIN device d ON borrow_record.device_id = d.id")
+                .groupBy("d.name").orderByDesc("count").last("LIMIT 10");
+        if (startDate != null) deviceOutcomeW.ge("borrow_record.create_time", startDate + " 00:00:00");
+        if (endDate != null) deviceOutcomeW.le("borrow_record.create_time", endDate + " 23:59:59");
+        var deviceTop = borrowMapper.selectMaps(deviceOutcomeW);
+
+        // 按月份统计趋势
+        var monthW = new QueryWrapper<BorrowRecord>()
+                .select("DATE_FORMAT(outcome_recorded_time,'%Y-%m') as month", "COUNT(*) as count")
+                .isNotNull("outcome").ne("outcome", "")
+                .groupBy("DATE_FORMAT(outcome_recorded_time,'%Y-%m')")
+                .orderByAsc("month").last("LIMIT 12");
+        var monthTrend = borrowMapper.selectMaps(monthW);
+
+        result.put("outcomeTotal", outcomeTotal != null ? outcomeTotal : 0);
+        result.put("deviceTop10", deviceTop != null ? deviceTop : java.util.Collections.emptyList());
+        result.put("monthTrend", monthTrend != null ? monthTrend : java.util.Collections.emptyList());
+        return R.ok(result);
+    }
+
+    @GetMapping("/device-outcomes")
+    @ApiOperation("按设备查看成果列表")
+    @PreAuthorize("hasAuthority('statistics:view')")
+    public R<List<Map<String, Object>>> deviceOutcomes(@RequestParam Long deviceId) {
+        var rows = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+                .select("id", "purpose", "purpose_category", "outcome",
+                        "outcome_recorded_time", "user_id")
+                .eq("device_id", deviceId)
+                .isNotNull("outcome").ne("outcome", "")
+                .orderByDesc("outcome_recorded_time"));
+        return R.ok(rows != null ? rows : java.util.Collections.emptyList());
+    }
 }

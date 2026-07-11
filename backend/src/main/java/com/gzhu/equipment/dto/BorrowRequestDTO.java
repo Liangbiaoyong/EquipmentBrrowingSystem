@@ -15,5 +15,10 @@ public class BorrowRequestDTO {
     @NotNull private LocalDateTime startTime;
     @NotNull private LocalDateTime endTime;
     private String reason;
+    /** V4: 借用目的（必填） */
+    @NotEmpty(message = "请填写借用目的")
+    private String purpose;
+    /** V4: 目的分类 */
+    private String purposeCategory;
     private Long approverId;
 }
