@@ -10,6 +10,8 @@ services:
       MYSQL_DATABASE: device_borrow
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      MYSQL_CHARACTER_SET_SERVER: utf8mb4
+      MYSQL_COLLATION_SERVER: utf8mb4_unicode_ci
     ports:
       - "3306:3306"
     volumes:
@@ -71,7 +73,7 @@ services:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      DB_URL: jdbc:mysql://mysql:3306/device_borrow?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true
+      DB_URL: jdbc:mysql://mysql:3306/device_borrow?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&useUnicode=true
       DB_USER: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
       REDIS_HOST: redis
