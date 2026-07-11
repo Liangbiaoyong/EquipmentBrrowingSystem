@@ -81,9 +81,11 @@ borrow:
 cas:
   # CAS用户信息验证API（广州大学图书馆认证中心）
   userinfo-url: https://libbooking.gzhu.edu.cn/ic-web/auth/userInfo
+  # CAS引导地址（auth/address API，用于发现正确的登录URL；不填则自动从userinfo-url推导）
+  auth-address-url:
   # 调用userInfo API的超时时间（毫秒）
   request-timeout: 15000
-  # CAS服务端地址（前端跳转用，后端记录仅供参考）
+  # CAS服务端地址
   server-url: https://newcas.gzhu.edu.cn/cas
   # Dev模式：token以"local:"开头时跳过CAS API，直接用用户名查本地库
   dev-mode: true

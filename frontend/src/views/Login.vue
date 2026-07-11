@@ -46,9 +46,8 @@ async function handleCasLogin(){
     userStore.loginCas(res.data)
     router.push('/dashboard')
   }catch(e){
-    // CAS失败走浏览器重定向
-    const service=encodeURIComponent(window.location.origin+'/login')
-    window.location.href='https://newcas.gzhu.edu.cn/cas/login?service='+service
+    const msg=e?.response?.data?.msg||e?.message||'CAS登录失败，请检查账号密码'
+    ElMessage.error(msg)
   }finally{logging.value=false}
 }
 </script>

@@ -6,6 +6,7 @@ import com.gzhu.equipment.service.CasServerLoginService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
@@ -38,18 +39,31 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
     @Value("${cas.request-timeout:15000}")
     private int requestTimeout;
 
+    @Value("${cas.auth-address-url:}")
+    private String authAddressUrl;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
     private String cachedDesJs = null;
 
     private static final String DES_JS_URL = "https://newcas.gzhu.edu.cn/cas/comm/js/des.js";
 
+    // CAS bootstrap: 通过 auth/address 端点发现正确的登录URL
+    private static final String AUTH_ADDRESS_PATH = "/ic-web/auth/address";
+    private static final String FINAL_ADDRESS = "https://libbooking.gzhu.edu.cn";
+    private static final String ERR_PAGE_URL = "https://libbooking.gzhu.edu.cn/#/error";
+
+    // 备用service（当bootstrap发现失败时使用 — 已知在CAS注册的合法service）
+    private static final String FALLBACK_SERVICE_URL = "http://libbooking.gzhu.edu.cn/authcenter/doAuth/4edbd40b8d1b4ef8970355950765d41f";
+
     @Override
     public JsonNode login(String username, String password) throws IOException {
         log.info("CAS服务端登录开始: username={}", username);
 
+        // Step 0: 通过bootstrap发现CAS登录URL（动态获取正确的service参数）
+        String loginPageUrl = discoverLoginUrl();
+        log.info("CAS: 登录URL确定为: {}", loginPageUrl);
+
         // Step 1: GET 登录页 → 提取 lt, execution
-        String service = casUserInfoUrl; // 简化：直接用userInfo URL作service
-        String loginPageUrl = casServerUrl + "/login?service=" + URLEncoder.encode(service, "UTF-8");
         String loginPageHtml = httpGet(loginPageUrl, null);
 
         String lt = extractPattern(loginPageHtml, "name=\"lt\"[^>]*value=\"([^\"]+)\"");
@@ -64,7 +78,8 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         log.info("CAS: RSA加密完成 length={}", rsa.length());
 
         // Step 3: POST 登录 → 跟随跳转 → 提取 token
-        String postUrl = casServerUrl + "/login?service=" + URLEncoder.encode(service, "UTF-8");
+        // 使用已发现的登录URL（内含已在CAS注册的合法service参数）
+        String postUrl = loginPageUrl;
         String postBody = "rsa=" + URLEncoder.encode(rsa, "UTF-8")
                 + "&ul=" + username.length()
                 + "&pl=" + password.length()
@@ -90,6 +105,74 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
             throw new RuntimeException("CAS userInfo API返回失败: code=" + code);
         }
         return root.path("data");
+    }
+
+    // ==================== CAS登录URL发现 ====================
+
+    /**
+     * 通过CAS auth/address API发现正确的登录URL（含已在CAS注册的合法service参数）
+     *
+     * 流程：调用 auth/address → 获取 redirect URL → 跟随302 → 得到CAS登录页URL
+     * 与 TEMP/non_webview_login.py 的 _discover_to_login_page_url() 逻辑一致
+     */
+    private String discoverLoginUrl() throws IOException {
+        // 优先尝试 bootstrap 发现
+        try {
+            String addressApiUrl = buildAuthAddressUrl();
+            log.info("CAS引导: 调auth/address API: {}", addressApiUrl);
+            String respBody = httpGet(addressApiUrl, null);
+            JsonNode root = objectMapper.readTree(respBody);
+            JsonNode dataNode = root.get("data");
+
+            if (dataNode != null && dataNode.isTextual()) {
+                String redirectUrl = dataNode.asText();
+                if (redirectUrl.startsWith("http")) {
+                    log.info("CAS引导: auth/address返回data={}", redirectUrl);
+
+                    // 跟随302到CAS登录页
+                    HttpURLConnection conn = (HttpURLConnection) new URL(redirectUrl).openConnection();
+                    conn.setRequestMethod("GET");
+                    conn.setConnectTimeout(requestTimeout);
+                    conn.setReadTimeout(requestTimeout);
+                    conn.setInstanceFollowRedirects(false);
+                    conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+
+                    int status = conn.getResponseCode();
+                    String location = conn.getHeaderField("Location");
+                    if (status >= 300 && status < 400 && StringUtils.hasText(location) && location.startsWith("http")) {
+                        log.info("CAS引导: 跟随302跳转到 {}", location);
+                        return location;
+                    }
+                    // 没有302，说明 redirectUrl 本身就是CAS登录页
+                    if (status == 200) {
+                        log.info("CAS引导: auth/address返回的URL直接可访问");
+                        return redirectUrl;
+                    }
+                }
+            }
+            log.warn("CAS引导: auth/address返回异常 dataNode={}", dataNode);
+        } catch (Exception e) {
+            log.warn("CAS引导失败: {}", e.getMessage());
+        }
+
+        // 备用：使用已知在CAS注册的合法service URL
+        log.warn("CAS引导失败，回退到已知service URL");
+        return casServerUrl + "/login?service=" + URLEncoder.encode(FALLBACK_SERVICE_URL, "UTF-8");
+    }
+
+    /**
+     * 构建 auth/address API URL
+     * 优先用配置 cas.auth-address-url，否则从 cas.userinfo-url 推导
+     */
+    private String buildAuthAddressUrl() throws UnsupportedEncodingException {
+        if (StringUtils.hasText(authAddressUrl)) {
+            return authAddressUrl;
+        }
+        // 从 userInfo URL 推导：/ic-web/auth/userInfo → /ic-web/auth/address
+        String base = casUserInfoUrl.replace("/userInfo", "/address");
+        return base + "?finalAddress=" + URLEncoder.encode(FINAL_ADDRESS, "UTF-8")
+                + "&errPageUrl=" + URLEncoder.encode(ERR_PAGE_URL, "UTF-8")
+                + "&manager=false&consoleType=16";
     }
 
     // ==================== 密码加密 ====================

@@ -51,16 +51,18 @@ JWT 有效期 4 小时，过期需重新登录。登录接口返回的 `accessTo
 
 ## 二、认证模块 `/auth`
 
-### 1. CAS 登录
+### 1. CAS 登录（推荐 — 服务端无感登录）
+
+前端直接提交CAS用户名+密码，后端完成CAS协议交互（bootstrap引导 → 密码RSA加密 → POST登录 → 跟随跳转提取token → 调userInfo API验证）。
 
 ```
-POST /auth/cas/login
+POST /auth/cas/credential-login
 Content-Type: application/json
 
 请求:
 {
-  "token": "从CAS回调中提取的token",
-  "cookies": "JSESSIONID=xxx; route=xxx"  // 可选
+  "username": "2022010101",    // 学工号
+  "password": "xxxxx"          // CAS统一认证密码
 }
 
 响应:
@@ -87,7 +89,26 @@ Content-Type: application/json
 }
 ```
 
-### 2. 本地登录（管理员）
+错误：`{ "code": 401, "msg": "CAS登录失败: 账号或密码错误" }`
+
+### 2. CAS 登录（备用 — token+cookie 方式）
+
+前端完成CAS浏览器跳转后，将回调URL中提取的token传给后端验证。
+
+```
+POST /auth/cas/login
+Content-Type: application/json
+
+请求:
+{
+  "token": "从CAS回调中提取的token",
+  "cookies": "JSESSIONID=xxx; route=xxx"  // 可选
+}
+
+响应: 同上
+```
+
+### 3. 本地登录（管理员）
 
 ```
 POST /auth/local/login
@@ -96,7 +117,7 @@ POST /auth/local/login
 
 响应格式同上。密码错误时 `code=401, msg="用户名或密码错误"`。
 
-### 3. 获取当前用户信息
+### 4. 获取当前用户信息
 
 ```
 GET /auth/info
@@ -105,7 +126,7 @@ Authorization: Bearer <token>
 响应: 同登录返回的 userInfo（permissions 用于路由守卫和菜单渲染）
 ```
 
-### 4. 登出
+### 5. 登出
 
 ```
 POST /auth/logout
@@ -114,7 +135,7 @@ Authorization: Bearer <token>
 响应: { "code": 200, "msg": "已登出" }
 ```
 
-### 5. 健康检查
+### 6. 健康检查
 
 ```
 GET /auth/health  → 无需认证
