@@ -604,28 +604,44 @@ public class DeviceImportServiceImpl implements DeviceImportService {
 
     private String getCellString(Cell cell) {
         if (cell == null) return "";
-        switch (cell.getCellType()) {
-            case STRING:
-                return cell.getStringCellValue();
-            case NUMERIC:
-                if (DateUtil.isCellDateFormatted(cell)) {
-                    return String.valueOf(cell.getNumericCellValue());
-                }
-                double dv = cell.getNumericCellValue();
-                if (dv == Math.floor(dv) && !Double.isInfinite(dv)) {
-                    return String.valueOf((long) dv);
-                }
-                return new BigDecimal(dv).toPlainString();
-            case BOOLEAN:
-                return String.valueOf(cell.getBooleanCellValue());
-            case FORMULA:
-                try {
+        try {
+            switch (cell.getCellType()) {
+                case STRING:
                     return cell.getStringCellValue();
-                } catch (Exception e) {
-                    return String.valueOf(cell.getNumericCellValue());
-                }
-            default:
-                return "";
+                case NUMERIC:
+                    // XLSX日期单元格：格式化为 yyyy-MM-dd 字符串
+                    if (DateUtil.isCellDateFormatted(cell)) {
+                        return new java.text.SimpleDateFormat("yyyy-MM-dd").format(cell.getDateCellValue());
+                    }
+                    double dv = cell.getNumericCellValue();
+                    if (dv == Math.floor(dv) && !Double.isInfinite(dv)) {
+                        return String.valueOf((long) dv);
+                    }
+                    return new BigDecimal(dv).toPlainString();
+                case BOOLEAN:
+                    return String.valueOf(cell.getBooleanCellValue());
+                case FORMULA:
+                    // 公式单元格：先尝试拿缓存的字符串结果，不行再拿数值结果
+                    try {
+                        String sv = cell.getStringCellValue();
+                        if (sv != null) return sv;
+                    } catch (Exception ignored) {}
+                    try {
+                        double nv = cell.getNumericCellValue();
+                        if (DateUtil.isCellDateFormatted(cell)) {
+                            return new java.text.SimpleDateFormat("yyyy-MM-dd").format(cell.getDateCellValue());
+                        }
+                        return String.valueOf((long) nv);
+                    } catch (Exception ignored) {}
+                    return "";
+                case BLANK:
+                    return "";
+                default:
+                    return "";
+            }
+        } catch (Exception e) {
+            log.warn("读取单元格时出错(CellType={}): {}", cell.getCellType(), e.getMessage());
+            return "";
         }
     }
 

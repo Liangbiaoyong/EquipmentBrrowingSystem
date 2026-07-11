@@ -195,8 +195,8 @@ public class DeviceController {
     public R<ImportResultDTO> importDevices(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) return R.fail(400, "请选择文件");
         String fileName = file.getOriginalFilename();
-        if (fileName == null || !(fileName.toLowerCase().endsWith(".csv") || fileName.toLowerCase().endsWith(".xlsx"))) {
-            return R.fail(400, "仅支持 .csv 或 .xlsx 格式");
+        if (fileName == null || !(fileName.toLowerCase().endsWith(".csv") || fileName.toLowerCase().endsWith(".xlsx") || fileName.toLowerCase().endsWith(".xls"))) {
+            return R.fail(400, "仅支持 .csv / .xlsx / .xls 格式");
         }
         try {
             Long userId = getUserId();
@@ -213,8 +213,8 @@ public class DeviceController {
     public R<ImportResultDTO> dryRun(@RequestParam("file") MultipartFile file) {
         if (file.isEmpty()) return R.fail(400, "请选择文件");
         String fileName = file.getOriginalFilename();
-        if (fileName == null || !(fileName.toLowerCase().endsWith(".csv") || fileName.toLowerCase().endsWith(".xlsx"))) {
-            return R.fail(400, "仅支持 .csv 或 .xlsx 格式");
+        if (fileName == null || !(fileName.toLowerCase().endsWith(".csv") || fileName.toLowerCase().endsWith(".xlsx") || fileName.toLowerCase().endsWith(".xls"))) {
+            return R.fail(400, "仅支持 .csv / .xlsx / .xls 格式");
         }
         try {
             return R.ok(deviceImportService.dryRun(file.getInputStream(), fileName));
