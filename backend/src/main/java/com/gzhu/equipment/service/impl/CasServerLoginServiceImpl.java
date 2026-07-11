@@ -65,30 +65,59 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
 
         // Step 1: GET 登录页 → 提取 lt, execution
         String loginPageHtml = httpGet(loginPageUrl, null);
+        log.info("CAS: 登录页HTML长度={}", loginPageHtml.length());
 
-        String lt = extractPattern(loginPageHtml, "name=\"lt\"[^>]*value=\"([^\"]+)\"");
-        String execution = extractPattern(loginPageHtml, "name=\"execution\"[^>]*value=\"([^\"]+)\"");
+        // 提取所有表单字段（与Python non_webview_login.py一致）
+        Map<String, String> formFields = extractAllFormInputs(loginPageHtml);
+        String lt = formFields.get("lt");
+        String execution = formFields.get("execution");
         if (lt == null || execution == null) {
+            log.warn("CAS登录页解析失败，HTML前500字符: {}", loginPageHtml.substring(0, Math.min(500, loginPageHtml.length())));
             throw new RuntimeException("CAS登录页解析失败，无法提取lt/execution");
         }
-        log.info("CAS: lt={} execution={}", lt.substring(0, Math.min(10, lt.length())), execution);
+        log.info("CAS: lt={} execution={} formFields={}",
+            lt.substring(0, Math.min(10, lt.length())),
+            execution.substring(0, Math.min(10, execution.length())),
+            formFields.keySet());
 
         // Step 2: JS引擎加密密码
         String rsa = encryptPassword(username, password, lt);
-        log.info("CAS: RSA加密完成 length={}", rsa.length());
+        log.info("CAS: RSA加密完成 length={} preview={}", rsa.length(), rsa.substring(0, Math.min(20, rsa.length())));
 
         // Step 3: POST 登录 → 跟随跳转 → 提取 token
         // 使用已发现的登录URL（内含已在CAS注册的合法service参数）
+        // 构造POST body — 与Python一致，提交登录页所有字段 + rsa/ul/pl覆盖密码
+        StringBuilder sb = new StringBuilder();
+        sb.append("rsa=").append(URLEncoder.encode(rsa, "UTF-8"));
+        sb.append("&ul=").append(username.length());
+        sb.append("&pl=").append(password.length());
+        for (Map.Entry<String, String> f : formFields.entrySet()) {
+            String k = f.getKey();
+            // 跳过已被rsa/ul/pl替代的字段
+            if ("rsa".equals(k) || "ul".equals(k) || "pl".equals(k)) continue;
+            if ("un".equals(k) || "pd".equals(k) || "username".equals(k) || "password".equals(k)) continue;
+            if (f.getValue() != null && !f.getValue().isEmpty()) {
+                sb.append("&").append(k).append("=").append(URLEncoder.encode(f.getValue(), "UTF-8"));
+            }
+        }
+        String postBody = sb.toString();
         String postUrl = loginPageUrl;
-        String postBody = "rsa=" + URLEncoder.encode(rsa, "UTF-8")
-                + "&ul=" + username.length()
-                + "&pl=" + password.length()
-                + "&lt=" + URLEncoder.encode(lt, "UTF-8")
-                + "&execution=" + URLEncoder.encode(execution, "UTF-8")
-                + "&_eventId=submit";
 
         RedirectResult redirectResult = httpPostWithRedirects(postUrl, postBody, loginPageUrl);
         if (redirectResult.token == null) {
+            log.warn("CAS跳转链状态: hops={} cookies={} finalUrl={}",
+                redirectResult.hops, redirectResult.cookies.keySet(),
+                redirectResult.finalUrl);
+            if (redirectResult.errorBody != null && redirectResult.errorBody.contains("账号")) {
+                log.warn("CAS错误诊断(检测到'账号'): {}",
+                    redirectResult.errorBody.substring(0, Math.min(300, redirectResult.errorBody.length())));
+            } else if (redirectResult.errorBody != null && redirectResult.errorBody.contains("验证码")) {
+                log.warn("CAS错误诊断(检测到'验证码'): {}",
+                    redirectResult.errorBody.substring(0, Math.min(300, redirectResult.errorBody.length())));
+            } else if (redirectResult.errorBody != null) {
+                log.warn("CAS最终响应片段: {}",
+                    redirectResult.errorBody.substring(0, Math.min(200, redirectResult.errorBody.length())));
+            }
             throw new RuntimeException("CAS登录失败：未能从跳转中提取token（可能账号密码错误或验证码）");
         }
         log.info("CAS: token提取成功 preview={}", redirectResult.token.substring(0, Math.min(30, redirectResult.token.length())));
@@ -98,7 +127,11 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
                 ? redirectResult.cookies.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining("; "))
                 : "";
 
+        log.info("CAS: 调userInfo API token={} cookieKeys={}",
+            redirectResult.token.substring(0, Math.min(20, redirectResult.token.length())),
+            redirectResult.cookies.keySet());
         String userInfoBody = httpGet(casUserInfoUrl, Map.of("token", redirectResult.token, "cookie", cookies));
+        log.info("CAS: userInfo响应(前200)={}", userInfoBody.substring(0, Math.min(200, userInfoBody.length())));
         JsonNode root = objectMapper.readTree(userInfoBody);
         String code = root.path("code").asText();
         if (!"0".equals(code)) {
@@ -141,10 +174,15 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
                     int status = conn.getResponseCode();
                     String location = conn.getHeaderField("Location");
                     if (status >= 300 && status < 400 && StringUtils.hasText(location)) {
-                        // 解析相对URL（CAS可能返回 /cas/login?... 相对路径）
-                        URL resolved = new URL(redirectFullUrl, location);
-                        log.info("CAS引导: 跟随跳转到 {}", resolved);
-                        return resolved.toString();
+                        // CAS返回的Location可能是绝对URL或相对路径
+                        if (location.startsWith("http")) {
+                            log.info("CAS引导: 跟随绝对跳转到 {}", location);
+                            return location;
+                        }
+                        // 相对路径：尝试拼接当前URL的origin
+                        String resolved = redirectFullUrl.getProtocol() + "://" + redirectFullUrl.getHost() + location;
+                        log.info("CAS引导: 跟随相对跳转到 {}", resolved);
+                        return resolved;
                     }
                     // 没有302，说明 redirectUrl 本身就是CAS登录页
                     if (status == 200) {
@@ -243,20 +281,30 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
             os.write(body.getBytes(StandardCharsets.UTF_8));
         }
 
+        // 诊断：检测POST响应状态码
+        int postStatus = conn.getResponseCode();
+        log.info("CAS POST响应: status={} location={}", postStatus, conn.getHeaderField("Location"));
+
         // Step B: 跟随302跳转链（最多15次），提取token
         Map<String, String> cookies = extractCookies(conn);
         String token = null;
         int hops = 0;
         Set<String> visited = new HashSet<>();
         String location = conn.getHeaderField("Location");
+        String errorBody = null;
 
         while (location != null && hops < 15 && !visited.contains(location)) {
             hops++;
             visited.add(location);
+            log.info("CAS跳转[{}]: status={} location={}", hops,
+                hops == 1 ? postStatus : -1, location);
 
             // 从URL提取token
             token = extractTokenFromUrl(location);
-            if (token != null) break;
+            if (token != null) {
+                log.info("CAS: 从URL提取到token (hop={})", hops);
+                break;
+            }
 
             // 将相对URL解析为绝对URL（CAS可能返回相对路径的Location）
             URL nextUrl = new URL(currentUrl, location);
@@ -272,23 +320,47 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
                 next.setRequestProperty("Cookie", cookies.entrySet().stream().map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining("; ")));
             }
 
+            int respStatus = next.getResponseCode();
             location = next.getHeaderField("Location");
+            log.info("CAS跳转[{}]响应: status={} nextLocation={}", hops, respStatus, location);
 
             // 从响应体JSON提取token
             if (location == null) {
                 String respBody = readResponse(next);
                 token = extractTokenFromBody(respBody);
-                if (token != null) break;
+                if (token != null) {
+                    log.info("CAS: 从响应体JSON提取到token (hop={})", hops);
+                    break;
+                }
+                // 诊断：保存最终响应片段（用于判断是登录失败还是其他错误）
+                if (respBody.length() < 5000) {
+                    errorBody = respBody;
+                } else {
+                    errorBody = respBody.substring(0, 500);
+                }
             }
 
-            // 累积cookies
-            cookies.putAll(extractCookies(next));
+            // 从cookie中提取token（像Python代码一样兜底）
+            Map<String, String> hopCookies = extractCookies(next);
+            if (token == null) {
+                for (Map.Entry<String, String> c : hopCookies.entrySet()) {
+                    String ck = c.getKey().toLowerCase();
+                    if (ck.contains("token") || ck.contains("auth")) {
+                        token = c.getValue();
+                        log.info("CAS: 从cookie提取到token key={}", c.getKey());
+                        break;
+                    }
+                }
+            }
+            cookies.putAll(hopCookies);
         }
 
         RedirectResult result = new RedirectResult();
         result.token = token;
         result.cookies = cookies;
         result.hops = hops;
+        result.finalUrl = currentUrl.toString();
+        result.errorBody = errorBody;
         return result;
     }
 
@@ -297,6 +369,30 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
     private String extractPattern(String html, String regex) {
         Matcher m = Pattern.compile(regex).matcher(html);
         return m.find() ? m.group(1) : null;
+    }
+
+    /**
+     * 从CAS登录页HTML中提取所有表单input字段
+     * 对应 Python non_webview_login.py 的 _extract_form_inputs()
+     */
+    private Map<String, String> extractAllFormInputs(String html) {
+        Map<String, String> fields = new LinkedHashMap<>();
+        // 匹配 &lt;input name="xxx" ... value="yyy" /&gt;
+        Pattern p = Pattern.compile("<input[^>]*name=\"([^\"]+)\"[^>]*>", Pattern.CASE_INSENSITIVE);
+        Matcher m = p.matcher(html);
+        while (m.find()) {
+            String inputTag = m.group(0);
+            String name = m.group(1);
+            // 提取value属性
+            String value = "";
+            Matcher vm = Pattern.compile("value=\"([^\"]*)\"").matcher(inputTag);
+            if (vm.find()) {
+                value = vm.group(1);
+            }
+            fields.put(name, value);
+        }
+        log.info("CAS: 登录页提取到 {} 个表单字段: {}", fields.size(), fields.keySet());
+        return fields;
     }
 
     private String extractTokenFromUrl(String url) {
@@ -357,5 +453,7 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         String token;
         Map<String, String> cookies = new LinkedHashMap<>();
         int hops;
+        String finalUrl;
+        String errorBody; // 诊断：最终响应的HTML片段（用于检测登录失败错误信息）
     }
 }
