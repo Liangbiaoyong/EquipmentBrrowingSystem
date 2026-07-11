@@ -130,7 +130,8 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
                     log.info("CAS引导: auth/address返回data={}", redirectUrl);
 
                     // 跟随302到CAS登录页
-                    HttpURLConnection conn = (HttpURLConnection) new URL(redirectUrl).openConnection();
+                    URL redirectFullUrl = new URL(redirectUrl);
+                    HttpURLConnection conn = (HttpURLConnection) redirectFullUrl.openConnection();
                     conn.setRequestMethod("GET");
                     conn.setConnectTimeout(requestTimeout);
                     conn.setReadTimeout(requestTimeout);
@@ -139,9 +140,11 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
 
                     int status = conn.getResponseCode();
                     String location = conn.getHeaderField("Location");
-                    if (status >= 300 && status < 400 && StringUtils.hasText(location) && location.startsWith("http")) {
-                        log.info("CAS引导: 跟随302跳转到 {}", location);
-                        return location;
+                    if (status >= 300 && status < 400 && StringUtils.hasText(location)) {
+                        // 解析相对URL（CAS可能返回 /cas/login?... 相对路径）
+                        URL resolved = new URL(redirectFullUrl, location);
+                        log.info("CAS引导: 跟随跳转到 {}", resolved);
+                        return resolved.toString();
                     }
                     // 没有302，说明 redirectUrl 本身就是CAS登录页
                     if (status == 200) {
@@ -224,7 +227,8 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
 
     private RedirectResult httpPostWithRedirects(String url, String body, String referer) throws IOException {
         // Step A: POST 登录
-        HttpURLConnection conn = (HttpURLConnection) new URL(url).openConnection();
+        URL currentUrl = new URL(url);
+        HttpURLConnection conn = (HttpURLConnection) currentUrl.openConnection();
         conn.setRequestMethod("POST");
         conn.setDoOutput(true);
         conn.setConnectTimeout(requestTimeout);
@@ -240,11 +244,11 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         }
 
         // Step B: 跟随302跳转链（最多15次），提取token
-        String location = conn.getHeaderField("Location");
         Map<String, String> cookies = extractCookies(conn);
         String token = null;
         int hops = 0;
         Set<String> visited = new HashSet<>();
+        String location = conn.getHeaderField("Location");
 
         while (location != null && hops < 15 && !visited.contains(location)) {
             hops++;
@@ -254,7 +258,11 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
             token = extractTokenFromUrl(location);
             if (token != null) break;
 
-            HttpURLConnection next = (HttpURLConnection) new URL(location).openConnection();
+            // 将相对URL解析为绝对URL（CAS可能返回相对路径的Location）
+            URL nextUrl = new URL(currentUrl, location);
+            currentUrl = nextUrl;
+
+            HttpURLConnection next = (HttpURLConnection) nextUrl.openConnection();
             next.setRequestMethod("GET");
             next.setConnectTimeout(requestTimeout);
             next.setReadTimeout(requestTimeout);
