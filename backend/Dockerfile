@@ -2,8 +2,8 @@
 FROM maven:3.8-openjdk-17-slim AS build
 WORKDIR /app
 COPY pom.xml .
-# 预下载依赖（仅解析主依赖，跳过插件）
-RUN mvn dependency:resolve -B || true
+# 下载依赖（利用 Docker 缓存层，pom.xml 不变则不重跑）
+RUN mvn dependency:resolve -B 2>/dev/null || true
 COPY src ./src
 RUN mvn clean package -DskipTests
 
