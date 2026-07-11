@@ -120,7 +120,7 @@ class BorrowServiceImplTest {
     @DisplayName("提交借用（设备不可借）→ 抛出异常")
     void submitBorrow_deviceNotAvailable_shouldThrow() {
         Device device = createAvailableDevice();
-        device.setStatus(2); // 维修中
+        device.setStatus(3); // 维修中
         when(deviceMapper.selectById(1L)).thenReturn(device);
 
         assertThatThrownBy(() -> borrowService.submitBorrow(createBorrowRequest(1L), 1L))

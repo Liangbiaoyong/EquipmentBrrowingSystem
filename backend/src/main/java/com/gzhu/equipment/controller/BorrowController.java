@@ -101,7 +101,7 @@ public class BorrowController {
     // ==================== 审批 ====================
 
     @GetMapping("/pending/first")
-    @ApiOperation("一级审批列表（教师/admin）")
+    @ApiOperation("初审待审批列表（教师/admin）")
     @PreAuthorize("hasAuthority('approval:first')")
     public R<IPage<BorrowRecord>> pendingFirst(
             @RequestParam(defaultValue = "1") int page,
@@ -110,7 +110,7 @@ public class BorrowController {
     }
 
     @GetMapping("/pending/second")
-    @ApiOperation("二级审批列表（实验室管理员/admin）")
+    @ApiOperation("终审待审批列表（实验室管理员/admin）")
     @PreAuthorize("hasAuthority('approval:second')")
     public R<IPage<BorrowRecord>> pendingSecond(
             @RequestParam(defaultValue = "1") int page,

@@ -44,13 +44,15 @@ public class StatisticsController {
         Map<String, Object> data = new LinkedHashMap<>();
 
         Long totalDevices = deviceMapper.selectCount(null);
-        Long normalCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 1));
-        Long repairCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 2));
-        Long scrapCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 3));
+        Long availableCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 1));
+        Long deviceBorrowingCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 2));
+        Long repairCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 3));
+        Long scrapCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 4));
 
         Map<String, Long> deviceStats = new LinkedHashMap<>();
         deviceStats.put("total", totalDevices);
-        deviceStats.put("normal", normalCount);
+        deviceStats.put("available", availableCount);
+        deviceStats.put("borrowing", deviceBorrowingCount);
         deviceStats.put("repair", repairCount);
         deviceStats.put("scrap", scrapCount);
         data.put("deviceStats", deviceStats);
@@ -147,9 +149,10 @@ public class StatisticsController {
         try (OutputStreamWriter w = new OutputStreamWriter(bos, StandardCharsets.UTF_8)) {
             w.write("指标,数值\n");
             w.write("设备总数," + deviceMapper.selectCount(null) + "\n");
-            w.write("正常设备," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 1)) + "\n");
-            w.write("维修中设备," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 2)) + "\n");
-            w.write("报废设备," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 3)) + "\n");
+            w.write("可借用," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 1)) + "\n");
+            w.write("借用中," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 2)) + "\n");
+            w.write("维修中," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 3)) + "\n");
+            w.write("待报废," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 4)) + "\n");
             w.write("借出中," + borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "BORROWING")) + "\n");
             w.write("逾期未还," + borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "OVERDUE")) + "\n");
             w.write("待审批," + borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "PENDING_APPROVAL")) + "\n");

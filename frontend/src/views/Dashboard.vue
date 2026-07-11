@@ -13,9 +13,9 @@
 <script setup>
 import {ref,reactive,onMounted} from 'vue';import {statsApi} from '@/api/statistics'
 const loading=ref(true);const trendData=ref([]);const maxT=ref(1)
-const deviceCards=reactive([{label:'设备总数',value:'-',color:'#409EFF'},{label:'正常设备',value:'-',color:'#67C23A'},{label:'维修中',value:'-',color:'#E6A23C'},{label:'已报废',value:'-',color:'#F56C6C'}])
+const deviceCards=reactive([{label:'设备总数',value:'-',color:'#409EFF'},{label:'可借用',value:'-',color:'#67C23A'},{label:'借用中',value:'-',color:'#409EFF'},{label:'维修中',value:'-',color:'#E6A23C'},{label:'待报废',value:'-',color:'#F56C6C'}])
 const borrowCards=reactive([{label:'借出中',value:'-',color:'#409EFF'},{label:'逾期未还',value:'-',color:'#F56C6C'},{label:'待审批',value:'-',color:'#E6A23C'},{label:'总借用',value:'-',color:'#67C23A'}])
-onMounted(async()=>{try{const{data:ov}=await statsApi.overview();const ds=ov.deviceStats;const bs=ov.borrowStats;deviceCards[0].value=ds.total;deviceCards[1].value=ds.normal;deviceCards[2].value=ds.repair;deviceCards[3].value=ds.scrap;borrowCards[0].value=bs.borrowing;borrowCards[1].value=bs.overdue;borrowCards[2].value=bs.pendingApproval;borrowCards[3].value=bs.total}catch{};try{const{data:td}=await statsApi.trend();trendData.value=td||[];maxT.value=Math.max(1,...trendData.value.map(t=>t.count||0))}catch{}finally{loading.value=false}})
+onMounted(async()=>{try{const{data:ov}=await statsApi.overview();const ds=ov.deviceStats;const bs=ov.borrowStats;deviceCards[0].value=ds.total;deviceCards[1].value=ds.available;deviceCards[2].value=ds.borrowing;deviceCards[3].value=ds.repair;deviceCards[4].value=ds.scrap;borrowCards[0].value=bs.borrowing;borrowCards[1].value=bs.overdue;borrowCards[2].value=bs.pendingApproval;borrowCards[3].value=bs.total}catch{};try{const{data:td}=await statsApi.trend();trendData.value=td||[];maxT.value=Math.max(1,...trendData.value.map(t=>t.count||0))}catch{}finally{loading.value=false}})
 </script>
 <style scoped>
 .dashboard{padding:20px}.stat-card{text-align:center}.stat-value{font-size:32px;font-weight:bold}.stat-label{font-size:13px;color:#909399;margin-top:8px}

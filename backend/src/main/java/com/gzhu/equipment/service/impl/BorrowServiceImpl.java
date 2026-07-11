@@ -39,8 +39,8 @@ import java.util.List;
  *   BORROWING → (逾期) → OVERDUE
  *
  * 审批流程（默认二级）：
- *   一级：审批人（教师，由申请人指定）
- *   二级：审核员（实验室管理员）
+ *   初审：审批人（教师，由申请人指定）
+ *   终审：审核员（实验室管理员）
  *   admin 可处理任一级别
  */
 @Slf4j
@@ -93,7 +93,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             r.setCurrentStep(1); r.setApproveFlowDef(flowDef);
             borrowMapper.insert(r);
 
-            // 一级审批人：请求指定的 > 设备默认审批人 > 根据使用人查找 > null
+            // 初审人：请求指定的 > 设备默认审批人 > 根据使用人查找 > null
             Long approver = dto.getApproverId();
             if (approver == null) approver = device.getDefaultApproverId();
             if (approver == null && device.getCustodian() != null) {
@@ -103,7 +103,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             }
             createApprovalLog(r.getId(), 1, approver);
 
-            // 二级审批人：自动分配第一个实验室管理员（userType=2）
+            // 终审人：自动分配第一个实验室管理员（userType=2）
             if (totalSteps >= 2) {
                 SysUser labAdmin = userMapper.selectOne(
                         new LambdaQueryWrapper<SysUser>().eq(SysUser::getUserType, 2).eq(SysUser::getStatus, 1).last("LIMIT 1"));
@@ -223,6 +223,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             Device device = deviceMapper.selectById(record.getDeviceId());
             if (device != null) {
                 device.setAvailableQty(Math.max(0, device.getAvailableQty() - 1));
+                device.setStatus(2); // 标记为借用中
                 deviceMapper.updateById(device);
             }
             notificationService.notifyApprovalResult(record.getUserId(),
@@ -268,13 +269,13 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
 
         borrowMapper.updateById(record);
 
-        // 归还库存
+        // 归还库存 + 恢复设备状态
         Device device = deviceMapper.selectById(record.getDeviceId());
         if (device != null) {
             device.setAvailableQty(Math.min(device.getAvailableQty() + 1, device.getTotalQty()));
             // 有损坏报告 → 标记维修中 + 自动创建维修记录
             if (damageReport != null && !damageReport.trim().isEmpty()) {
-                device.setStatus(2);
+                device.setStatus(3); // 维修中
                 com.gzhu.equipment.entity.RepairRecord repair = new com.gzhu.equipment.entity.RepairRecord();
                 repair.setDeviceId(record.getDeviceId());
                 repair.setBorrowId(record.getId());
@@ -282,6 +283,8 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
                 repair.setStatus("PENDING");
                 repairMapper.insert(repair);
                 log.info("损坏归还自动创建维修记录: repairId={} deviceId={}", repair.getId(), record.getDeviceId());
+            } else {
+                device.setStatus(1); // 可借用
             }
             deviceMapper.updateById(device);
         }
@@ -338,7 +341,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
     private String buildFlowDef(int totalSteps) {
         StringBuilder sb = new StringBuilder("{\"steps\":[");
         for (int i = 1; i <= totalSteps; i++) {
-            String name = i == 1 ? "审批人" : i == totalSteps ? "最终确认" : "审核员";
+            String name = i == 1 ? "初审" : i == totalSteps ? "终审" : "审核员";
             if (i > 1) sb.append(",");
             sb.append("{\"step\":").append(i).append(",\"name\":\"").append(name).append("\"}");
         }

@@ -4,7 +4,7 @@
     <el-row :gutter="20" v-if="detail">
       <el-col :span="16">
         <el-card>
-          <template #header><span style="font-size:18px;font-weight:bold">{{ detail.device?.name }}</span><el-tag style="margin-left:10px" :type="detail.isBorrowing?'warning':'success'">{{ detail.isBorrowing?'借用中':'可借' }}</el-tag></template>
+          <template #header><span style="font-size:18px;font-weight:bold">{{ detail.device?.name }}</span><el-tag style="margin-left:10px" :type="detail.device?.status===2?'warning':detail.device?.status===3?'danger':'success'">{{ detail.device?.status===1?'可借用':detail.device?.status===2?'借用中':detail.device?.status===3?'维修中':'待报废' }}</el-tag></template>
           <el-descriptions :column="2" border>
             <el-descriptions-item label="资产编号">{{ detail.device.assetNo }}</el-descriptions-item>
             <el-descriptions-item label="型号">{{ detail.device.model }}</el-descriptions-item>
@@ -15,7 +15,7 @@
             <el-descriptions-item label="总数量">{{ detail.device.totalQty }}</el-descriptions-item>
             <el-descriptions-item label="可借数量">{{ detail.device.availableQty }}</el-descriptions-item>
             <el-descriptions-item label="单价">¥{{ detail.device.unitPrice }}</el-descriptions-item>
-            <el-descriptions-item label="状态"><el-tag :type="detail.device.status===1?'success':detail.device.status===2?'warning':'danger'">{{ detail.device.status===1?'正常':detail.device.status===2?'维修中':'报废' }}</el-tag></el-descriptions-item>
+            <el-descriptions-item label="状态"><el-tag :type="detail.device.status===1?'success':detail.device.status===2?'warning':detail.device.status===3?'danger':'info'">{{ detail.device.status===1?'可借用':detail.device.status===2?'借用中':detail.device.status===3?'维修中':'待报废' }}</el-tag></el-descriptions-item>
             <el-descriptions-item label="国标分类">{{ detail.device.gbCategoryName }}</el-descriptions-item>
             <el-descriptions-item label="购置日期">{{ detail.device.purchaseDate }}</el-descriptions-item>
             <el-descriptions-item label="厂家">{{ detail.device.manufacturer }}</el-descriptions-item>

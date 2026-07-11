@@ -150,7 +150,7 @@ git add -A && git commit -m "<type>: <description>" && git push
 - **图片处理**: 上传使用 Thumbnailator 压缩至 1920px 以内、5MB 以下
 - **分页**: 使用 MyBatis-Plus `Page` 对象，前端传 `page` / `size`
 - **多环境**: `application.yml` 激活 profile，`-dev` 直连 localhost，`-prod` 全部环境变量注入
-- **设备状态**: 正常(1) / 维修中(2) / 报废(3)
+- **设备状态**: 可借用(1) / 借用中(2) / 维修中(3) / 待报废(4)
 - **借用状态**: PENDING_APPROVAL / APPROVED / REJECTED / BORROWING / RETURNED / OVERDUE / CANCELLED
 
 ### 前端

@@ -23,7 +23,7 @@ public class RepairServiceImpl extends ServiceImpl<RepairRecordMapper, RepairRec
     @Override @Transactional
     public RepairRecord createFromDamage(Long deviceId, Long borrowId, String faultDescription) {
         Device device = deviceMapper.selectById(deviceId);
-        if (device != null) { device.setStatus(2); deviceMapper.updateById(device); }
+        if (device != null) { device.setStatus(3); deviceMapper.updateById(device); }
         RepairRecord r = new RepairRecord();
         r.setDeviceId(deviceId); r.setBorrowId(borrowId); r.setFaultDescription(faultDescription); r.setStatus("PENDING");
         repairMapper.insert(r);
@@ -43,7 +43,7 @@ public class RepairServiceImpl extends ServiceImpl<RepairRecordMapper, RepairRec
         if (r != null) {
             r.setStatus("FIXED"); r.setRepairComment(comment); r.setFixedTime(LocalDateTime.now()); repairMapper.updateById(r);
             Device device = deviceMapper.selectById(r.getDeviceId());
-            if (device != null && device.getStatus() == 2) { device.setStatus(1); deviceMapper.updateById(device); }
+            if (device != null && device.getStatus() == 3) { device.setStatus(1); deviceMapper.updateById(device); }
             log.info("设备维修完成: deviceId={}", r.getDeviceId());
         }
     }

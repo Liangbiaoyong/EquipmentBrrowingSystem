@@ -58,7 +58,7 @@ class RepairServiceImplTest {
     void markFixed_shouldSetFixedAndRestoreDevice() {
         RepairRecord r = new RepairRecord(); r.setId(1L); r.setDeviceId(1L); r.setStatus("REPAIRING");
         when(repairMapper.selectById(1L)).thenReturn(r);
-        Device device = new Device(); device.setId(1L); device.setStatus(2);
+        Device device = new Device(); device.setId(1L); device.setStatus(3);
         when(deviceMapper.selectById(1L)).thenReturn(device);
 
         repairService.markFixed(1L, "已修好");

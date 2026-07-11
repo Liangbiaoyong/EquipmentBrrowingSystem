@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS `device` (
   `default_approver_id` bigint DEFAULT NULL COMMENT '默认审批人ID（设备使用人，LAB_ADMIN可修改）',
   `unit_price` decimal(12,2) DEFAULT NULL COMMENT '单价(元)',
   `total_amount` decimal(12,2) DEFAULT NULL COMMENT '金额(元)',
-  `status` tinyint DEFAULT '1' COMMENT '1正常 2维修中 3报废',
+  `status` tinyint DEFAULT '1' COMMENT '1可借用 2借用中 3维修中 4待报废',
   `description` text COMMENT '设备描述/备注',
   `cover_image` varchar(500) DEFAULT NULL COMMENT '封面图URL',
   `create_by` bigint DEFAULT NULL COMMENT '创建人ID',

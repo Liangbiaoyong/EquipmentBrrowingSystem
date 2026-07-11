@@ -6,8 +6,8 @@
       <el-form-item label="结束时间" required><el-date-picker v-model="f.endTime" type="datetime" placeholder="选择结束时间" format="YYYY-MM-DD HH:mm" value-format="YYYY-MM-DDTHH:mm:ss" style="width:100%"/></el-form-item>
       <el-form-item label="借用事由"><el-input v-model="f.reason" type="textarea" :rows="3"/></el-form-item>
       <el-divider content-position="left">审批流程</el-divider>
-      <el-form-item label="一级审批人"><el-tag type="primary">{{ approverLevel1 || '设备使用人（自动匹配）' }}</el-tag><span style="font-size:12px;color:#909399;margin-left:8px">默认为设备登记的使用人</span></el-form-item>
-      <el-form-item label="二级审批人"><el-tag type="success">{{ approverLevel2 || '实验室管理员（自动分配）' }}</el-tag><span style="font-size:12px;color:#909399;margin-left:8px">系统自动分配</span></el-form-item>
+      <el-form-item label="初审人"><el-tag type="primary">{{ approverLevel1 || '设备使用人（自动匹配）' }}</el-tag><span style="font-size:12px;color:#909399;margin-left:8px">默认为设备登记的使用人</span></el-form-item>
+      <el-form-item label="终审人"><el-tag type="success">{{ approverLevel2 || '实验室管理员（自动分配）' }}</el-tag><span style="font-size:12px;color:#909399;margin-left:8px">系统自动分配</span></el-form-item>
       <el-form-item><el-button type="primary" @click="submit" :loading="submitting">提交申请</el-button></el-form-item>
     </el-form></el-card>
   </div>

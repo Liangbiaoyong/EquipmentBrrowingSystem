@@ -73,7 +73,7 @@ public class DeviceController {
                 return R.ok(all.stream().filter(d -> borrowingIds.contains(d.getId())).collect(java.util.stream.Collectors.toList()));
             }
             case "unavailable": return R.ok(all.stream().filter(d -> d.getAvailableQty() == null || d.getAvailableQty() == 0).collect(java.util.stream.Collectors.toList()));
-            case "repair": return R.ok(deviceService.list(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 2)));
+            case "repair": return R.ok(deviceService.list(new LambdaQueryWrapper<Device>().eq(Device::getStatus, 3)));
             default: return R.fail("无效类型: idle/borrowing/unavailable/repair");
         }
     }

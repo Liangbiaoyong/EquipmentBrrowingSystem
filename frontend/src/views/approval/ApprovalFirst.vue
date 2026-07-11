@@ -1,12 +1,12 @@
 <template>
-  <div class="approval"><h2>{{ isSecond ? '二级审批' : '一级审批' }}</h2>
+  <div class="approval"><h2>{{ isSecond ? '终审' : '初审' }}</h2>
     <el-card><el-table :data="list" v-loading="loading" stripe size="small">
       <el-table-column label="ID" width="60" prop="id"/>
       <el-table-column label="设备" min-width="100"><template #default="{row}">{{ getDeviceName(row.deviceId) }}</template></el-table-column>
       <el-table-column label="设备持有者" width="90"><template #default="{row}">{{ getCustodian(row.deviceId) }}</template></el-table-column>
       <el-table-column label="借用人" width="80"><template #default="{row}">{{ getUserName(row.userId) }}</template></el-table-column>
-      <el-table-column label="一级审批人" width="90"><template #default="{row}">{{ getApproverName(row.id, 1) }}</template></el-table-column>
-      <el-table-column label="二级审批人" width="90"><template #default="{row}">{{ getApproverName(row.id, 2) }}</template></el-table-column>
+      <el-table-column label="初审人" width="90"><template #default="{row}">{{ getApproverName(row.id, 1) }}</template></el-table-column>
+      <el-table-column label="终审人" width="90"><template #default="{row}">{{ getApproverName(row.id, 2) }}</template></el-table-column>
       <el-table-column label="开始" width="110"><template #default="{row}">{{ fmt(row.startTime) }}</template></el-table-column>
       <el-table-column label="结束" width="110"><template #default="{row}">{{ fmt(row.endTime) }}</template></el-table-column>
       <el-table-column label="事由" prop="reason" min-width="100" show-overflow-tooltip/>

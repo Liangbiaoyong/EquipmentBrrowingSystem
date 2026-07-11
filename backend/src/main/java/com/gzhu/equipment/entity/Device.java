@@ -46,7 +46,7 @@ public class Device implements Serializable {
     /** 使用人姓名 */
     private String custodian;
 
-    /** 默认审批人ID（一级审核人，LAB_ADMIN可修改） */
+    /** 默认审批人ID（初审人，LAB_ADMIN可修改） */
     private Long defaultApproverId;
 
     /** 数量 */
@@ -61,7 +61,7 @@ public class Device implements Serializable {
     /** 金额(元) */
     private BigDecimal totalAmount;
 
-    /** 1正常 2维修中 3报废 */
+    /** 1可借用 2借用中 3维修中 4待报废 */
     private Integer status;
 
     /** 设备描述/备注 */

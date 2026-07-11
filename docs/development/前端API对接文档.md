@@ -156,7 +156,7 @@ GET /devices?page=1&size=20&keyword=&categoryId=&status=&location=&gbCategoryNam
   keyword        搜索关键词（匹配名称/资产编号/型号）
   categoryId     业务分类ID（1=计算机 2=摄影摄像 3=音频 4=空调 5=仪器仪表
                               6=家具 7=无人机 8=软件 9=安全监控 10=其他）
-  status         1正常 2维修 3报废
+  status         1可借用 2借用中 3维修中 4待报废
   location       存放地（模糊匹配）
 
 响应:
@@ -676,7 +676,7 @@ interface Device {
   availableQty: number;
   unitPrice: number;
   totalAmount: number;
-  status: number;          // 1正常 2维修 3报废
+  status: number;          // 1可借用 2借用中 3维修中 4待报废
   gbCategoryName: string;
   gbCategoryCode: string;
   eduCategoryName: string;
