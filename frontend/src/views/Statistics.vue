@@ -1,5 +1,10 @@
 <template>
   <div class="stats-dashboard">
+    <!-- 教师提示（仅教师角色可见） -->
+    <el-alert v-if="isTeacher" type="info" :closable="false" show-icon style="margin-bottom:16px">
+      <template #title>您看到的是您所持有设备的数据统计</template>
+    </el-alert>
+
     <!-- 页面标题 + 筛选栏 -->
     <div class="stats-toolbar">
       <h2 class="stats-title">数据统计</h2>
@@ -179,9 +184,13 @@
 
 <script setup>
 import { ref,reactive,computed,onMounted, h, defineComponent } from 'vue'
+import { useUserStore } from '@/store/user'
 import { statsApi } from '@/api/statistics'
 import axios from '@/api/request'
 import { Download,Monitor,CircleCheck,Clock,Bell,ArrowDown } from '@element-plus/icons-vue'
+
+const userStore = useUserStore()
+const isTeacher = computed(() => userStore.userInfo?.userType === 1)
 
 // ==================== 环形图组件 ====================
 const DonutChart = defineComponent({
