@@ -13,6 +13,7 @@ import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.service.BorrowService;
 import com.gzhu.equipment.service.MinioFileService;
 import com.gzhu.equipment.mapper.BorrowOutcomeMapper;
+import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.OverdueRecordMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -73,6 +74,9 @@ class BorrowControllerTest {
 
     @MockBean
     private BorrowOutcomeMapper borrowOutcomeMapper;
+
+    @MockBean
+    private BorrowRecordMapper borrowRecordMapper;
 
     @MockBean
     private OverdueRecordMapper overdueRecordMapper;

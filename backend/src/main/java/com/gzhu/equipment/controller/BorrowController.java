@@ -11,6 +11,7 @@ import com.gzhu.equipment.mapper.AttachmentMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gzhu.equipment.entity.ApprovalLog;
 import com.gzhu.equipment.mapper.ApprovalLogMapper;
+import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.service.BorrowService;
 import com.gzhu.equipment.service.MinioFileService;
 import io.swagger.annotations.Api;
@@ -53,6 +54,7 @@ public class BorrowController {
     private final MinioFileService minioFileService;
     private final AttachmentMapper attachmentMapper;
     private final ApprovalLogMapper approvalLogMapper;
+    private final BorrowRecordMapper borrowRecordMapper;
 
     // ==================== 借用申请 ====================
 
@@ -204,10 +206,10 @@ public class BorrowController {
         if (asc) w.orderByAsc(orderCol);
 
         // 手动分页（JOIN查询不能用MyBatis-Plus自动分页）
-        long total = borrowMapper.selectCount(w);
+        long total = borrowRecordMapper.selectCount(w);
         int offset = (page-1)*size;
         w.last("LIMIT " + offset + "," + size);
-        var rows = borrowMapper.selectMaps(w);
+        var rows = borrowRecordMapper.selectMaps(w);
 
         Map<String,Object> result = new LinkedHashMap<>();
         result.put("records", rows); result.put("total", total);
@@ -231,7 +233,7 @@ public class BorrowController {
         if (keyword != null && !keyword.isEmpty())
             w.and(wp -> wp.like("d.name", keyword).or().like("u.real_name", keyword).or().like("b.purpose", keyword));
         w.orderByDesc("b.id").last("LIMIT 5000");
-        var rows = borrowMapper.selectMaps(w);
+        var rows = borrowRecordMapper.selectMaps(w);
 
         if ("xlsx".equalsIgnoreCase(format)) {
             LinkedHashMap<String,String> hdrs = new LinkedHashMap<>();
