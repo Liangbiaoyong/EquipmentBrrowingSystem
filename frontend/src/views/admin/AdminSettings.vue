@@ -78,8 +78,7 @@ import { ElMessage } from 'element-plus'
 
 // 预定义配置项
 const borrowConfigs = ref([
-  {key:'borrow.max_days',label:'最大借用天数',value:'7',unit:'天',desc:'超出此天数的借用申请将被拒绝',original:'7'},
-  {key:'borrow.overdue_fine_per_day',label:'逾期罚款(每天)',value:'0',unit:'元',desc:'0表示不罚款',original:'0'}
+  {key:'borrow.max_days',label:'最大借用天数',value:'7',unit:'天',desc:'超出此天数的借用申请将被拒绝',original:'7'}
 ])
 
 const approvalConfigs = ref([
