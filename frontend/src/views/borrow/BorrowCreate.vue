@@ -45,12 +45,9 @@
 
       <el-form-item label="借用目的" required>
         <el-select v-model="f.purposeCategory" placeholder="选择目的大类" style="width:100%" @change="f.purposeSubcategory=''">
-          <el-option label="教学与培养" value="教学与培养"/><el-option label="科研与项目" value="科研与项目"/>
-          <el-option label="学科竞赛与创新" value="学科竞赛与创新"/><el-option label="学术交流与合作" value="学术交流与合作"/>
-          <el-option label="社会服务与文化传承" value="社会服务与文化传承"/><el-option label="行政与公共服务" value="行政与公共服务"/>
-          <el-option label="个人发展与兴趣" value="个人发展与兴趣"/>
-          <el-option label="其他" value="其他"/>
+          <el-option v-for="c in purposeCategories" :key="c.value" :label="c.label" :value="c.value"/>
         </el-select>
+        <div v-if="currentPurposeDesc" style="margin-top:4px;font-size:12px;color:#909399;line-height:1.4">💡 {{ currentPurposeDesc }}</div>
       </el-form-item>
       <el-form-item label="子分类" v-if="f.purposeCategory">
         <!-- 选择"其他"大类时，子分类用输入框自由填写 -->
@@ -75,19 +72,38 @@
   </div>
 </template>
 <script setup>
-import { ref,reactive,onMounted,computed } from 'vue';import { useRoute,useRouter } from 'vue-router';import { borrowApi } from '@/api/borrow';import axios from '@/api/request';import { ElMessage } from 'element-plus'
+import { ref,reactive,onMounted,computed } from 'vue';import { useRoute,useRouter } from 'vue-router';import { borrowApi } from '@/api/borrow';import axios from '@/api/request';import { descriptionApi } from '@/api/categoryDescription';import { ElMessage } from 'element-plus'
 const route=useRoute();const router=useRouter();const deviceOptions=ref([]);const deviceLoading=ref(false);const submitting=ref(false)
 const approverLevel1=ref('');const approverLevel2=ref('');const fromDetailDeviceId=ref(null)
 const f=reactive({deviceIds:[],startTime:'',endTime:'',reason:'',purpose:'',purposeCategory:'教学与培养',purposeSubcategory:'',approverId:null})
 
+// 目的分类描述
+const purposeDescriptions = ref({})
+
 const hasOnsiteDevice=computed(()=>f.deviceIds.some(id=>{const d=deviceOptions.value.find(x=>x.id===id);return d&&d.borrowType===1}))
 const allOnsite=computed(()=>f.deviceIds.length>0&&f.deviceIds.every(id=>{const d=deviceOptions.value.find(x=>x.id===id);return d&&d.borrowType===1}))
+const currentPurposeDesc=computed(()=>f.purposeCategory ? purposeDescriptions.value[f.purposeCategory] || '' : '')
+
+// 目的大类选项（含描述tooltip）
+const purposeCategories = [
+  {label:'教学与培养',value:'教学与培养'},{label:'科研与项目',value:'科研与项目'},
+  {label:'学科竞赛与创新',value:'学科竞赛与创新'},{label:'学术交流与合作',value:'学术交流与合作'},
+  {label:'社会服务与文化传承',value:'社会服务与文化传承'},{label:'行政与公共服务',value:'行政与公共服务'},
+  {label:'个人发展与兴趣',value:'个人发展与兴趣'},{label:'其他',value:'其他'}
+]
 
 onMounted(async()=>{
   await loadDevices()
   try{const{data}=await axios.get('/auth/approvers');const labAdmins=(data||[]).filter(u=>u.userType===2);if(labAdmins.length)approverLevel2.value=labAdmins[0].realName||labAdmins[0].username}catch{}
   if(route.query.deviceId){const id=Number(route.query.deviceId);fromDetailDeviceId.value=id;f.deviceIds=[id];updateApproverInfo()}
+  loadPurposeDescriptions()
 })
+
+async function loadPurposeDescriptions(){
+  try{const{data}=await descriptionApi.listByType('PURPOSE');
+    const map={};(data||[]).forEach(d=>{map[d.categoryName]=d.description});purposeDescriptions.value=map
+  }catch{/* 描述加载失败不影响借用流程 */}
+}
 
 async function loadDevices(keyword){
   deviceLoading.value=true

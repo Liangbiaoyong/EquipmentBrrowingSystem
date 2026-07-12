@@ -331,3 +331,20 @@ CREATE TABLE IF NOT EXISTS `repair_record` (
   KEY `idx_device` (`device_id`),
   KEY `idx_status` (`status`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='维修记录表';
+
+-- -----------------------------------------------------------
+-- 14. 分类描述表（目的分类 & 成果类型的说明元数据）
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `category_description` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `category_type` varchar(20) NOT NULL COMMENT '分类类型: PURPOSE=目的分类 / OUTCOME=成果类型',
+  `category_name` varchar(100) NOT NULL COMMENT '分类名称（如"教学与培养""学术论文"等）',
+  `description` text COMMENT '分类说明描述',
+  `sort` int DEFAULT '0' COMMENT '排序',
+  `status` tinyint DEFAULT '1' COMMENT '1启用 0禁用',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_type` (`category_type`),
+  KEY `idx_name` (`category_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分类描述表';
