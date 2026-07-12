@@ -36,7 +36,6 @@ const newKey=ref('');const newVal=ref('');const newDesc=ref('')
 
 const defaults = [
   {configKey:'borrow.max_days',configValue:'7',description:'借用最大天数（超出拒绝）'},
-  {configKey:'borrow.default_approval_steps',configValue:'2',description:'默认审批级数（1/2/3）'},
   {configKey:'cleanup.small_record_days',configValue:'15',description:'小记录保留天数（通知/日志/审批记录）'},
   {configKey:'cleanup.large_file_days',configValue:'30',description:'大文件保留天数（附件/借用归还图片）'},
   {configKey:'notification.unread_cleanup_days',configValue:'-1',description:'未读消息保留天数（-1=永久）'},

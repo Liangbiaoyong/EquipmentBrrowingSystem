@@ -157,7 +157,8 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
     @Override
     public IPage<BorrowRecord> pendingApprovals(Long approverId, int level, int page, int size) {
         SysUser user = userMapper.selectById(approverId);
-        boolean isAdmin = user != null && (user.getUserType() == 2 || user.getUserType() == 3);
+        boolean isLabOrSysAdmin = user != null && (user.getUserType() == 2 || user.getUserType() == 3);
+        boolean isTeacher = user != null && user.getUserType() != null && user.getUserType() == 1;
         Page<BorrowRecord> pg = new Page<>(page, size);
 
         LambdaQueryWrapper<BorrowRecord> w = new LambdaQueryWrapper<BorrowRecord>()
@@ -165,11 +166,16 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
                 .eq(BorrowRecord::getCurrentStep, level)
                 .orderByDesc(BorrowRecord::getCreateTime);
 
-        if (isAdmin) {
-            // lab_admin/admin：可看到分配给自己 + 未分配的审批记录
-            w.apply("id IN (SELECT borrow_id FROM approval_log WHERE step = {0} AND result = 'PENDING' AND (approver_id = {1} OR approver_id IS NULL))",
-                    level, approverId);
+        if (isLabOrSysAdmin) {
+            // 管理员：显示所有待审批记录（不限审批人）
+            w.apply("id IN (SELECT borrow_id FROM approval_log WHERE step = {0} AND result = 'PENDING')", level);
+        } else if (isTeacher) {
+            // 教师：按设备使用人(custodian)姓名匹配，不限approver_id
+            String realName = user.getRealName();
+            w.apply("id IN (SELECT borrow_id FROM approval_log WHERE step = {0} AND result = 'PENDING')", level);
+            w.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", realName);
         } else {
+            // 学生：按分配的approver_id查看
             w.apply("id IN (SELECT borrow_id FROM approval_log WHERE step = {0} AND approver_id = {1} AND result = 'PENDING')",
                     level, approverId);
         }
@@ -196,16 +202,30 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
 
         // 判断审批人身份
         SysUser approverUser = userMapper.selectById(approverId);
-        boolean isApproverAdmin = approverUser != null && (approverUser.getUserType() == 2 || approverUser.getUserType() == 3);
+        boolean isAdmin = approverUser != null && (approverUser.getUserType() == 2 || approverUser.getUserType() == 3);
+        boolean isTeacher = approverUser != null && approverUser.getUserType() != null && approverUser.getUserType() == 1;
 
-        // 查找审批记录：admin可处理未分配(null approverId)的记录
+        // 查找审批记录
         ApprovalLog approvalLog = approvalMapper.selectOne(
                 new LambdaQueryWrapper<ApprovalLog>()
                         .eq(ApprovalLog::getBorrowId, dto.getBorrowId())
                         .eq(ApprovalLog::getStep, currentStep)
                         .eq(ApprovalLog::getResult, "PENDING")
                         .and(w -> w.eq(ApprovalLog::getApproverId, approverId)
-                                .or(isApproverAdmin, w2 -> w2.isNull(ApprovalLog::getApproverId))));
+                                .or(isAdmin, w2 -> w2.isNull(ApprovalLog::getApproverId))));
+        // 教师按设备使用人姓名匹配
+        if (approvalLog == null && isTeacher) {
+            Device device = deviceMapper.selectById(record.getDeviceId());
+            if (device != null && approverUser.getRealName() != null
+                    && approverUser.getRealName().equals(device.getCustodian())) {
+                // 教师是该设备的使用人，允许审批
+                approvalLog = approvalMapper.selectOne(
+                        new LambdaQueryWrapper<ApprovalLog>()
+                                .eq(ApprovalLog::getBorrowId, dto.getBorrowId())
+                                .eq(ApprovalLog::getStep, currentStep)
+                                .eq(ApprovalLog::getResult, "PENDING"));
+            }
+        }
         if (approvalLog == null) {
             throw new IllegalArgumentException("您不是当前审批节点的审批人");
         }
