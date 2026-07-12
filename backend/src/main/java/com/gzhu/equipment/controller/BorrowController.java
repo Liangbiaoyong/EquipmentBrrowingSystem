@@ -112,19 +112,27 @@ public class BorrowController {
     @GetMapping("/pending/first")
     @ApiOperation("初审待审批列表（教师/admin）")
     @PreAuthorize("hasAuthority('approval:first')")
-    public R<IPage<BorrowRecord>> pendingFirst(
+    public R<java.util.Map<String,Object>> pendingFirst(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return R.ok(borrowService.pendingApprovals(getCurrentUserId(), 1, page, size));
+        var pg = borrowService.pendingApprovals(getCurrentUserId(), 1, page, size);
+        var enriched = enrichNames(pg.getRecords());
+        java.util.Map<String,Object> r = new LinkedHashMap<>();
+        r.put("records", enriched); r.put("total", pg.getTotal()); r.put("page", page); r.put("size", size);
+        return R.ok(r);
     }
 
     @GetMapping("/pending/second")
     @ApiOperation("终审待审批列表（实验室管理员/admin）")
     @PreAuthorize("hasAuthority('approval:second')")
-    public R<IPage<BorrowRecord>> pendingSecond(
+    public R<java.util.Map<String,Object>> pendingSecond(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return R.ok(borrowService.pendingApprovals(getCurrentUserId(), 2, page, size));
+        var pg = borrowService.pendingApprovals(getCurrentUserId(), 2, page, size);
+        var enriched = enrichNames(pg.getRecords());
+        java.util.Map<String,Object> r = new LinkedHashMap<>();
+        r.put("records", enriched); r.put("total", pg.getTotal()); r.put("page", page); r.put("size", size);
+        return R.ok(r);
     }
 
     @PostMapping("/approve")
@@ -199,7 +207,12 @@ public class BorrowController {
         else if ("overdueDays".equals(sort)) w.orderBy(true, asc, BorrowRecord::getOverdueDays);
         else w.orderByDesc(BorrowRecord::getId);
 
-        return R.ok(borrowService.page(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), w));
+        var pg = borrowService.page(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), w);
+        // 注入设备名和用户名
+        var enriched = enrichNames(pg.getRecords());
+        java.util.Map<String,Object> result = new LinkedHashMap<>();
+        result.put("records", enriched); result.put("total", pg.getTotal()); result.put("page", page); result.put("size", size);
+        return R.ok(result);
     }
 
     @GetMapping("/browse/export")
@@ -447,6 +460,45 @@ public class BorrowController {
     }
 
     // ==================== 辅助 ====================
+
+    /** 为借用记录批量填充设备名和用户名 */
+    private java.util.List<java.util.Map<String,Object>> enrichNames(java.util.List<BorrowRecord> records) {
+        if (records == null || records.isEmpty()) return java.util.Collections.emptyList();
+        java.util.Set<Long> devIds = new java.util.HashSet<>(), userIds = new java.util.HashSet<>();
+        for (BorrowRecord r : records) { devIds.add(r.getDeviceId()); userIds.add(r.getUserId()); }
+
+        java.util.Map<Long,String> devNames = new java.util.HashMap<>(), devAssets = new java.util.HashMap<>(), userNames = new java.util.HashMap<>();
+        if (!devIds.isEmpty()) {
+            var devs = borrowRecordMapper.selectDeviceNames(new java.util.ArrayList<>(devIds));
+            for (var d : devs) {
+                Long id = (Long) d.get("id");
+                devNames.put(id, (String) d.getOrDefault("name", ""));
+                devAssets.put(id, (String) d.getOrDefault("asset_no", ""));
+            }
+        }
+        if (!userIds.isEmpty()) {
+            var users = borrowRecordMapper.selectUserNames(new java.util.ArrayList<>(userIds));
+            for (var u : users) {
+                Long id = (Long) u.get("id");
+                userNames.put(id, (String) u.getOrDefault("real_name", ""));
+            }
+        }
+
+        java.util.List<java.util.Map<String,Object>> enriched = new java.util.ArrayList<>();
+        for (BorrowRecord r : records) {
+            java.util.Map<String,Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", r.getId()); m.put("deviceId", r.getDeviceId()); m.put("userId", r.getUserId());
+            m.put("status", r.getStatus()); m.put("startTime", r.getStartTime()); m.put("endTime", r.getEndTime());
+            m.put("purpose", r.getPurpose()); m.put("purposeCategory", r.getPurposeCategory());
+            m.put("reason", r.getReason()); m.put("overdueDays", r.getOverdueDays());
+            m.put("createTime", r.getCreateTime()); m.put("realReturnTime", r.getRealReturnTime());
+            m.put("deviceName", devNames.getOrDefault(r.getDeviceId(), "设备#"+r.getDeviceId()));
+            m.put("deviceAssetNo", devAssets.getOrDefault(r.getDeviceId(), ""));
+            m.put("userName", userNames.getOrDefault(r.getUserId(), "用户#"+r.getUserId()));
+            enriched.add(m);
+        }
+        return enriched;
+    }
 
     private Long getCurrentUserId() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();

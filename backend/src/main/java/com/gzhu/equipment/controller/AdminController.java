@@ -36,6 +36,15 @@ public class AdminController {
     private final SysUserMapper userMapper;
     private final SysUserService userService;
 
+    @GetMapping("/users/{id}")
+    @ApiOperation("用户详情")
+    @PreAuthorize("hasAnyAuthority('admin:user','approval:first','approval:second','return:manage')")
+    public R<SysUser> getUser(@PathVariable Long id) {
+        SysUser user = userMapper.selectById(id);
+        if (user == null) return R.fail(404, "用户不存在");
+        return R.ok(user);
+    }
+
     @GetMapping("/users")
     @ApiOperation("用户列表（支持部门/角色筛选）")
     @PreAuthorize("hasAuthority('admin:user')")

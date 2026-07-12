@@ -25,7 +25,7 @@
       <el-table :data="list" v-loading="loading" stripe @selection-change="sel=>selectedIds=sel.map(r=>r.id)">
         <el-table-column type="selection" width="45"/>
         <el-table-column prop="id" label="ID" width="60"/>
-        <el-table-column prop="username" label="用户名" width="110"/>
+        <el-table-column label="用户名" width="110"><template #default="{row}"><el-link type="primary" @click="$router.push('/admin/users/'+row.id)">{{ row.username }}</el-link></template></el-table-column>
         <el-table-column prop="realName" label="姓名" width="90"/>
         <el-table-column label="角色" width="120"><template #default="{row}"><el-select v-model="row._newType" size="small" style="width:110px" @change="v=>changeRole(row.id,v)"><el-option v-for="r in roleOptions" :key="r.value" :label="r.label" :value="r.value"/></el-select></template></el-table-column>
         <el-table-column prop="department" label="部门" min-width="120" show-overflow-tooltip/>
