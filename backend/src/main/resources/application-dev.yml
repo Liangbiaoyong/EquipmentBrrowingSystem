@@ -87,6 +87,9 @@ cas:
   request-timeout: 30
   # CAS服务端地址
   server-url: https://newcas.gzhu.edu.cn/cas
+  # 外置CAS程序路径（cas_login.class所在目录）
+  cli-path: TEMP
+  cli-timeout: 60
   # Dev模式：token以"local:"开头时跳过CAS API，直接用用户名查本地库
   dev-mode: true
 

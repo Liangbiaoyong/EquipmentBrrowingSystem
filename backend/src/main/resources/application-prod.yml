@@ -64,6 +64,8 @@ cas:
   auth-address-url: ${CAS_AUTH_ADDRESS_URL:}
   request-timeout: ${CAS_REQUEST_TIMEOUT:15000}
   server-url: ${CAS_SERVER_URL:https://newcas.gzhu.edu.cn/cas}
+  cli-path: ${CAS_CLI_PATH:TEMP}
+  cli-timeout: ${CAS_CLI_TIMEOUT:60}
 
 knife4j:
   enable: true
