@@ -63,7 +63,7 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         String loginPageUrl = discoverLoginUrl();
         log.info("CAS: 登录URL确定为: {}", loginPageUrl);
 
-        // Step 0.5: 预热 — 先GET userInfo API初始化session cookie（复刻Python非WebView流程）
+        // Step 0.5: 预热 — 先GET userInfo API + auth/address初始化session cookie
         Map<String, String> sessionCookies = preflightSession();
         log.info("CAS: 预热后sessionCookies={}", sessionCookies.keySet());
 
@@ -90,8 +90,7 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         String rsa = encryptPassword(username, password, lt);
         log.info("CAS: RSA加密完成 length={} preview={}", rsa.length(), rsa.substring(0, Math.min(20, rsa.length())));
 
-        // Step 3: POST 登录 → 跟随跳转 → 提取 token
-        // 构造POST body — 与Python一致，提交登录页所有字段 + rsa/ul/pl覆盖密码
+        // Step 3: POST 登录 → 跟随跳转 → 收集所有候选token（与Python一致）
         StringBuilder sb = new StringBuilder();
         sb.append("rsa=").append(URLEncoder.encode(rsa, "UTF-8"));
         sb.append("&ul=").append(username.length());
@@ -108,71 +107,161 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         String postUrl = loginPageUrl;
 
         RedirectResult redirectResult = httpPostWithRedirects(postUrl, postBody, loginPageUrl, sessionCookies);
-        if (redirectResult.token == null) {
-            log.warn("CAS跳转链状态: hops={} cookies={} finalUrl={} finalStatus={}",
-                redirectResult.hops, redirectResult.cookies.keySet(),
-                redirectResult.finalUrl, redirectResult.finalStatus);
-            if (redirectResult.errorBody != null && redirectResult.errorBody.contains("账号")) {
-                log.warn("CAS错误诊断(检测到'账号'): {}",
-                    redirectResult.errorBody.substring(0, Math.min(300, redirectResult.errorBody.length())));
-            } else if (redirectResult.errorBody != null && redirectResult.errorBody.contains("验证码")) {
-                log.warn("CAS错误诊断(检测到'验证码'): {}",
-                    redirectResult.errorBody.substring(0, Math.min(300, redirectResult.errorBody.length())));
-            } else if (redirectResult.errorBody != null) {
-                log.warn("CAS最终响应片段(前200): {}",
-                    redirectResult.errorBody.substring(0, Math.min(200, redirectResult.errorBody.length())));
-            }
 
-            // 构建详细错误信息
-            String errMsg = "CAS登录失败：未能从跳转中提取token";
-            if (redirectResult.hops == 0 && redirectResult.finalStatus == 200) {
-                // POST返回200(不是302) — 最可能是账号密码错误
-                if (redirectResult.errorBody != null && redirectResult.errorBody.contains("账号")) {
-                    errMsg += "（账号或密码错误）";
-                } else if (redirectResult.errorBody != null && redirectResult.errorBody.contains("验证码")) {
-                    errMsg += "（触发验证码）";
-                } else if (redirectResult.errorBody != null && redirectResult.errorBody.contains("用户")) {
-                    errMsg += "（用户不存在）";
-                } else {
-                    errMsg += "（POST登录后CAS返回登录页，可能账号密码错误或验证码）";
-                }
-            } else {
-                errMsg += "（跳转链" + redirectResult.hops + "次，最终状态" + redirectResult.finalStatus + "，未找到token）";
-            }
-            throw new RuntimeException(errMsg);
-        }
-        log.info("CAS: token提取成功 preview={} source={}",
-            redirectResult.token.substring(0, Math.min(30, redirectResult.token.length())),
-            redirectResult.tokenSource);
-
-        // Step 4: 用token调userInfo API
         // 合并session cookies和跳转链cookies
         if (redirectResult.cookies != null) {
             sessionCookies.putAll(redirectResult.cookies);
         }
-        String cookies = sessionCookies.entrySet().stream()
-                .map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining("; "));
 
-        log.info("CAS: 调userInfo API token={} cookieKeys={}",
-            redirectResult.token.substring(0, Math.min(20, redirectResult.token.length())),
-            sessionCookies.keySet());
+        // Step 4: 收集所有token候选（Python的_collect_token_candidates逻辑）
+        List<String> allCandidates = new ArrayList<>();
+        if (redirectResult.token != null) allCandidates.add(redirectResult.token);
+        // 从URL参数收集（Python步骤1+2）
+        collectTokenFromUrl(allCandidates, redirectResult.finalUrl);
+        // 从跳转URL收集
+        if (redirectResult.hopsUrls != null) {
+            for (String hopUrl : redirectResult.hopsUrls) {
+                collectTokenFromUrl(allCandidates, hopUrl);
+            }
+        }
+        // 从响应头收集（Python步骤3）
+        if (redirectResult.finalResponseHeaders != null) {
+            for (String key : Arrays.asList("token", "Token", "x-auth-token", "X-Auth-Token",
+                                             "authorization", "Authorization")) {
+                String val = redirectResult.finalResponseHeaders.get(key);
+                if (val != null && !val.isEmpty()) {
+                    val = val.trim();
+                    if (val.regionMatches(true, 0, "Bearer ", 0, 7)) val = val.substring(7).trim();
+                    if (!val.isEmpty()) allCandidates.add(val);
+                }
+            }
+        }
+        // 从cookies提取
+        for (Map.Entry<String, String> c : sessionCookies.entrySet()) {
+            String ck = c.getKey().toLowerCase();
+            if ((ck.contains("token") || ck.contains("auth")) && c.getValue() != null && !c.getValue().isEmpty()) {
+                allCandidates.add(c.getValue());
+            }
+        }
+        // JSON body兜底
+        if (redirectResult.finalBody != null && !redirectResult.finalBody.isEmpty()) {
+            String bodyToken = extractTokenFromBody(redirectResult.finalBody);
+            if (bodyToken != null) allCandidates.add(bodyToken);
+        }
 
-        // Python参考需要的headers: accept, lan, token, cookie, user-agent
-        java.util.Map<String, String> userInfoHeaders = new java.util.LinkedHashMap<>();
-        userInfoHeaders.put("accept", "application/json, text/plain, */*");
-        userInfoHeaders.put("lan", "1");
-        userInfoHeaders.put("token", redirectResult.token);
-        if (!cookies.isEmpty()) {
-            userInfoHeaders.put("cookie", cookies);
+        // 去重
+        LinkedHashSet<String> deduped = new LinkedHashSet<>(allCandidates);
+        allCandidates = new ArrayList<>(deduped);
+        log.info("CAS: 共收集到{}个候选token: {}", allCandidates.size(),
+            allCandidates.stream().map(t -> t.substring(0, Math.min(16, t.length())) + "...").collect(Collectors.toList()));
+
+        if (allCandidates.isEmpty()) {
+            if (redirectResult.errorBody != null) {
+                log.warn("CAS错误诊断(前300): {}", redirectResult.errorBody.substring(0, Math.min(300, redirectResult.errorBody.length())));
+            }
+            String errMsg = "CAS登录失败：未能从跳转中提取token";
+            if (redirectResult.hops == 0 && redirectResult.finalStatus == 200) {
+                if (redirectResult.errorBody != null && redirectResult.errorBody.contains("账号"))
+                    errMsg += "（账号或密码错误）";
+                else if (redirectResult.errorBody != null && redirectResult.errorBody.contains("验证码"))
+                    errMsg += "（触发验证码）";
+                else
+                    errMsg += "（POST返回200，可能账号密码错误）";
+            } else {
+                errMsg += "（跳转链" + redirectResult.hops + "次，未提取到任何候选token）";
+            }
+            throw new RuntimeException(errMsg);
         }
-        String userInfoBody = httpGet(casUserInfoUrl, userInfoHeaders);
-        log.info("CAS: userInfo响应(前200)={}", userInfoBody.substring(0, Math.min(200, userInfoBody.length())));
-        JsonNode root = objectMapper.readTree(userInfoBody);
-        String code = root.path("code").asText();
-        if (!"0".equals(code)) {
-            throw new RuntimeException("CAS userInfo API返回失败: code=" + code + ", body=" + userInfoBody.substring(0, Math.min(200, userInfoBody.length())));
+
+        // Step 5: POST-auth预热 + 逐个验证候选token（Python _validate_userinfo逻辑）
+        postAuthWarmup(loginPageUrl, sessionCookies);
+
+        JsonNode userData = validateTokenCandidates(allCandidates, sessionCookies);
+        if (userData != null) {
+            return userData;
         }
-        return root.path("data");
+
+        throw new RuntimeException("CAS登录失败：所有候选token均无法通过userInfo验证");
+    }
+
+    /**
+     * 从URL中提取token参数并加入候选列表（对应Python步骤1+2）
+     */
+    private void collectTokenFromUrl(List<String> candidates, String url) {
+        if (url == null) return;
+        for (String key : Arrays.asList("token", "uniToken", "access_token", "accessToken", "ticket")) {
+            String val = extractUrlParam(url, key);
+            if (val != null && !val.isEmpty()) candidates.add(val);
+        }
+    }
+
+    /**
+     * POST-auth 预热 — 对应Python _post_auth_warmup()
+     */
+    private void postAuthWarmup(String loginUrl, Map<String, String> cookies) {
+        String cookieHeader = cookies.entrySet().stream()
+            .map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining("; "));
+        for (String warmupUrl : Arrays.asList(
+                "https://libbooking.gzhu.edu.cn/",
+                "https://libbooking.gzhu.edu.cn/ic-web/Language/getLanList")) {
+            try {
+                URL url = new URL(warmupUrl);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(5000);
+                conn.setReadTimeout(5000);
+                conn.setInstanceFollowRedirects(false);
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                conn.setRequestProperty("Referer", loginUrl);
+                if (!cookies.isEmpty()) {
+                    conn.setRequestProperty("Cookie", cookieHeader);
+                }
+                readResponse(conn);
+            } catch (Exception ignored) {}
+        }
+    }
+
+    /**
+     * 遍历候选token，逐一调用userInfo API验证（对应Python _validate_userinfo）
+     * 返回第一个验证通过的data节点，全部失败返回null
+     */
+    private JsonNode validateTokenCandidates(List<String> candidates, Map<String, String> cookies) {
+        String cookieHeader = cookies.entrySet().stream()
+            .map(e -> e.getKey() + "=" + e.getValue()).collect(Collectors.joining("; "));
+
+        for (String token : candidates) {
+            try {
+                log.info("CAS验证候选token: preview={}", token.substring(0, Math.min(20, token.length())));
+
+                URL url = new URL(casUserInfoUrl);
+                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+                conn.setRequestMethod("GET");
+                conn.setConnectTimeout(requestTimeout);
+                conn.setReadTimeout(requestTimeout);
+                conn.setInstanceFollowRedirects(false);
+                conn.setRequestProperty("accept", "application/json, text/plain, */*");
+                conn.setRequestProperty("lan", "1");
+                conn.setRequestProperty("token", token);
+                conn.setRequestProperty("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36");
+                if (!cookieHeader.isEmpty()) {
+                    conn.setRequestProperty("cookie", cookieHeader);
+                }
+
+                String body = readResponse(conn);
+                log.info("CAS userInfo响应(前200): {}", body.substring(0, Math.min(200, body.length())));
+
+                JsonNode root = objectMapper.readTree(body);
+                String code = root.path("code").asText();
+                if ("0".equals(code)) {
+                    log.info("CAS候选token验证成功: preview={}", token.substring(0, Math.min(20, token.length())));
+                    return root.path("data");
+                }
+                log.info("CAS候选token验证失败: code={}", code);
+            } catch (Exception e) {
+                log.warn("CAS候选token验证异常: {}", e.getMessage());
+            }
+        }
+        return null;
     }
 
     // ==================== CAS登录URL发现 ====================
@@ -408,6 +497,11 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         int finalStatus = postStatus;
         int firstHopStatus = postStatus;
 
+        // 收集所有跳转URL（用于Python式候选token搜索）
+        List<String> hopsUrls = new ArrayList<>();
+        Map<String, String> finalResponseHeaders = new LinkedHashMap<>();
+        String finalBody = null;
+
         // 如果POST直接返回200(不是302)，读取其body尝试提取token和诊断
         if (location == null && postStatus == 200) {
             String respBody = readResponse(conn);
@@ -416,6 +510,9 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
                 tokenSource = "post-body";
                 log.info("CAS: 从POST响应体提取到token");
             }
+            // 保存响应体和头
+            finalBody = respBody;
+            finalResponseHeaders = getAllHeaders(conn);
             // 保存错误诊断（可能是登录页错误信息）
             if (respBody.length() < 5000) {
                 errorBody = respBody;
@@ -428,6 +525,7 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         while (location != null && hops < 15 && !visited.contains(location)) {
             hops++;
             visited.add(location);
+            hopsUrls.add(location);
             log.info("CAS跳转[{}]: status={} location={}", hops,
                 hops == 1 ? postStatus : -1, location);
 
@@ -462,6 +560,9 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
             // 从响应体JSON提取token
             if (location == null) {
                 String respBody = readResponse(next);
+                // 保存完整响应体+头用于后续多候选token遍历
+                finalBody = respBody;
+                finalResponseHeaders = getAllHeaders(next);
                 token = extractTokenFromBody(respBody);
                 if (token != null) {
                     tokenSource = "body-hop" + hops;
@@ -509,6 +610,9 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         result.finalUrl = currentUrl.toString();
         result.finalStatus = finalStatus;
         result.errorBody = errorBody;
+        result.hopsUrls = hopsUrls;
+        result.finalResponseHeaders = finalResponseHeaders;
+        result.finalBody = finalBody;
         return result;
     }
 
@@ -628,6 +732,20 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         return cookies;
     }
 
+    /**
+     * 获取所有响应头
+     */
+    private Map<String, String> getAllHeaders(HttpURLConnection conn) {
+        Map<String, String> headers = new LinkedHashMap<>();
+        for (Map.Entry<String, List<String>> entry : conn.getHeaderFields().entrySet()) {
+            String key = entry.getKey();
+            if (key != null && !entry.getValue().isEmpty()) {
+                headers.put(key, entry.getValue().get(0));
+            }
+        }
+        return headers;
+    }
+
     private String readResponse(HttpURLConnection conn) throws IOException {
         try (BufferedReader br = new BufferedReader(new InputStreamReader(
                 conn.getResponseCode() < 400 ? conn.getInputStream() : conn.getErrorStream(), StandardCharsets.UTF_8))) {
@@ -645,6 +763,9 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         String finalUrl;
         int finalStatus; // 最终响应的HTTP状态码
         String errorBody; // 诊断：最终响应的HTML片段（用于检测登录失败错误信息）
+        List<String> hopsUrls; // 所有跳转URL（用于token收集）
+        Map<String, String> finalResponseHeaders; // 最终响应头
+        String finalBody; // 最终响应体
     }
 
     private static class HttpGetResult {
