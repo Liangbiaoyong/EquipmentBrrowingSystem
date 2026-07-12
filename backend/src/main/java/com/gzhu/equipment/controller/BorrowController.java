@@ -185,7 +185,7 @@ public class BorrowController {
     @GetMapping("/browse")
     @ApiOperation("借用浏览（综合查询+排序）")
     @PreAuthorize("hasAnyAuthority('borrow:view','return:manage','approval:first','approval:second')")
-    public R<IPage<BorrowRecord>> browse(
+    public R<Map<String,Object>> browse(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword,
