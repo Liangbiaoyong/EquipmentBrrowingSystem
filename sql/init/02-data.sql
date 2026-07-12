@@ -14,21 +14,21 @@ ON DUPLICATE KEY UPDATE `real_name` = '系统管理员';
 -- 插入实验室管理员（密码: admin123，同admin; 如需修改密码请用 PasswordUtil 生成hash）
 INSERT INTO `sys_user` (`username`, `real_name`, `user_type`, `department`, `password`, `auth_source`, `status`)
 VALUES ('labadmin', '实验室管理员', 2, '建筑学院',
-        '$2b$10$WMR7yG3.4Tavv912DxxynevSB7laOXLZ.mkvkV2HxHQuClpB5OVgi',
+        '$2b$10$AgBkzhU4VePwdNIX9qcCRuM//tvoQKV6bh/mHV9P3FmiQ7Zkmztni',
         'L', 1)
 ON DUPLICATE KEY UPDATE `real_name` = '实验室管理员';
 
--- 插入测试学生账号（密码: admin123）
+-- 插入测试学生账号（密码: admin123，与admin同hash）
 INSERT INTO `sys_user` (`username`, `real_name`, `user_type`, `department`, `password`, `auth_source`, `status`)
 VALUES ('student01', '测试学生', 0, '建筑学院',
-        '$2b$10$WMR7yG3.4Tavv912DxxynevSB7laOXLZ.mkvkV2HxHQuClpB5OVgi',
+        '$2b$10$AgBkzhU4VePwdNIX9qcCRuM//tvoQKV6bh/mHV9P3FmiQ7Zkmztni',
         'L', 1)
 ON DUPLICATE KEY UPDATE `real_name` = '测试学生';
 
--- 插入测试教师账号（密码: admin123）
+-- 插入测试教师账号（密码: admin123，与admin同hash）
 INSERT INTO `sys_user` (`username`, `real_name`, `user_type`, `department`, `password`, `auth_source`, `status`)
 VALUES ('teacher01', '测试教师', 1, '建筑学院',
-        '$2b$10$WMR7yG3.4Tavv912DxxynevSB7laOXLZ.mkvkV2HxHQuClpB5OVgi',
+        '$2b$10$AgBkzhU4VePwdNIX9qcCRuM//tvoQKV6bh/mHV9P3FmiQ7Zkmztni',
         'L', 1)
 ON DUPLICATE KEY UPDATE `real_name` = '测试教师';
 
@@ -219,55 +219,49 @@ INSERT INTO `category_mapping` (`gb_category_name`, `keyword`, `category_id`, `p
 ('其他-家用电器',             '家用电器',     10, 200);
 
 -- ============================================================
--- V2: 实验室初始数据
+-- V2: 实验室初始数据（V7修正: 地址→实验室映射，非前缀匹配）
 -- ============================================================
 
--- 实验室
-INSERT INTO `laboratory` (`id`, `name`, `code`, `location_prefix`, `description`, `status`) VALUES
-(1, '建成环境气候模拟实验室', 'LAB-CLIMATE', '工程实验楼南楼＞5＞', NULL, 1),
-(2, '声振环境实验室', 'LAB-SOUND', '理科教学楼北楼＞6＞', NULL, 1),
-(3, '建筑光学与暗夜保护实验室', 'LAB-OPTICS', '工程实验楼南楼＞5＞', NULL, 1),
-(4, '数字孪生与空间模型实验室', 'LAB-DIGITAL', '理科教学楼北楼＞5＞', NULL, 1),
-(5, '资源与环境智慧测评实验室', 'LAB-RESOURCE', '理科教学楼北楼＞5＞', NULL, 1)
+-- 5个实验室
+INSERT INTO `laboratory` (`id`, `name`, `code`, `description`, `status`) VALUES
+(1, '建成环境气候模拟实验室', 'LAB_BUILT_ENV', '建筑室内外热湿环境、风环境、日照采光等物理环境模拟研究', 1),
+(2, '声振环境实验室', 'LAB_ACOUSTIC', '建筑声学、环境噪声、结构振动测试与分析', 1),
+(3, '建筑光学与暗夜保护实验室', 'LAB_OPTICS', '天然采光、人工照明、光污染与暗夜保护研究', 1),
+(4, '数字孪生与空间模型实验室', 'LAB_DIGITAL_TWIN', 'BIM/CIM数字孪生、三维扫描、空间数据分析', 1),
+(5, '资源与环境智慧测评实验室', 'LAB_ENV_ASSESS', '建筑全生命周期评估、碳排放核算、环境智慧测评', 1)
 ON DUPLICATE KEY UPDATE `name` = VALUES(`name`), `code` = VALUES(`code`);
 
--- 地点映射（基于用户提供的32条映射）
+-- 32个房间地址映射（仅5个有归属实验室，其余未分配）
 INSERT INTO `laboratory_room` (`laboratory_id`, `room_name`, `full_location`) VALUES
--- 建成环境气候模拟实验室 (id=1)
-(1, '工程南501', NULL),
-(1, '工程南522', NULL),
-(1, '工程南525', NULL),
-(1, '工程南529', NULL),
-(1, '工程南530', '工程实验楼南楼＞5＞建筑光学与暗夜保护实验室-530'),
-(1, '工程南520', '工程实验楼南楼＞5＞绿色智慧建筑实验室1室-520'),
-(1, '工程南521', NULL),
--- 声振环境实验室 (id=2)
-(2, '工程北623', '理科教学楼北楼＞6＞声振环境实验室-623'),
-(2, '工程北625', NULL),
--- 建筑光学与暗夜保护实验室 (id=3)
-(3, '工程南514', NULL),
-(3, '工程南515', NULL),
-(3, '工程南531', '工程实验楼南楼＞5＞仪器及档案存放室-531'),
--- 数字孪生与空间模型实验室 (id=4)
-(4, '工程北504', '理科教学楼北楼＞5＞数字孪生与空间模型实验室-504'),
-(4, '工程北510', NULL),
-(4, '工程北511', NULL),
-(4, '工程北512', NULL),
-(4, '文俊东512', NULL),
--- 资源与环境智慧测评实验室 (id=5)
-(5, '工程北503', '理科教学楼北楼＞5＞资源与环境智慧测评实验室-503'),
-(5, '工程北505', NULL),
-(5, '工程北506', NULL),
-(5, '文俊东511', NULL),
--- 其他未明确归属的地点（暂归入建成环境气候模拟实验室）
-(1, '文俊东509', NULL),
-(1, '文俊东510', NULL),
-(1, '工程南505', NULL),
-(1, '工程南506', NULL),
-(1, '工程南508', NULL),
-(1, '工程南509', NULL),
-(1, '工程南510', NULL),
-(1, '工程南511', NULL),
-(1, '工程南513', '工程实验楼南楼＞5＞城市更新规划与文化景观设计实验室2室-513'),
-(1, '工程南518', NULL),
-(1, '工程南519', NULL);
+(1, '工程南501', '工程实验南楼501室'),
+(NULL, '工程南522', '工程实验南楼522室'),
+(NULL, '工程南525', '工程实验南楼525室'),
+(NULL, '工程南529', '工程实验南楼529室'),
+(2, '工程北623', '工程实验北楼623室'),
+(NULL, '工程北625', '工程实验北楼625室'),
+(NULL, '工程南514', '工程实验南楼514室'),
+(NULL, '工程南515', '工程实验南楼515室'),
+(NULL, '文俊东509', '文俊东楼509室'),
+(NULL, '文俊东510', '文俊东楼510室'),
+(3, '工程南530', '工程实验南楼530室'),
+(NULL, '工程南531', '工程实验南楼531室'),
+(4, '工程北504', '工程实验北楼504室'),
+(NULL, '工程北510', '工程实验北楼510室'),
+(NULL, '工程北511', '工程实验北楼511室'),
+(NULL, '工程北512', '工程实验北楼512室'),
+(NULL, '文俊东512', '文俊东楼512室'),
+(5, '工程北503', '工程实验北楼503室'),
+(NULL, '工程北505', '工程实验北楼505室'),
+(NULL, '工程北506', '工程实验北楼506室'),
+(NULL, '文俊东511', '文俊东楼511室'),
+(NULL, '工程南505', '工程实验南楼505室'),
+(NULL, '工程南506', '工程实验南楼506室'),
+(NULL, '工程南508', '工程实验南楼508室'),
+(NULL, '工程南509', '工程实验南楼509室'),
+(NULL, '工程南510', '工程实验南楼510室'),
+(NULL, '工程南511', '工程实验南楼511室'),
+(NULL, '工程南513', '工程实验南楼513室'),
+(NULL, '文俊东513', '文俊东楼513室'),
+(NULL, '工程南518', '工程实验南楼518室'),
+(NULL, '工程南519', '工程实验南楼519室'),
+(NULL, '工程南520', '工程实验南楼520室');

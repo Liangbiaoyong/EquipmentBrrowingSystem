@@ -282,7 +282,6 @@ CREATE TABLE IF NOT EXISTS `laboratory` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL COMMENT '实验室名称',
   `code` varchar(50) DEFAULT NULL COMMENT '实验室编码',
-  `location_prefix` varchar(200) DEFAULT NULL COMMENT '存放地前缀',
   `description` text COMMENT '实验室描述',
   `status` tinyint DEFAULT '1' COMMENT '1启用 0禁用',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
@@ -296,8 +295,8 @@ CREATE TABLE IF NOT EXISTS `laboratory` (
 -- -----------------------------------------------------------
 CREATE TABLE IF NOT EXISTS `laboratory_room` (
   `id` bigint NOT NULL AUTO_INCREMENT,
-  `laboratory_id` bigint NOT NULL COMMENT '关联实验室ID',
-  `room_name` varchar(100) NOT NULL COMMENT '房间/地点简称（如工程南501）',
+  `laboratory_id` bigint DEFAULT NULL COMMENT '关联实验室ID（可为NULL表示未分配）',
+  `room_name` varchar(100) NOT NULL COMMENT '房间/地点地址（如工程南501）',
   `full_location` varchar(500) DEFAULT NULL COMMENT '完整存放地名称',
   `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),

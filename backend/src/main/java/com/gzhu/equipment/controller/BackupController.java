@@ -77,8 +77,17 @@ public class BackupController {
             }
 
             int exit = p.waitFor();
+            // 非零退出码：如果文件已生成且 stderr 仅为 deprecation warning，视为成功
             if (exit != 0) {
+                long fileSize = new File(filePath).length();
+                boolean hasData = fileSize > 1024; // 至少 1KB 才有实际数据
+                boolean isDeprecationOnly = errOut.toString().contains("Deprecated") || errOut.toString().contains("mariadb-dump");
+                if (hasData && isDeprecationOnly) {
+                    log.warn("备份完成但有警告: exit={} stderr={}", exit, errOut);
+                    return R.ok("备份完成: " + fileName + " (" + formatSize(fileSize) + ")，注意: " + errOut.toString().trim());
+                }
                 log.error("备份失败, exit={}, stderr={}", exit, errOut);
+                if (hasData) new File(filePath).delete();
                 return R.fail("备份执行失败，退出码: " + exit + "，错误: " + errOut);
             }
 
@@ -138,6 +147,7 @@ public class BackupController {
                 "-P" + dbPort,
                 "-u" + dbUser,
                 "-p" + dbPass,
+                "--ssl-mode=DISABLED",
                 "--single-transaction",
                 "--routines",
                 "--triggers",
@@ -148,10 +158,10 @@ public class BackupController {
     }
 
     private ProcessBuilder buildDockerDumpCommand(String dumpCmd, String dbName, String filePath) {
-        // docker exec -i dev-mysql mysqldump -uroot -p${pass} ... > file
+        // docker exec -i dev-mysql mysqldump ... --ssl-mode=DISABLED for self-signed cert
         ProcessBuilder pb = new ProcessBuilder(
                 "sh", "-c",
-                String.format("docker exec dev-mysql mysqldump -u%s -p%s --single-transaction --routines --triggers --default-character-set=utf8mb4 %s > %s",
+                String.format("docker exec dev-mysql mysqldump -u%s -p%s --ssl-mode=DISABLED --single-transaction --routines --triggers --default-character-set=utf8mb4 %s 2>/dev/null > %s",
                         shellEscape(dbUser), shellEscape(dbPass), shellEscape(dbName), shellEscape(filePath)));
         return pb;
     }

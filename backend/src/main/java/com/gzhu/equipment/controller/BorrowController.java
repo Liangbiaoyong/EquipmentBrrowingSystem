@@ -16,6 +16,7 @@ import com.gzhu.equipment.service.MinioFileService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -41,6 +42,7 @@ import java.util.List;
  * POST   /borrows/{id}/return  → 归还登记
  * GET    /borrows/overdue      → 逾期列表
  */
+@Slf4j
 @RestController
 @RequestMapping("/borrows")
 @RequiredArgsConstructor
@@ -64,6 +66,9 @@ public class BorrowController {
             return R.ok("已提交 " + records.size() + " 条借用申请", records);
         } catch (IllegalArgumentException e) {
             return R.fail(e.getMessage());
+        } catch (Exception e) {
+            log.error("借用申请提交失败", e);
+            return R.fail("提交失败: " + (e.getMessage() != null ? e.getMessage() : "服务器内部错误"));
         }
     }
 

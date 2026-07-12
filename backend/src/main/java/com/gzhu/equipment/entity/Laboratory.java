@@ -24,9 +24,6 @@ public class Laboratory implements Serializable {
     /** 实验室编码 */
     private String code;
 
-    /** 存放地前缀（如一教楼＞5＞） */
-    private String locationPrefix;
-
     /** 实验室描述 */
     private String description;
 

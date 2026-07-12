@@ -65,7 +65,19 @@
       <el-form-item label="目的详情" required><el-input v-model="f.purpose" type="textarea" :rows="2" placeholder="请详细描述借用目的，如项目名称/课程名称/竞赛名称等..."/></el-form-item>
       <el-form-item label="备注"><el-input v-model="f.reason" type="textarea" :rows="1" placeholder="其他补充说明(可选)"/></el-form-item>
       <el-divider content-position="left">审批流程</el-divider>
-      <el-form-item label="初审人"><el-tag type="primary">{{ approverLevel1 || '设备使用人（自动匹配）' }}</el-tag></el-form-item>
+      <div v-if="f.deviceIds.length>1" style="margin-bottom:12px;padding:8px 12px;background:#fdf6ec;border-radius:4px;font-size:12px;color:#e6a23c">多设备申请将为每台设备独立创建借用单，初审人按设备分别匹配</div>
+      <el-form-item label="初审人">
+        <div style="display:flex;flex-wrap:wrap;gap:6px">
+          <template v-if="f.deviceIds.length<=1">
+            <el-tag type="primary">{{ approverLevel1 || '设备使用人（自动匹配）' }}</el-tag>
+          </template>
+          <template v-else>
+            <el-tag v-for="a in multiApprovers" :key="a.deviceId" type="primary" size="small" effect="plain">
+              {{ a.deviceName }}: {{ a.approver||'自动匹配' }}
+            </el-tag>
+          </template>
+        </div>
+      </el-form-item>
       <el-form-item label="终审人"><el-tag type="success">{{ approverLevel2 || '实验室管理员（自动分配）' }}</el-tag></el-form-item>
       <el-form-item><el-button type="primary" @click="submit" :loading="submitting">提交申请</el-button></el-form-item>
     </el-form></el-card>
@@ -83,6 +95,12 @@ const purposeDescriptions = ref({})
 const hasOnsiteDevice=computed(()=>f.deviceIds.some(id=>{const d=deviceOptions.value.find(x=>x.id===id);return d&&d.borrowType===1}))
 const allOnsite=computed(()=>f.deviceIds.length>0&&f.deviceIds.every(id=>{const d=deviceOptions.value.find(x=>x.id===id);return d&&d.borrowType===1}))
 const currentPurposeDesc=computed(()=>f.purposeCategory ? purposeDescriptions.value[f.purposeCategory] || '' : '')
+
+// 多设备时显示每个设备的初审人
+const multiApprovers=computed(()=>f.deviceIds.map(id=>{
+  const d=deviceOptions.value.find(x=>x.id===id)
+  return {deviceId:id,deviceName:d?d.name:'设备#'+id,approver:d?d.custodian||'自动匹配':'自动匹配'}
+}))
 
 // 目的大类选项（含描述tooltip）
 const purposeCategories = [

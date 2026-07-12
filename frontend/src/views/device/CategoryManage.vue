@@ -16,7 +16,7 @@
           <el-table :data="mappings" stripe>
             <el-table-column prop="id" label="ID" width="80"/><el-table-column prop="gbCategoryName" label="国标分类名" min-width="160"/><el-table-column prop="keyword" label="关键词" width="120"/><el-table-column label="目标分类" width="140"><template #default="{row}">{{ catName(row.categoryId) }}</template></el-table-column>
             <el-table-column prop="priority" label="优先级" width="80"/><el-table-column label="状态" width="80"><template #default="{row}"><el-tag :type="row.isActive===1?'success':'info'">{{ row.isActive===1?'启用':'禁用' }}</el-tag></template></el-table-column>
-            <el-table-column label="操作" width="180"><template #default="{row}"><el-button size="small" @click="editMapping(row)">编辑</el-button><el-button size="small" @click="toggleMapping(row)">{{ row.isActive===1?'禁用':'启用' }}</el-button><el-button size="small" type="danger" @click="deleteMapping(row.id)">删除</el-button></template></el-table-column>
+            <el-table-column label="操作" width="240" fixed="right"><template #default="{row}"><div style="white-space:nowrap"><el-button size="small" @click="editMapping(row)">编辑</el-button><el-button size="small" @click="toggleMapping(row)">{{ row.isActive===1?'禁用':'启用' }}</el-button><el-button size="small" type="danger" @click="deleteMapping(row.id)">删除</el-button></div></template></el-table-column>
           </el-table>
         </el-card>
       </el-tab-pane>
