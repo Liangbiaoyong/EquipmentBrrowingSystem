@@ -178,10 +178,56 @@
 </template>
 
 <script setup>
-import { ref,reactive,computed,onMounted } from 'vue'
+import { ref,reactive,computed,onMounted, h, defineComponent } from 'vue'
 import { statsApi } from '@/api/statistics'
 import axios from '@/api/request'
 import { Download,Monitor,CircleCheck,Clock,Bell,ArrowDown } from '@element-plus/icons-vue'
+
+// ==================== 环形图组件 ====================
+const DonutChart = defineComponent({
+  name: 'DonutChart',
+  props: { data: Array, colors: Array },
+  setup(props) {
+    return () => {
+      const total = props.data.reduce((s, d) => s + (d.value || 0), 0) || 1
+      const cx = 120, cy = 120, r = 90, strokeWidth = 28
+      const circumference = 2 * Math.PI * r
+      let offset = 0
+      const slices = []
+      const labels = []
+
+      props.data.forEach((d, i) => {
+        const pct = d.value / total
+        const dashLen = pct * circumference
+        slices.push(h('circle', {
+          cx, cy, r, fill: 'none',
+          stroke: props.colors[i % props.colors.length],
+          'stroke-width': strokeWidth,
+          'stroke-dasharray': `${dashLen} ${circumference - dashLen}`,
+          'stroke-dashoffset': -offset,
+          style: { transform: 'rotate(-90deg)', transformOrigin: `${cx}px ${cy}px`, transition: 'stroke-dasharray 0.5s ease' },
+          key: i
+        }))
+        if (i === 0) {
+          labels.push(h('text', { x: cx, y: cy - 10, 'text-anchor': 'middle', fill: '#303133', 'font-size': '22', 'font-weight': '700' }, total))
+          labels.push(h('text', { x: cx, y: cy + 16, 'text-anchor': 'middle', fill: '#909399', 'font-size': '13' }, '总计'))
+        }
+        offset += dashLen
+      })
+      const legendItems = props.data.slice(0, 8).map((d, i) =>
+        h('div', { class: 'donut-legend-item', key: 'l' + i }, [
+          h('span', { class: 'donut-legend-dot', style: { background: props.colors[i % props.colors.length] } }),
+          h('span', { class: 'donut-legend-label' }, d.name),
+          h('span', { class: 'donut-legend-val' }, `${d.value} (${Math.round(d.value / total * 100)}%)`)
+        ])
+      )
+      return h('div', { class: 'donut-chart-wrap' }, [
+        h('svg', { viewBox: '0 0 240 240', class: 'donut-svg' }, [...slices, ...labels]),
+        h('div', { class: 'donut-legend' }, legendItems)
+      ])
+    }
+  }
+})
 
 // ==================== 状态 ====================
 const activeTab = ref('overview')
@@ -335,62 +381,6 @@ onMounted(async () => {
 })
 </script>
 
-<!-- ==================== 环形图组件 ==================== -->
-<script>
-import { h, defineComponent } from 'vue'
-const DonutChart = defineComponent({
-  name: 'DonutChart',
-  props: { data: Array, colors: Array },
-  setup(props) {
-    return () => {
-      const total = props.data.reduce((s, d) => s + (d.value || 0), 0) || 1
-      const cx = 120, cy = 120, r = 90, strokeWidth = 28
-      const circumference = 2 * Math.PI * r
-      let offset = 0
-      const slices = []
-      const labels = []
-
-      props.data.forEach((d, i) => {
-        const pct = d.value / total
-        const dashLen = pct * circumference
-        slices.push(h('circle', {
-          cx, cy, r, fill: 'none',
-          stroke: props.colors[i % props.colors.length],
-          'stroke-width': strokeWidth,
-          'stroke-dasharray': `${dashLen} ${circumference - dashLen}`,
-          'stroke-dashoffset': -offset,
-          style: { transform: 'rotate(-90deg)', transformOrigin: `${cx}px ${cy}px`, transition: 'stroke-dasharray 0.5s ease' },
-          key: i
-        }))
-        // 中心文字
-        if (i === 0) {
-          labels.push(h('text', { x: cx, y: cy - 10, 'text-anchor': 'middle', fill: '#303133', 'font-size': '22', 'font-weight': '700' }, total))
-          labels.push(h('text', { x: cx, y: cy + 16, 'text-anchor': 'middle', fill: '#909399', 'font-size': '13' }, '总计'))
-        }
-        offset += dashLen
-      })
-
-      // 图例
-      const legendItems = props.data.slice(0, 8).map((d, i) =>
-        h('div', { class: 'donut-legend-item', key: 'l' + i }, [
-          h('span', { class: 'donut-legend-dot', style: { background: props.colors[i % props.colors.length] } }),
-          h('span', { class: 'donut-legend-label' }, d.name),
-          h('span', { class: 'donut-legend-val' }, `${d.value} (${Math.round(d.value / total * 100)}%)`)
-        ])
-      )
-
-      return h('div', { class: 'donut-chart-wrap' }, [
-        h('svg', { viewBox: '0 0 240 240', class: 'donut-svg' }, [...slices, ...labels]),
-        h('div', { class: 'donut-legend' }, legendItems)
-      ])
-    }
-  }
-})
-</script>
-
-<script>
-export default { components: { DonutChart } }
-</script>
 
 <style scoped>
 /* ===== 容器 ===== */
