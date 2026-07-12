@@ -52,17 +52,19 @@
           <el-option label="其他" value="其他"/>
         </el-select>
       </el-form-item>
-      <el-form-item label="子分类" v-if="f.purposeCategory"><el-select v-model="f.purposeSubcategory" placeholder="选择具体用途" style="width:100%">
-        <template v-if="f.purposeCategory==='教学与培养'"><el-option label="课堂教学" value="课堂教学"/><el-option label="毕业设计/论文" value="毕业设计/论文"/><el-option label="课程设计/大作业" value="课程设计/大作业"/><el-option label="实习/实训" value="实习/实训"/></template>
-        <template v-else-if="f.purposeCategory==='科研与项目'"><el-option label="纵向科研项目" value="纵向科研项目"/><el-option label="横向科研项目" value="横向科研项目"/><el-option label="校级科研启动/培育" value="校级科研启动/培育"/><el-option label="研究生学位论文研究" value="研究生学位论文研究"/></template>
-        <template v-else-if="f.purposeCategory==='学科竞赛与创新'"><el-option label="学生竞赛" value="学生竞赛"/><el-option label="教师指导竞赛" value="教师指导竞赛"/><el-option label="大创项目" value="大创项目"/></template>
-        <template v-else-if="f.purposeCategory==='学术交流与合作'"><el-option label="学术会议/展览" value="学术会议/展览"/><el-option label="联合教学/工作坊" value="联合教学/工作坊"/><el-option label="访问学者/博士后研究" value="访问学者/博士后研究"/></template>
-        <template v-else-if="f.purposeCategory==='社会服务与文化传承'"><el-option label="科普活动/开放日" value="科普活动/开放日"/><el-option label="校企合作基地建设" value="校企合作基地建设"/><el-option label="古建筑测绘/乡村振兴" value="古建筑测绘/乡村振兴"/></template>
-        <template v-else-if="f.purposeCategory==='行政与公共服务'"><el-option label="学院行政活动" value="学院行政活动"/><el-option label="日常办公" value="日常办公"/></template>
-        <template v-else-if="f.purposeCategory==='个人发展与兴趣'"><el-option label="自主学习与训练" value="自主学习与训练"/><el-option label="其他" value="其他"/></template>
-        <template v-else-if="f.purposeCategory==='其他'"><el-option label="其他" value="其他"/></template>
-        <template v-else><el-option label="其他" value="其他"/></template>
-      </el-select></el-form-item>
+      <el-form-item label="子分类" v-if="f.purposeCategory">
+        <!-- 选择"其他"大类时，子分类用输入框自由填写 -->
+        <el-input v-if="f.purposeCategory==='其他'" v-model="f.purposeSubcategory" placeholder="请输入具体用途分类..."/>
+        <el-select v-else v-model="f.purposeSubcategory" placeholder="选择具体用途" style="width:100%">
+          <template v-if="f.purposeCategory==='教学与培养'"><el-option label="课堂教学" value="课堂教学"/><el-option label="毕业设计/论文" value="毕业设计/论文"/><el-option label="课程设计/大作业" value="课程设计/大作业"/><el-option label="实习/实训" value="实习/实训"/></template>
+          <template v-else-if="f.purposeCategory==='科研与项目'"><el-option label="纵向科研项目" value="纵向科研项目"/><el-option label="横向科研项目" value="横向科研项目"/><el-option label="校级科研启动/培育" value="校级科研启动/培育"/><el-option label="研究生学位论文研究" value="研究生学位论文研究"/></template>
+          <template v-else-if="f.purposeCategory==='学科竞赛与创新'"><el-option label="学生竞赛" value="学生竞赛"/><el-option label="教师指导竞赛" value="教师指导竞赛"/><el-option label="大创项目" value="大创项目"/></template>
+          <template v-else-if="f.purposeCategory==='学术交流与合作'"><el-option label="学术会议/展览" value="学术会议/展览"/><el-option label="联合教学/工作坊" value="联合教学/工作坊"/><el-option label="访问学者/博士后研究" value="访问学者/博士后研究"/></template>
+          <template v-else-if="f.purposeCategory==='社会服务与文化传承'"><el-option label="科普活动/开放日" value="科普活动/开放日"/><el-option label="校企合作基地建设" value="校企合作基地建设"/><el-option label="古建筑测绘/乡村振兴" value="古建筑测绘/乡村振兴"/></template>
+          <template v-else-if="f.purposeCategory==='行政与公共服务'"><el-option label="学院行政活动" value="学院行政活动"/><el-option label="日常办公" value="日常办公"/></template>
+          <template v-else-if="f.purposeCategory==='个人发展与兴趣'"><el-option label="自主学习与训练" value="自主学习与训练"/></template>
+        </el-select>
+      </el-form-item>
       <el-form-item label="目的详情" required><el-input v-model="f.purpose" type="textarea" :rows="2" placeholder="请详细描述借用目的，如项目名称/课程名称/竞赛名称等..."/></el-form-item>
       <el-form-item label="备注"><el-input v-model="f.reason" type="textarea" :rows="1" placeholder="其他补充说明(可选)"/></el-form-item>
       <el-divider content-position="left">审批流程</el-divider>
