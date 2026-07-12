@@ -37,9 +37,29 @@
   </div>
 </template>
 <script setup>
-import { ref,reactive,onMounted } from 'vue';import { useRouter } from 'vue-router';import axios from '@/api/request';import { categoryApi } from '@/api/category'
-const router=useRouter();const loading=ref(false);const list=ref([]);const total=ref(0);const categories=ref([]);const laboratories=ref([])
+import { ref,reactive,onMounted,watch } from 'vue';import { useRouter,useRoute } from 'vue-router';import axios from '@/api/request';import { categoryApi } from '@/api/category'
+const router=useRouter();const route=useRoute();const loading=ref(false);const list=ref([]);const total=ref(0);const categories=ref([]);const laboratories=ref([])
 const q=reactive({page:1,size:20,assetNo:'',name:'',model:'',categoryId:null,gbCategoryName:'',location:'',borrowStatus:null,deviceStatus:null,borrowType:null,laboratoryId:null})
+
+// 从URL恢复搜索状态
+function restoreFromQuery(){
+  const r=route.query
+  if(r.assetNo)q.assetNo=r.assetNo; if(r.name)q.name=r.name; if(r.model)q.model=r.model
+  if(r.categoryId)q.categoryId=Number(r.categoryId); if(r.borrowStatus)q.borrowStatus=Number(r.borrowStatus)
+  if(r.deviceStatus)q.deviceStatus=Number(r.deviceStatus); if(r.borrowType)q.borrowType=Number(r.borrowType)
+  if(r.laboratoryId)q.laboratoryId=Number(r.laboratoryId); if(r.gbCategoryName)q.gbCategoryName=r.gbCategoryName
+  if(r.location)q.location=r.location; if(r.page)q.page=Number(r.page)
+}
+
+// 搜索时同步到URL
+function syncToQuery(){
+  const p={}; if(q.assetNo)p.assetNo=q.assetNo; if(q.name)p.name=q.name; if(q.model)p.model=q.model
+  if(q.categoryId)p.categoryId=q.categoryId; if(q.borrowStatus)p.borrowStatus=q.borrowStatus
+  if(q.deviceStatus)p.deviceStatus=q.deviceStatus; if(q.borrowType)p.borrowType=q.borrowType
+  if(q.laboratoryId)p.laboratoryId=q.laboratoryId; if(q.gbCategoryName)p.gbCategoryName=q.gbCategoryName
+  if(q.location)p.location=q.location; if(q.page>1)p.page=q.page
+  router.replace({query:p})
+}
 
 const borrowStatusMap={1:'success',2:'warning',3:'danger',4:'danger'}
 const borrowStatusTextMap={1:'可借用',2:'借用中',3:'不可借',4:'逾期'}
@@ -53,8 +73,8 @@ function deviceStatusText(v){return deviceStatusTextMap[v]||'未知'}
 function catName(id){const c=categories.value.find(x=>x.id===id);return c?c.name:''}
 function labName(id){if(!id)return'';const l=laboratories.value.find(x=>x.id===id);return l?l.name:''}
 function toDetail(row){router.push(`/devices/${row.id}`)}
-async function search(){loading.value=true;try{const{data}=await axios.get('/devices',{params:{page:q.page,size:q.size,assetNo:q.assetNo||undefined,name:q.name||undefined,model:q.model||undefined,categoryId:q.categoryId,gbCategoryName:q.gbCategoryName||undefined,location:q.location||undefined,borrowStatus:q.borrowStatus,deviceStatus:q.deviceStatus,borrowType:q.borrowType,laboratoryId:q.laboratoryId}});list.value=data.records||[];total.value=data.total||0}catch(e){console.error('搜索设备失败',e)}finally{loading.value=false}}
+async function search(){loading.value=true;syncToQuery();try{const{data}=await axios.get('/devices',{params:{page:q.page,size:q.size,assetNo:q.assetNo||undefined,name:q.name||undefined,model:q.model||undefined,categoryId:q.categoryId,gbCategoryName:q.gbCategoryName||undefined,location:q.location||undefined,borrowStatus:q.borrowStatus,deviceStatus:q.deviceStatus,borrowType:q.borrowType,laboratoryId:q.laboratoryId}});list.value=data.records||[];total.value=data.total||0}catch(e){console.error('搜索设备失败',e)}finally{loading.value=false}}
 function resetSearch(){q.assetNo='';q.name='';q.model='';q.categoryId=null;q.gbCategoryName='';q.location='';q.borrowStatus=null;q.deviceStatus=null;q.borrowType=null;q.laboratoryId=null;search()}
-onMounted(async()=>{try{const{data}=await categoryApi.topLevel();categories.value=data}catch{};try{const{data}=await axios.get('/laboratories/list');laboratories.value=data||[]}catch{};search()})
+onMounted(async()=>{try{const{data}=await categoryApi.topLevel();categories.value=data}catch{};try{const{data}=await axios.get('/laboratories/list');laboratories.value=data||[]}catch{};restoreFromQuery();search()})
 </script>
 <style scoped>.device-list{padding:20px}</style>
