@@ -151,7 +151,7 @@ public class AuthController {
     }
 
     /**
-     * 健康检查（无需登录）
+     * 可选审批人列表（教师+管理员，所有登录用户可用）
      */
     @GetMapping("/approvers")
     @ApiOperation("可选审批人列表（教师+管理员，所有登录用户可用）")
