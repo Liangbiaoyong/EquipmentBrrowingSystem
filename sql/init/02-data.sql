@@ -14,21 +14,21 @@ ON DUPLICATE KEY UPDATE `real_name` = '系统管理员';
 -- 插入实验室管理员（密码: admin123，同admin; 如需修改密码请用 PasswordUtil 生成hash）
 INSERT INTO `sys_user` (`username`, `real_name`, `user_type`, `department`, `password`, `auth_source`, `status`)
 VALUES ('labadmin', '实验室管理员', 2, '建筑学院',
-        '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH',
+        '$2b$10$WMR7yG3.4Tavv912DxxynevSB7laOXLZ.mkvkV2HxHQuClpB5OVgi',
         'L', 1)
 ON DUPLICATE KEY UPDATE `real_name` = '实验室管理员';
 
--- 插入测试学生账号（密码: student123，使用前运行 PasswordUtil生成正确hash替换）
+-- 插入测试学生账号（密码: admin123）
 INSERT INTO `sys_user` (`username`, `real_name`, `user_type`, `department`, `password`, `auth_source`, `status`)
 VALUES ('student01', '测试学生', 0, '建筑学院',
-        '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH',
+        '$2b$10$WMR7yG3.4Tavv912DxxynevSB7laOXLZ.mkvkV2HxHQuClpB5OVgi',
         'L', 1)
 ON DUPLICATE KEY UPDATE `real_name` = '测试学生';
 
--- 插入测试教师账号（密码: teacher123，使用前运行 PasswordUtil生成正确hash替换）
+-- 插入测试教师账号（密码: admin123）
 INSERT INTO `sys_user` (`username`, `real_name`, `user_type`, `department`, `password`, `auth_source`, `status`)
 VALUES ('teacher01', '测试教师', 1, '建筑学院',
-        '$2a$10$N.zmdr9k7uOCQb376NoUnuTJ8iAt6Z5EHsM8lE9lBOsl7iAt6Z5EH',
+        '$2b$10$WMR7yG3.4Tavv912DxxynevSB7laOXLZ.mkvkV2HxHQuClpB5OVgi',
         'L', 1)
 ON DUPLICATE KEY UPDATE `real_name` = '测试教师';
 
