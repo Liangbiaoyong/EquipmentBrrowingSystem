@@ -347,3 +347,19 @@ CREATE TABLE IF NOT EXISTS `category_description` (
   KEY `idx_type` (`category_type`),
   KEY `idx_name` (`category_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='分类描述表';
+
+-- -----------------------------------------------------------
+-- 15. 报废规则表
+-- -----------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `scrap_rule` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `gb_keyword` varchar(200) NOT NULL COMMENT '国标分类名/关键词（包含匹配）',
+  `min_years` int NOT NULL DEFAULT '6' COMMENT '最低使用年限',
+  `priority` int DEFAULT '100' COMMENT '优先级（越小越优先）',
+  `remark` varchar(500) DEFAULT NULL COMMENT '说明',
+  `status` tinyint DEFAULT '1' COMMENT '1启用 0禁用',
+  `create_time` datetime DEFAULT CURRENT_TIMESTAMP,
+  `update_time` datetime DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_keyword` (`gb_keyword`(100))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='报废规则表';
