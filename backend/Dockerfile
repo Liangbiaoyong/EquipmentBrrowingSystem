@@ -9,8 +9,8 @@ RUN mvn clean package -DskipTests
 
 # 第二阶段：运行 JRE
 FROM eclipse-temurin:17-jre-alpine
-# 安装 mysql-client（供备份功能使用 mysqldump）
-RUN apk add --no-cache mysql-client
+# 安装 mysql-client（备份）+ nodejs（CAS DES加密）
+RUN apk add --no-cache mysql-client nodejs
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080

@@ -83,8 +83,8 @@ cas:
   userinfo-url: https://libbooking.gzhu.edu.cn/ic-web/auth/userInfo
   # CAS引导地址（auth/address API，用于发现正确的登录URL；不填则自动从userinfo-url推导）
   auth-address-url:
-  # 调用userInfo API的超时时间（毫秒）
-  request-timeout: 15000
+  # CAS HTTP请求超时（秒）
+  request-timeout: 30
   # CAS服务端地址
   server-url: https://newcas.gzhu.edu.cn/cas
   # Dev模式：token以"local:"开头时跳过CAS API，直接用用户名查本地库

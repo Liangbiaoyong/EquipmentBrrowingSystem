@@ -22,5 +22,5 @@ public interface CasServerLoginService {
      * @throws IOException 网络异常
      * @throws RuntimeException CAS认证失败
      */
-    JsonNode login(String username, String password) throws IOException;
+    JsonNode login(String username, String password) throws Exception;
 }
