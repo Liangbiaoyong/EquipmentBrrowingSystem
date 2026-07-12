@@ -171,9 +171,9 @@ public class BorrowController {
     // ==================== V6 借用浏览 ====================
 
     @GetMapping("/browse")
-    @ApiOperation("借用浏览（综合查询+排序）")
+    @ApiOperation("借用浏览（综合查询+排序，含设备/用户名称）")
     @PreAuthorize("hasAnyAuthority('borrow:view','return:manage','approval:first','approval:second')")
-    public R<IPage<BorrowRecord>> browse(
+    public R<IPage<java.util.Map<String,Object>>> browse(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword,
@@ -182,27 +182,87 @@ public class BorrowController {
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String sort,
             @RequestParam(required = false, defaultValue = "desc") String order) {
-        var w = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>();
-        if (status != null && !status.isEmpty()) w.eq(BorrowRecord::getStatus, status);
+        var w = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<BorrowRecord>();
+        w.select("b.*, d.name AS deviceName, d.asset_no AS deviceAssetNo, u.real_name AS userName");
+        w.apply("LEFT JOIN device d ON borrow_record.device_id = d.id");
+        w.apply("LEFT JOIN sys_user u ON borrow_record.user_id = u.id");
+
+        if (status != null && !status.isEmpty()) w.eq("b.status", status);
         if (keyword != null && !keyword.isEmpty()) {
-            w.and(wp -> wp.like(BorrowRecord::getPurpose, keyword).or().like(BorrowRecord::getReason, keyword));
+            w.and(wp -> wp.like("d.name", keyword).or().like("u.real_name", keyword)
+                    .or().like("b.purpose", keyword).or().like("b.reason", keyword));
         }
-        if (startDate != null) w.ge(BorrowRecord::getCreateTime, java.time.LocalDate.parse(startDate).atStartOfDay());
-        if (endDate != null) w.le(BorrowRecord::getCreateTime, java.time.LocalDate.parse(endDate).plusDays(1).atStartOfDay());
-        if (sort != null && !sort.isEmpty()) {
-            boolean asc = "asc".equalsIgnoreCase(order);
-            switch (sort) {
-                case "id": w.orderBy(true, asc, BorrowRecord::getId); break;
-                case "startTime": w.orderBy(true, asc, BorrowRecord::getStartTime); break;
-                case "endTime": w.orderBy(true, asc, BorrowRecord::getEndTime); break;
-                case "overdueDays": w.orderBy(true, asc, BorrowRecord::getOverdueDays); break;
-                default: w.orderByDesc(BorrowRecord::getId);
-            }
-        } else {
-            w.orderByDesc(BorrowRecord::getId);
-        }
-        return R.ok(borrowService.page(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), w));
+        if (startDate != null) w.ge("b.create_time", startDate + " 00:00:00");
+        if (endDate != null) w.le("b.create_time", endDate + " 23:59:59");
+
+        String orderCol = "b.id"; boolean asc = "asc".equalsIgnoreCase(order);
+        if ("startTime".equals(sort)) orderCol = "b.start_time";
+        else if ("endTime".equals(sort)) orderCol = "b.end_time";
+        else if ("overdueDays".equals(sort)) orderCol = "b.overdue_days";
+        else if ("deviceName".equals(sort)) orderCol = "d.name";
+        w.orderByDesc(orderCol);
+        if (asc) w.orderByAsc(orderCol);
+
+        // 手动分页（JOIN查询不能用MyBatis-Plus自动分页）
+        long total = borrowMapper.selectCount(w);
+        int offset = (page-1)*size;
+        w.last("LIMIT " + offset + "," + size);
+        var rows = borrowMapper.selectMaps(w);
+
+        Map<String,Object> result = new LinkedHashMap<>();
+        result.put("records", rows); result.put("total", total);
+        result.put("page", page); result.put("size", size);
+        return R.ok(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<Map<String,Object>>(page,size,total){{setRecords(rows);}});
     }
+
+    @GetMapping("/browse/export")
+    @ApiOperation("导出借用浏览数据")
+    @PreAuthorize("hasAnyAuthority('borrow:view','return:manage','approval:first','approval:second')")
+    public void exportBrowse(
+            @RequestParam(defaultValue="csv") String format,
+            @RequestParam(required=false) String keyword,
+            @RequestParam(required=false) String status,
+            javax.servlet.http.HttpServletResponse response) throws Exception {
+        var w = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<BorrowRecord>();
+        w.select("b.*, d.name AS deviceName, d.asset_no AS deviceAssetNo, u.real_name AS userName");
+        w.apply("LEFT JOIN device d ON borrow_record.device_id = d.id");
+        w.apply("LEFT JOIN sys_user u ON borrow_record.user_id = u.id");
+        if (status != null && !status.isEmpty()) w.eq("b.status", status);
+        if (keyword != null && !keyword.isEmpty())
+            w.and(wp -> wp.like("d.name", keyword).or().like("u.real_name", keyword).or().like("b.purpose", keyword));
+        w.orderByDesc("b.id").last("LIMIT 5000");
+        var rows = borrowMapper.selectMaps(w);
+
+        if ("xlsx".equalsIgnoreCase(format)) {
+            LinkedHashMap<String,String> hdrs = new LinkedHashMap<>();
+            hdrs.put("id","单号");hdrs.put("deviceName","设备");hdrs.put("userName","借用人");hdrs.put("purpose","目的");
+            hdrs.put("purposeCategory","目的分类");hdrs.put("startTime","开始时间");hdrs.put("endTime","结束时间");
+            hdrs.put("status","状态");hdrs.put("overdueDays","逾期天数");hdrs.put("createTime","创建时间");
+            byte[] xlsx = com.gzhu.equipment.common.ExcelExportUtil.exportToXlsx(rows, hdrs);
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setHeader("Content-Disposition", "attachment; filename=borrow_browse_" + System.currentTimeMillis() + ".xlsx");
+            response.setContentLength(xlsx.length);
+            response.getOutputStream().write(xlsx); response.flushBuffer(); return;
+        }
+        response.setContentType("text/csv;charset=UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename=borrow_browse_" + System.currentTimeMillis() + ".csv");
+        response.getOutputStream().write(new byte[]{(byte)0xEF,(byte)0xBB,(byte)0xBF});
+        java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(response.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8);
+        osw.write("单号,设备,借用人,目的,目的分类,开始时间,结束时间,状态,逾期天数,创建时间\n");
+        for (var r : rows) {
+            osw.write((r.get("id")!=null?String.valueOf(r.get("id")):"")+",");
+            osw.write(esc((String)r.get("deviceName"))+",");osw.write(esc((String)r.get("userName"))+",");
+            osw.write(esc((String)r.get("purpose"))+",");osw.write(esc((String)r.get("purposeCategory"))+",");
+            osw.write((r.get("startTime")!=null?String.valueOf(r.get("startTime")):"")+",");
+            osw.write((r.get("endTime")!=null?String.valueOf(r.get("endTime")):"")+",");
+            osw.write(esc((String)r.get("status"))+",");
+            osw.write((r.get("overdueDays")!=null?String.valueOf(r.get("overdueDays")):"")+",");
+            osw.write((r.get("createTime")!=null?String.valueOf(r.get("createTime")):"")+"\n");
+        }
+        osw.flush();osw.close();
+    }
+
+    private String esc(String s) { if (s==null||s.isEmpty()) return ""; if (s.contains(",")||s.contains("\"")) return "\""+s.replace("\"","\"\"")+"\""; return s; }
 
     // ==================== V6 逾期管理 ====================
 
