@@ -17,6 +17,8 @@ public class ApprovalLog implements Serializable {
 
     private Long borrowId;
     private Integer step;
+    /** 审批人ID（可为空，待管理员手动分配）。INSERT时必须显式包含NULL值 */
+    @TableField(insertStrategy = FieldStrategy.IGNORED)
     private Long approverId;
 
     /** PENDING / APPROVED / REJECTED */

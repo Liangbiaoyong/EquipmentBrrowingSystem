@@ -11,7 +11,8 @@
             <el-tag style="margin-left:6px" :type="deviceStatusTagType(detail.device?.deviceStatus)">{{ deviceStatusText(detail.device?.deviceStatus) }}</el-tag>
           </template>
           <el-descriptions :column="2" border>
-            <el-descriptions-item label="资产编号">{{ detail.device.assetNo }}</el-descriptions-item>
+            <el-descriptions-item label="设备ID">{{ detail.device.id }}</el-descriptions-item>
+            <el-descriptions-item label="资产编号">{{ detail.device.assetNo || '-' }}</el-descriptions-item>
             <el-descriptions-item label="型号">{{ detail.device.model }}</el-descriptions-item>
             <el-descriptions-item label="规格">{{ detail.device.specs }}</el-descriptions-item>
             <el-descriptions-item label="分类">{{ detail.categoryName }}</el-descriptions-item>

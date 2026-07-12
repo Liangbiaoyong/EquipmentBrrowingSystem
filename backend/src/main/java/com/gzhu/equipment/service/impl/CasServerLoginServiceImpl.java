@@ -316,10 +316,7 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         int qi = url.indexOf('?'); if (qi < 0) return null;
         for (String pair : url.substring(qi+1).split("&")) {
             String[] kv = pair.split("=",2);
-            if (kv.length==2 && kv[0].equals(key)) {
-                try { return java.net.URLDecoder.decode(kv[1], StandardCharsets.UTF_8); }
-                catch (Exception e) { return kv[1]; }
-            }
+            if (kv.length==2 && kv[0].equals(key)) return kv[1]; // 不decode，保留JWT完整
         }
         return null;
     }

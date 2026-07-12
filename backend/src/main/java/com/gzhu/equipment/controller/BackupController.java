@@ -291,7 +291,8 @@ public class BackupController {
     private ProcessBuilder buildLocalDumpCommand(String dumpCmd, String dbName, String dbHost, int dbPort, String filePath) {
         ProcessBuilder pb = new ProcessBuilder(
                 dumpCmd, "-h" + dbHost, "-P" + dbPort, "-u" + dbUser, "-p" + dbPass,
-                "--ssl=0", "--single-transaction", "--routines", "--triggers",
+                "--default-auth=mysql_native_password",
+                "--single-transaction", "--routines", "--triggers",
                 "--default-character-set=utf8mb4", dbName);
         pb.redirectOutput(new File(filePath));
         return pb;
@@ -299,18 +300,18 @@ public class BackupController {
 
     private ProcessBuilder buildDockerDumpCommand(String dbName, String filePath) {
         return new ProcessBuilder("sh", "-c",
-                String.format("docker exec dev-mysql mysqldump -u%s -p%s --ssl=0 --single-transaction --routines --triggers --default-character-set=utf8mb4 %s 2>/dev/null > %s",
+                String.format("docker exec dev-mysql mysqldump -u%s -p%s --default-auth=mysql_native_password --single-transaction --routines --triggers --default-character-set=utf8mb4 %s 2>/dev/null > %s",
                         shellEscape(dbUser), shellEscape(dbPass), shellEscape(dbName), shellEscape(filePath)));
     }
 
     private ProcessBuilder buildLocalRestoreCommand(String mysqlCmd, String dbName, String dbHost, int dbPort, String filePath) {
-        return new ProcessBuilder(mysqlCmd, "-h" + dbHost, "-P" + dbPort, "-u" + dbUser, "-p" + dbPass, "--ssl=0", dbName)
+        return new ProcessBuilder(mysqlCmd, "-h" + dbHost, "-P" + dbPort, "-u" + dbUser, "-p" + dbPass, "--default-auth=mysql_native_password", dbName)
                 .redirectInput(new File(filePath));
     }
 
     private ProcessBuilder buildDockerRestoreCommand(String filePath, String dbName) {
         return new ProcessBuilder("sh", "-c",
-                String.format("docker exec -i dev-mysql mysql -u%s -p%s --ssl=0 %s < %s",
+                String.format("docker exec -i dev-mysql mysql -u%s -p%s --default-auth=mysql_native_password %s < %s",
                         shellEscape(dbUser), shellEscape(dbPass), shellEscape(dbName), shellEscape(filePath)));
     }
 
