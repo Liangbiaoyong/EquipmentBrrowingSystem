@@ -465,22 +465,48 @@ public class BorrowController {
     private java.util.List<java.util.Map<String,Object>> enrichNames(java.util.List<BorrowRecord> records) {
         if (records == null || records.isEmpty()) return java.util.Collections.emptyList();
         java.util.Set<Long> devIds = new java.util.HashSet<>(), userIds = new java.util.HashSet<>();
-        for (BorrowRecord r : records) { devIds.add(r.getDeviceId()); userIds.add(r.getUserId()); }
+        java.util.List<Long> borrowIds = new java.util.ArrayList<>();
+        for (BorrowRecord r : records) { devIds.add(r.getDeviceId()); userIds.add(r.getUserId()); borrowIds.add(r.getId()); }
 
-        java.util.Map<Long,String> devNames = new java.util.HashMap<>(), devAssets = new java.util.HashMap<>(), userNames = new java.util.HashMap<>();
+        // 设备名+资产号+使用人
+        java.util.Map<Long,String> devNames = new java.util.HashMap<>(), devAssets = new java.util.HashMap<>(), custodians = new java.util.HashMap<>();
         if (!devIds.isEmpty()) {
             var devs = borrowRecordMapper.selectDeviceNames(new java.util.ArrayList<>(devIds));
             for (var d : devs) {
                 Long id = (Long) d.get("id");
                 devNames.put(id, (String) d.getOrDefault("name", ""));
                 devAssets.put(id, (String) d.getOrDefault("asset_no", ""));
+                custodians.put(id, (String) d.getOrDefault("custodian", ""));
             }
         }
+        // 用户名
+        java.util.Map<Long,String> userNames = new java.util.HashMap<>();
         if (!userIds.isEmpty()) {
             var users = borrowRecordMapper.selectUserNames(new java.util.ArrayList<>(userIds));
             for (var u : users) {
                 Long id = (Long) u.get("id");
                 userNames.put(id, (String) u.getOrDefault("real_name", ""));
+            }
+        }
+        // 审批人姓名（初审step=1, 终审step=2）
+        java.util.Map<Long,String> approver1Names = new java.util.HashMap<>(), approver2Names = new java.util.HashMap<>();
+        if (!borrowIds.isEmpty()) {
+            var logs = approvalLogMapper.selectList(
+                    new LambdaQueryWrapper<ApprovalLog>().in(ApprovalLog::getBorrowId, borrowIds));
+            java.util.Set<Long> approverIds = new java.util.HashSet<>();
+            for (var l : logs) if (l.getApproverId() != null) approverIds.add(l.getApproverId());
+            java.util.Map<Long,String> approverNameMap = new java.util.HashMap<>();
+            if (!approverIds.isEmpty()) {
+                var approvers = borrowRecordMapper.selectUserNames(new java.util.ArrayList<>(approverIds));
+                for (var a : approvers) {
+                    Long id = (Long) a.get("id");
+                    approverNameMap.put(id, (String) a.getOrDefault("real_name", ""));
+                }
+            }
+            for (var l : logs) {
+                String name = approverNameMap.getOrDefault(l.getApproverId(), l.getApproverId() != null ? "ID:" + l.getApproverId() : "未分配");
+                if (l.getStep() != null && l.getStep() == 1) approver1Names.put(l.getBorrowId(), name);
+                else if (l.getStep() != null && l.getStep() == 2) approver2Names.put(l.getBorrowId(), name);
             }
         }
 
@@ -494,7 +520,10 @@ public class BorrowController {
             m.put("createTime", r.getCreateTime()); m.put("realReturnTime", r.getRealReturnTime());
             m.put("deviceName", devNames.getOrDefault(r.getDeviceId(), "设备#"+r.getDeviceId()));
             m.put("deviceAssetNo", devAssets.getOrDefault(r.getDeviceId(), ""));
+            m.put("custodian", custodians.getOrDefault(r.getDeviceId(), ""));
             m.put("userName", userNames.getOrDefault(r.getUserId(), "用户#"+r.getUserId()));
+            m.put("approver1Name", approver1Names.getOrDefault(r.getId(), ""));
+            m.put("approver2Name", approver2Names.getOrDefault(r.getId(), ""));
             enriched.add(m);
         }
         return enriched;

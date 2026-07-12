@@ -12,7 +12,7 @@ import java.util.Map;
 @Mapper
 public interface BorrowRecordMapper extends BaseMapper<BorrowRecord> {
 
-    @Select("<script>SELECT id, name, asset_no FROM device WHERE id IN <foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach></script>")
+    @Select("<script>SELECT id, name, asset_no, custodian FROM device WHERE id IN <foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach></script>")
     List<Map<String,Object>> selectDeviceNames(@Param("ids") List<Long> ids);
 
     @Select("<script>SELECT id, real_name FROM sys_user WHERE id IN <foreach collection='ids' item='id' open='(' separator=',' close=')'>#{id}</foreach></script>")
