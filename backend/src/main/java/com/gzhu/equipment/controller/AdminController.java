@@ -176,7 +176,7 @@ public class AdminController {
             response.setHeader("Content-Disposition", "attachment; filename=用户批量操作模板.xlsx");
             response.setContentLength(xlsx.length);
             response.getOutputStream().write(xlsx);
-            response.getOutputStream().flush();
+            response.flushBuffer();
         }
     }
 

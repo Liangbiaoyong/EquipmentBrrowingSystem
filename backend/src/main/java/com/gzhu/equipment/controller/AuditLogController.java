@@ -71,7 +71,7 @@ public class AuditLogController {
             response.setHeader("Content-Disposition","attachment; filename=logs_export_"+System.currentTimeMillis()+".xlsx");
             response.setContentLength(xlsx.length);
             response.getOutputStream().write(xlsx);
-            response.getOutputStream().flush();
+            response.flushBuffer();
             return;
         }
 

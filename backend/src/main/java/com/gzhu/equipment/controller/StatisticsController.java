@@ -233,7 +233,7 @@ public class StatisticsController {
             response.setHeader("Content-Disposition", "attachment; filename=statistics_export_" + System.currentTimeMillis() + ".xlsx");
             response.setContentLength(xlsx.length);
             response.getOutputStream().write(xlsx);
-            response.getOutputStream().flush();
+            response.flushBuffer();
             return;
         }
 

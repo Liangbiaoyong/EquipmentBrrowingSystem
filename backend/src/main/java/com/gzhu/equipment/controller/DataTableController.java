@@ -377,7 +377,7 @@ public class DataTableController {
                 response.setHeader("Content-Disposition", "attachment; filename=" + tableName + "_export_" + System.currentTimeMillis() + ".xlsx");
                 response.setContentLength(xlsx.length);
                 response.getOutputStream().write(xlsx);
-                response.getOutputStream().flush();
+                response.flushBuffer();
             } else {
                 // CSV
                 response.setContentType("text/csv;charset=UTF-8");
