@@ -39,7 +39,7 @@
     <!-- 新建用户对话框 -->
     <el-dialog v-model="showCreate" title="新建本地账户" width="460px"><el-form :model="c" label-width="80px" @submit.prevent>
       <el-form-item label="用户名" required><el-input v-model="c.username" placeholder="至少3个字符"/></el-form-item>
-      <el-form-item label="姓名"><el-input v-model="c.realName"/></el-form-item>
+      <el-form-item label="姓名" required><el-input v-model="c.realName" placeholder="必填"/></el-form-item>
       <el-form-item label="角色" required><el-select v-model="c.userType" style="width:100%"><el-option v-for="r in roleOptions" :key="r.value" :label="r.label" :value="r.value"/></el-select></el-form-item>
       <el-form-item label="密码" required><el-input v-model="c.password" type="password" placeholder="至少8位字符" show-password/></el-form-item>
       <el-form-item label="部门"><el-input v-model="c.department"/></el-form-item>
@@ -87,6 +87,7 @@ async function load(){loading.value=true;try{const{data}=await adminApi.getUsers
 function openCreate(){Object.assign(c,{username:'',realName:'',userType:2,password:'',department:''});showCreate.value=true}
 async function doCreate(){
   if(!c.username||c.username.length<3){ElMessage.warning('用户名至少3个字符');return}
+  if(!c.realName||!c.realName.trim()){ElMessage.warning('请输入姓名');return}
   if(!c.password||c.password.length<8){ElMessage.warning('密码至少8位字符');return}
   submitting.value=true
   try{await adminApi.createUser({...c});ElMessage.success('已创建');showCreate.value=false;load()}catch(e){ElMessage.error(e?.response?.data?.msg||e?.message||'创建失败')}finally{submitting.value=false}
