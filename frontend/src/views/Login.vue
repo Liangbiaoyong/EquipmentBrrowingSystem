@@ -46,7 +46,22 @@ async function handleLogin(){
   try{
     await userStore.login(form)
     router.push('/')
-  }catch(e){}finally{logging.value=false}
+  }catch(e){
+    const msg=e?.response?.data?.msg||e?.message||''
+    // 本地登录失败（可能是CAS用户），自动降级为CAS凭证登录
+    if(msg.includes('CAS')||msg.includes('统一认证')){
+      try{
+        const res=await authApi.casCredentialLogin(form.username,form.password)
+        userStore.loginCas(res.data)
+        router.push('/dashboard')
+      }catch(e2){
+        const msg2=e2?.response?.data?.msg||e2?.message||'登录失败，请检查账号密码'
+        ElMessage.error(msg2)
+      }
+    }else{
+      ElMessage.error(msg||'登录失败')
+    }
+  }finally{logging.value=false}
 }
 
 async function handleCasLogin(){
