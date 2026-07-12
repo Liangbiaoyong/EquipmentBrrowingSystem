@@ -152,28 +152,28 @@ public class ScrapController {
 
     @PostMapping("/rules")
     @ApiOperation("新增报废规则")
-    @PreAuthorize("hasAuthority('admin:user')")
+    @PreAuthorize("hasAnyAuthority('admin:user','laboratory:manage','device:manage','repair:manage')")
     public R<ScrapRule> addRule(@RequestBody ScrapRule rule) {
         ruleMapper.insert(rule); return R.ok(rule);
     }
 
     @PutMapping("/rules/{id}")
     @ApiOperation("更新报废规则")
-    @PreAuthorize("hasAuthority('admin:user')")
+    @PreAuthorize("hasAnyAuthority('admin:user','laboratory:manage','device:manage','repair:manage')")
     public R<ScrapRule> updateRule(@PathVariable Long id, @RequestBody ScrapRule rule) {
         rule.setId(id); ruleMapper.updateById(rule); return R.ok(rule);
     }
 
     @DeleteMapping("/rules/{id}")
     @ApiOperation("删除报废规则")
-    @PreAuthorize("hasAuthority('admin:user')")
+    @PreAuthorize("hasAnyAuthority('admin:user','laboratory:manage','device:manage','repair:manage')")
     public R<String> deleteRule(@PathVariable Long id) {
         ruleMapper.deleteById(id); return R.ok("已删除");
     }
 
     @PutMapping("/rules/{id}/toggle")
     @ApiOperation("启用/禁用报废规则")
-    @PreAuthorize("hasAuthority('admin:user')")
+    @PreAuthorize("hasAnyAuthority('admin:user','laboratory:manage','device:manage','repair:manage')")
     public R<String> toggleRule(@PathVariable Long id) {
         ScrapRule r = ruleMapper.selectById(id);
         if (r != null) { r.setStatus(r.getStatus()==1?0:1); ruleMapper.updateById(r); }

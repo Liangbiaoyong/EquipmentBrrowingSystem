@@ -175,9 +175,9 @@ public class BorrowController {
     // ==================== V6 借用浏览 ====================
 
     @GetMapping("/browse")
-    @ApiOperation("借用浏览（综合查询+排序，含设备/用户名称）")
+    @ApiOperation("借用浏览（综合查询+排序）")
     @PreAuthorize("hasAnyAuthority('borrow:view','return:manage','approval:first','approval:second')")
-    public R<IPage<java.util.Map<String,Object>>> browse(
+    public R<IPage<BorrowRecord>> browse(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) String keyword,
@@ -186,37 +186,20 @@ public class BorrowController {
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String sort,
             @RequestParam(required = false, defaultValue = "desc") String order) {
-        var w = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<BorrowRecord>();
-        w.select("b.*, d.name AS deviceName, d.asset_no AS deviceAssetNo, u.real_name AS userName");
-        w.apply("LEFT JOIN device d ON borrow_record.device_id = d.id");
-        w.apply("LEFT JOIN sys_user u ON borrow_record.user_id = u.id");
+        var w = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>();
+        if (status != null && !status.isEmpty()) w.eq(BorrowRecord::getStatus, status);
+        if (keyword != null && !keyword.isEmpty())
+            w.and(wp -> wp.like(BorrowRecord::getPurpose, keyword).or().like(BorrowRecord::getReason, keyword));
+        if (startDate != null) w.ge(BorrowRecord::getCreateTime, java.time.LocalDate.parse(startDate).atStartOfDay());
+        if (endDate != null) w.le(BorrowRecord::getCreateTime, java.time.LocalDate.parse(endDate).plusDays(1).atStartOfDay());
 
-        if (status != null && !status.isEmpty()) w.eq("b.status", status);
-        if (keyword != null && !keyword.isEmpty()) {
-            w.and(wp -> wp.like("d.name", keyword).or().like("u.real_name", keyword)
-                    .or().like("b.purpose", keyword).or().like("b.reason", keyword));
-        }
-        if (startDate != null) w.ge("b.create_time", startDate + " 00:00:00");
-        if (endDate != null) w.le("b.create_time", endDate + " 23:59:59");
+        boolean asc = "asc".equalsIgnoreCase(order);
+        if ("startTime".equals(sort)) w.orderBy(true, asc, BorrowRecord::getStartTime);
+        else if ("endTime".equals(sort)) w.orderBy(true, asc, BorrowRecord::getEndTime);
+        else if ("overdueDays".equals(sort)) w.orderBy(true, asc, BorrowRecord::getOverdueDays);
+        else w.orderByDesc(BorrowRecord::getId);
 
-        String orderCol = "b.id"; boolean asc = "asc".equalsIgnoreCase(order);
-        if ("startTime".equals(sort)) orderCol = "b.start_time";
-        else if ("endTime".equals(sort)) orderCol = "b.end_time";
-        else if ("overdueDays".equals(sort)) orderCol = "b.overdue_days";
-        else if ("deviceName".equals(sort)) orderCol = "d.name";
-        w.orderByDesc(orderCol);
-        if (asc) w.orderByAsc(orderCol);
-
-        // 手动分页（JOIN查询不能用MyBatis-Plus自动分页）
-        long total = borrowRecordMapper.selectCount(w);
-        int offset = (page-1)*size;
-        w.last("LIMIT " + offset + "," + size);
-        var rows = borrowRecordMapper.selectMaps(w);
-
-        Map<String,Object> result = new LinkedHashMap<>();
-        result.put("records", rows); result.put("total", total);
-        result.put("page", page); result.put("size", size);
-        return R.ok(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<Map<String,Object>>(page,size,total){{setRecords(rows);}});
+        return R.ok(borrowService.page(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), w));
     }
 
     @GetMapping("/browse/export")

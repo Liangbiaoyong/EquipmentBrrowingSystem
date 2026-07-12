@@ -144,7 +144,7 @@ async function doBatchImport(){
   batchLoading.value=true;let ok=0,fail=0
   for(const line of lines){
     const p=line.split(',');if(p.length<2)continue
-    try{await axios.post('/scrap/rules',{gbKeyword:p[0].trim(),minYears:parseInt(p[1]),priority:p[2]?parseInt(p[2]):100,remark:p[3]?p[3].trim():''});ok++}catch{fail++}
+    try{await axios.post('/scrap/rules',{gbKeyword:p[0].trim(),minYears:parseInt(p[1]),priority:p[2]?parseInt(p[2]):100,remark:p[3]?p[3].trim():''});ok++}catch(e){fail++;console.error('规则导入失败:',e?.response?.data?.msg||e.message)}
   }
   ElMessage.success(`导入完成: 成功${ok}个, 失败${fail}个`);batchLoading.value=false;showBatch.value=false;loadRules()
 }
