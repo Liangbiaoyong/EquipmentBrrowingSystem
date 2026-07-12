@@ -156,7 +156,16 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         log.info("CAS: 调userInfo API token={} cookieKeys={}",
             redirectResult.token.substring(0, Math.min(20, redirectResult.token.length())),
             sessionCookies.keySet());
-        String userInfoBody = httpGet(casUserInfoUrl, Map.of("token", redirectResult.token, "cookie", cookies));
+
+        // Python参考需要的headers: accept, lan, token, cookie, user-agent
+        java.util.Map<String, String> userInfoHeaders = new java.util.LinkedHashMap<>();
+        userInfoHeaders.put("accept", "application/json, text/plain, */*");
+        userInfoHeaders.put("lan", "1");
+        userInfoHeaders.put("token", redirectResult.token);
+        if (!cookies.isEmpty()) {
+            userInfoHeaders.put("cookie", cookies);
+        }
+        String userInfoBody = httpGet(casUserInfoUrl, userInfoHeaders);
         log.info("CAS: userInfo响应(前200)={}", userInfoBody.substring(0, Math.min(200, userInfoBody.length())));
         JsonNode root = objectMapper.readTree(userInfoBody);
         String code = root.path("code").asText();

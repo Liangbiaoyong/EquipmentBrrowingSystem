@@ -400,10 +400,18 @@ public class DeviceImportServiceImpl implements DeviceImportService {
 
     // ==================== Excel 解析（全部行） ====================
 
+    /**
+     * 放宽Zip Bomb检测阈值 — XLSX含大量格式化空单元格时styles.xml压缩率极高会被误判
+     */
+    private static final double MIN_INFLATE_RATIO = 0.001;
+
     private List<String[]> parseExcelAll(InputStream inputStream, String lowerName, ImportResultDTO result) {
         try {
             byte[] bytes = readAllBytes(inputStream);
             if (bytes.length == 0) return Collections.emptyList();
+
+            // 放宽Zip Bomb检测阈值（默认0.01，对含大量格式化的资产导出文件不够）
+            org.apache.poi.openxml4j.util.ZipSecureFile.setMinInflateRatio(MIN_INFLATE_RATIO);
 
             Workbook workbook;
             try {
