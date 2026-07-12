@@ -199,6 +199,20 @@ git add -A && git commit -m "<type>: <description>" && git push
 - **一键部署脚本**: `deploy-remote.sh` (Linux/Mac) / `run-deploy.bat` (Windows)
 - **初始化流程**: `01-schema.sql` → `02-data.sql` → `07-update-v5-category-descriptions.sql` → `03-test-data.sql`（按文件名排序自动执行）
 
+### ⚠️ 部署关键经验
+
+| 问题 | 原因 | 解决 |
+|:----|:-----|:-----|
+| CAS 登录 `ClassNotFoundException` | `TEMP/` 目录不在 git 中，volume 未挂载 | `scp -r ./TEMP` 到远程 + `docker-compose.yml` 加 `- ./TEMP:/app/TEMP` |
+| 新增表 `Table doesn't exist` | MySQL volume 持久化后不重跑 init 脚本 | 手动 `CREATE TABLE` 或重建 volume |
+| 功能未更新 | `git pull` 后构建用缓存 | 用 `--no-cache` 确保重新编译 |
+| 批量导入/新增规则无效 | 前端表单无默认值，`minYears` 为空 | 设置 `ruleForm={minYears:6, priority:100}` |
+
+**部署三步检查**：
+1. ✅ 代码完整 — `git pull --ff-only`，检查 commit 一致
+2. ✅ 容器配置 — `docker-compose.yml` volume 覆盖所有运行时依赖（尤其是 `TEMP/`）
+3. ✅ 数据库结构 — `SHOW TABLES` 对比本地 `sql/init/`，补全缺失表
+
 ## 测试策略
 
 - **单元测试**: 后端 Service 层使用 JUnit5 + Mockito，**217 个测试**（Controller 13个文件 + Service 8个文件 + Security 3个文件）

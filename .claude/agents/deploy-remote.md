@@ -29,6 +29,70 @@ description: 远程SSH服务器一键部署 — Git clone + Docker Compose build
 - 远程安装 Docker + Docker Compose
 - 代码已推送到 GitHub（通过 `ghproxy.net` 代理加速）
 
+## 黄金法则 — 完整部署三步检查
+
+每次部署前必须确认以下三点，缺一不可：
+
+### ① 代码完整性
+```bash
+# 远程必须 git pull 到最新（或完整 git clone），不能只传部分文件
+git pull --ff-only
+
+# 检查 commit 是否与本地一致
+git log --oneline -1
+```
+
+**踩坑教训**：`TEMP/` 目录（含 `cas_login.class` + `lib/*.jar`）是运行时依赖，不在 git 中跟踪（`.gitignore` 排除）。部署后必须手动 SCP 到远程：
+```bash
+scp -r ./TEMP root@host:/path/to/project/TEMP
+```
+忘记此步骤会导致 CAS 登录报 `ClassNotFoundException: cas_login`。
+
+### ② 容器配置同步
+```bash
+# 检查 docker-compose.yml 的 volume mount 是否覆盖了所有运行时依赖
+grep -A2 "volumes:" docker-compose.yml
+
+# 特别注意 TEMP 目录挂载
+grep "TEMP" docker-compose.yml
+```
+
+**踩坑教训**：`CasServerLoginServiceImpl` 依赖 `TEMP/` 目录，但 `docker-compose.yml` 没有 `- ./TEMP:/app/TEMP`，导致运行时找不到 `cas_login`。classpath 也必须是当前目录格式 `.:lib/*`（因为工作目录已设为 `TEMP/`），不能写 `TEMP/*:TEMP/lib/*`。
+
+### ③ 数据库结构同步
+```bash
+# 检查所有迁移 SQL 是否已应用到数据库
+docker exec dev-mysql mysql -uroot -proot123 device_borrow -e 'SHOW TABLES'
+
+# 与本地 sql/init/ 下的表定义对比，缺失的表需要：
+# 方案A：docker volume rm → 重建MySQL（适用于清库场景）
+# 方案B：手动执行 CREATE TABLE（适用于增量迁移）
+```
+
+**踩坑教训**：`scrap_rule` 表只在迁移 SQL（`11-update-v9-*.sql`）中定义，不在 `01-schema.sql` 中。MySQL volume 持久化后不会重跑 init 脚本，导致 `Table doesn't exist`。必须手动执行迁移 SQL。新加的迁移文件（如 `13-update-v11-*.sql`）同样需要手动导入。`docker-entrypoint-initdb.d` 只在首次 volume 创建时执行一次。
+
+## 完整部署清单
+
+```bash
+# 1. 完整拉取代码（含所有子模块）
+git pull --ff-only
+# 或完整克隆
+git clone --depth 1 https://github.com/xxx/xxx.git
+
+# 2. 同步非 git 跟踪的运行时目录
+scp -r ./TEMP root@host:/path/TEMP
+
+# 3. 检查并同步数据库结构
+# 对比本地 sql/init/ 与远程 SHOW TABLES，补全缺失的表和迁移
+
+# 4. 构建并启动
+docker compose up -d --build
+
+# 5. 验证
+docker ps --format 'table {{.Names}}\t{{.Status}}'
+curl -sI http://host/
+```
+
 ## 部署流程
 
 ### 1. Docker Hub 镜像加速（国内服务器必需）
