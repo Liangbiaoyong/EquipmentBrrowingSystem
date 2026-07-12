@@ -259,8 +259,12 @@ public class AuthServiceImpl implements AuthService {
         if (user.getStatus() == null || user.getStatus() == 0) {
             throw new BadCredentialsException("用户已被禁用");
         }
+        // CAS用户如果有本地密码，允许本地登录；无密码则提示使用CAS
         if (!"L".equals(user.getAuthSource())) {
-            throw new BadCredentialsException("CAS用户请使用统一认证登录");
+            if (!StringUtils.hasText(user.getPassword())) {
+                throw new BadCredentialsException("CAS用户请使用统一认证登录");
+            }
+            // 有密码 → 继续密码校验
         }
         if (!StringUtils.hasText(user.getPassword())) {
             throw new BadCredentialsException("账户未设置密码");
