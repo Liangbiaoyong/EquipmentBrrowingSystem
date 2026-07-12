@@ -103,9 +103,14 @@ public class DeviceImportServiceImpl implements DeviceImportService {
             parsedRows = parseExcelForDryRun(inputStream, lowerName);
         }
 
-        int count = 0;
-        for (String[] cols : parsedRows) {
-            if (count >= 20) break;
+        // totalRows显示文件实际总行数（不限20）
+        result.setTotalRows(parsedRows.size());
+        log.info("DryRun: 文件共{}行数据，预览处理前{}行", parsedRows.size(), Math.min(20, parsedRows.size()));
+
+        // 只预览处理前20行，但totalRows已反映全量
+        int previewLimit = Math.min(parsedRows.size(), 20);
+        for (int i = 0; i < previewLimit; i++) {
+            String[] cols = parsedRows.get(i);
             Device device = mapColumns(cols, null, batchId);
             if (device == null) continue;
             Long categoryId = categoryService.classifyByGbName(device.getGbCategoryName());
@@ -116,8 +121,6 @@ public class DeviceImportServiceImpl implements DeviceImportService {
                 device.setCategoryId(10L);
                 result.setUncategorizedCount(result.getUncategorizedCount() + 1);
             }
-            result.setTotalRows(result.getTotalRows() + 1);
-            count++;
         }
 
         return result;
@@ -481,7 +484,7 @@ public class DeviceImportServiceImpl implements DeviceImportService {
             try (BufferedReader reader = new BufferedReader(new StringReader(content))) {
                 reader.readLine(); // skip header
                 String line;
-                while ((line = reader.readLine()) != null && rows.size() < 20) {
+                while ((line = reader.readLine()) != null) {
                     if (line.trim().isEmpty()) continue;
                     String[] cols = parseCsvLineToArray(line);
                     if (cols.length >= 2) rows.add(cols);
@@ -496,8 +499,8 @@ public class DeviceImportServiceImpl implements DeviceImportService {
     private List<String[]> parseExcelForDryRun(InputStream inputStream, String lowerName) {
         ImportResultDTO dummy = ImportResultDTO.builder().errors(new ArrayList<>()).build();
         List<String[]> all = parseExcelAll(inputStream, lowerName, dummy);
-        // 只返回前20条
-        return all.size() > 20 ? all.subList(0, 20) : all;
+        // 返回全部行，由dryRun方法控制预览20行和totalRows
+        return all;
     }
 
     // ==================== 列映射（String[] 版本） ====================
