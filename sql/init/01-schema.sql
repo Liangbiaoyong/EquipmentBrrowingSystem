@@ -309,7 +309,10 @@ INSERT INTO `system_config` (`config_key`, `config_value`, `description`) VALUES
 ('borrow.max_days', '7', '借用最大天数（超出拒绝），Admin可运行时修改'),
 ('borrow.default_approval_steps', '2', '默认审批级数（1/2/3，Admin可运行时修改）'),
 ('cleanup.small_record_days', '15', '小记录保留天数（通知/日志/审批记录）'),
-('cleanup.large_file_days', '30', '大型临时文件保留天数（附件/借用归还图片）')
+('cleanup.large_file_days', '30', '大型临时文件保留天数（附件/借用归还图片）'),
+('notification.unread_cleanup_days', '-1', '未读消息保留天数，-1=永久'),
+('notification.read_cleanup_days', '180', '已读消息保留天数，默认半年(180天)'),
+('data.record_retention_days', '-1', '数据库基础数据记录保留天数，-1=永久')
 ON DUPLICATE KEY UPDATE `config_value` = VALUES(`config_value`);
 
 -- -----------------------------------------------------------

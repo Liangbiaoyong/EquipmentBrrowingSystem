@@ -126,6 +126,11 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             log.info("借用申请已提交: borrowId={} deviceId={}", r.getId(), deviceId);
         }
         if (records.isEmpty()) throw new IllegalArgumentException("所选设备均不可借或已被占用");
+        // 通知申请人申请已提交
+        if (!records.isEmpty()) {
+            notificationService.send(userId, "借用申请已提交",
+                    "您已提交" + records.size() + "条借用申请，请等待审批。", "APPROVAL");
+        }
         return records;
     }
 

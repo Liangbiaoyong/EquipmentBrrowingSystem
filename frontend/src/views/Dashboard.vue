@@ -1,6 +1,9 @@
 <template>
   <div class="dashboard">
     <h2 class="dash-title">仪表盘</h2>
+    <el-alert v-if="isTeacher" type="info" :closable="false" show-icon style="margin-bottom:12px">
+      <template #title>教师视图 — 仅显示您名下持有设备的统计数据</template>
+    </el-alert>
 
     <!-- 借还状态 — 5卡片均匀分布 -->
     <div class="section-header">
@@ -85,12 +88,13 @@
 </template>
 
 <script setup>
-import {ref,reactive,onMounted} from 'vue'
+import {ref,reactive,onMounted,computed} from 'vue'
 import {useRouter} from 'vue-router'
 import {statsApi} from '@/api/statistics'
 import {Monitor,CircleCheck,Clock,WarningFilled,RemoveFilled,Cpu,Setting,CircleClose,DeleteFilled,Search,Plus,List} from '@element-plus/icons-vue'
 
 const router=useRouter();const loading=ref(true);const trendData=ref([]);const maxT=ref(1)
+const isTeacher=computed(()=>{try{return localStorage.getItem('userType')==='1'}catch{return false}})
 
 const borrowStatusCards=reactive([
   {label:'设备总数',value:'-',color:'#909399',icon:Monitor,status:null},
