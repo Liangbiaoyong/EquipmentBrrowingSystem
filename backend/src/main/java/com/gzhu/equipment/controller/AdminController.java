@@ -138,21 +138,19 @@ public class AdminController {
 
     // ==================== 模板导出（CSV/XLSX） ====================
 
-    @GetMapping(value = "/users/template", produces = "application/octet-stream")
+    @GetMapping("/users/template")
     @ApiOperation("下载批量操作模板")
     @PreAuthorize("hasAuthority('admin:user')")
-    public ResponseEntity<byte[]> downloadTemplate(@RequestParam(defaultValue = "xlsx") String format) {
+    public void downloadTemplate(@RequestParam(defaultValue = "xlsx") String format,
+                                  javax.servlet.http.HttpServletResponse response) throws Exception {
         if ("csv".equalsIgnoreCase(format)) {
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            bos.write(0xEF); bos.write(0xBB); bos.write(0xBF);
-            try (OutputStreamWriter w = new OutputStreamWriter(bos, StandardCharsets.UTF_8)) {
-                w.write("用户名,姓名,角色(0学生1教师2实验室管理员3系统管理员),部门,密码,操作(create/destroy)\n");
-                w.write("zhangsan,张三,0,建筑学院,abc123456,create\n");
-            } catch (IOException e) { return ResponseEntity.internalServerError().build(); }
-            HttpHeaders h = new HttpHeaders();
-            h.setContentType(MediaType.parseMediaType("text/csv;charset=UTF-8"));
-            h.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=用户批量操作模板.csv");
-            return ResponseEntity.ok().headers(h).body(bos.toByteArray());
+            response.setContentType("text/csv;charset=UTF-8");
+            response.setHeader("Content-Disposition", "attachment; filename=用户批量操作模板.csv");
+            response.getOutputStream().write(new byte[]{(byte)0xEF,(byte)0xBB,(byte)0xBF});
+            OutputStreamWriter w = new OutputStreamWriter(response.getOutputStream(), StandardCharsets.UTF_8);
+            w.write("用户名,姓名,角色(0学生1教师2实验室管理员3系统管理员),部门,密码,操作(create/destroy)\n");
+            w.write("zhangsan,张三,0,建筑学院,abc123456,create\n");
+            w.flush(); w.close(); return;
         }
 
         // XLSX 模板
@@ -163,27 +161,22 @@ public class AdminController {
             headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
             Font hf = wb.createFont(); hf.setBold(true); headerStyle.setFont(hf);
 
-            String[] headers = {"用户名", "姓名", "角色(0学生1教师2实验室管理员3系统管理员)", "部门", "密码(至少8位)", "操作(create/destroy)"};
+            String[] hdrs = {"用户名", "姓名", "角色(0学生1教师2实验室管理员3系统管理员)", "部门", "密码(至少8位)", "操作(create/destroy)"};
             Row hr = sheet.createRow(0);
-            for (int i = 0; i < headers.length; i++) {
-                Cell c = hr.createCell(i); c.setCellValue(headers[i]); c.setCellStyle(headerStyle);
-            }
-            // 示例行
+            for (int i = 0; i < hdrs.length; i++) { Cell c = hr.createCell(i); c.setCellValue(hdrs[i]); c.setCellStyle(headerStyle); }
             Row ex = sheet.createRow(1);
             ex.createCell(0).setCellValue("zhangsan"); ex.createCell(1).setCellValue("张三");
             ex.createCell(2).setCellValue("0"); ex.createCell(3).setCellValue("建筑学院");
             ex.createCell(4).setCellValue("abc123456"); ex.createCell(5).setCellValue("create");
+            for (int i = 0; i < hdrs.length; i++) sheet.setColumnWidth(i, 4500);
 
-            for (int i = 0; i < headers.length; i++) sheet.setColumnWidth(i, 4500);
-
-            ByteArrayOutputStream bos = new ByteArrayOutputStream();
-            wb.write(bos); bos.flush();
-            HttpHeaders h = new HttpHeaders();
-            h.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-            h.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=用户批量操作模板.xlsx");
-            return ResponseEntity.ok().headers(h).body(bos.toByteArray());
-        } catch (Exception e) {
-            return ResponseEntity.internalServerError().build();
+            ByteArrayOutputStream bos = new ByteArrayOutputStream(); wb.write(bos);
+            byte[] xlsx = bos.toByteArray();
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setHeader("Content-Disposition", "attachment; filename=用户批量操作模板.xlsx");
+            response.setContentLength(xlsx.length);
+            response.getOutputStream().write(xlsx);
+            response.getOutputStream().flush();
         }
     }
 

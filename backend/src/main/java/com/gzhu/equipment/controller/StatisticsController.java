@@ -202,11 +202,11 @@ public class StatisticsController {
         return R.ok(rows);
     }
 
-    @GetMapping(value = "/export", produces = "application/octet-stream")
+    @GetMapping("/export")
     @ApiOperation("导出统计报表（CSV/XLSX）")
     @PreAuthorize("hasAuthority('statistics:view')")
-    public ResponseEntity<byte[]> exportCsv(
-            @RequestParam(defaultValue = "csv") String format) throws Exception {
+    public void exportCsv(@RequestParam(defaultValue = "csv") String format,
+                           javax.servlet.http.HttpServletResponse response) throws Exception {
 
         if ("xlsx".equalsIgnoreCase(format)) {
             LinkedHashMap<String, String> headers = new LinkedHashMap<>();
@@ -229,16 +229,19 @@ public class StatisticsController {
             rows.add(Map.of("name","待审批","value",borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "PENDING_APPROVAL"))));
             rows.add(Map.of("name","总借用次数","value",borrowMapper.selectCount(null)));
             byte[] xlsx = com.gzhu.equipment.common.ExcelExportUtil.exportToXlsx(rows, headers);
-            HttpHeaders h = new HttpHeaders();
-            h.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-            h.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=statistics_export_" + System.currentTimeMillis() + ".xlsx");
-            return ResponseEntity.ok().headers(h).body(xlsx);
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setHeader("Content-Disposition", "attachment; filename=statistics_export_" + System.currentTimeMillis() + ".xlsx");
+            response.setContentLength(xlsx.length);
+            response.getOutputStream().write(xlsx);
+            response.getOutputStream().flush();
+            return;
         }
 
         // CSV
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        bos.write(0xEF); bos.write(0xBB); bos.write(0xBF); // BOM
-        try (OutputStreamWriter w = new OutputStreamWriter(bos, StandardCharsets.UTF_8)) {
+        response.setContentType("text/csv;charset=UTF-8");
+        response.setHeader("Content-Disposition", "attachment; filename=statistics_export_" + System.currentTimeMillis() + ".csv");
+        response.getOutputStream().write(new byte[]{(byte)0xEF,(byte)0xBB,(byte)0xBF});
+        try (OutputStreamWriter w = new OutputStreamWriter(response.getOutputStream(), StandardCharsets.UTF_8)) {
             w.write("指标,数值\n");
             w.write("设备总数," + deviceMapper.selectCount(null) + "\n");
             w.write("--借还状态--\n");
@@ -257,11 +260,7 @@ public class StatisticsController {
             w.write("待审批," + borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "PENDING_APPROVAL")) + "\n");
             w.write("总借用次数," + borrowMapper.selectCount(null) + "\n");
         }
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.parseMediaType("text/csv;charset=UTF-8"));
-        headers.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=statistics_export_" + System.currentTimeMillis() + ".csv");
-        return ResponseEntity.ok().headers(headers).body(bos.toByteArray());
+    }
     }
 
     // ==================== V6 目的与成果统计（增强版） ====================

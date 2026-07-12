@@ -345,12 +345,12 @@ public class DataTableController {
 
     // ==================== 表导出（CSV / XLSX） ====================
 
-    @GetMapping(value = "/{tableName}/export", produces = "application/octet-stream")
+    @GetMapping("/{tableName}/export")
     @ApiOperation("导出表数据为CSV或XLSX")
     @PreAuthorize("hasAnyAuthority('admin:user','laboratory:manage')")
-    public ResponseEntity<byte[]> exportTable(
-            @PathVariable String tableName,
-            @RequestParam(defaultValue = "csv") String format) {
+    public void exportTable(@PathVariable String tableName,
+            @RequestParam(defaultValue = "csv") String format,
+            javax.servlet.http.HttpServletResponse response) throws Exception {
         if (!canAccess(tableName)) {
             throw new org.springframework.security.access.AccessDeniedException("无权访问");
         }
@@ -373,32 +373,23 @@ public class DataTableController {
                     headers.put(key, (label == null || label.isEmpty()) ? key : key + "(" + label + ")");
                 }
                 byte[] xlsx = com.gzhu.equipment.common.ExcelExportUtil.exportToXlsx(rows, headers);
-                org.springframework.http.HttpHeaders h = new org.springframework.http.HttpHeaders();
-                h.setContentType(org.springframework.http.MediaType.parseMediaType(
-                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-                h.set(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=" + tableName + "_export_" + System.currentTimeMillis() + ".xlsx");
-                return ResponseEntity.ok().headers(h).body(xlsx);
+                response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+                response.setHeader("Content-Disposition", "attachment; filename=" + tableName + "_export_" + System.currentTimeMillis() + ".xlsx");
+                response.setContentLength(xlsx.length);
+                response.getOutputStream().write(xlsx);
+                response.getOutputStream().flush();
             } else {
                 // CSV
-                ByteArrayOutputStream bos = new ByteArrayOutputStream();
-                bos.write(0xEF); bos.write(0xBB); bos.write(0xBF);
-                OutputStreamWriter osw = new OutputStreamWriter(bos, StandardCharsets.UTF_8);
-                // 表头
+                response.setContentType("text/csv;charset=UTF-8");
+                response.setHeader("Content-Disposition", "attachment; filename=" + tableName + "_export_" + System.currentTimeMillis() + ".csv");
+                response.getOutputStream().write(new byte[]{(byte)0xEF,(byte)0xBB,(byte)0xBF});
+                OutputStreamWriter osw = new OutputStreamWriter(response.getOutputStream(), StandardCharsets.UTF_8);
                 List<String> colNames = columns.stream().map(m -> (String) m.get("COLUMN_NAME")).collect(Collectors.toList());
                 osw.write(String.join(",", colNames) + "\n");
                 for (Map<String, Object> row : rows) {
-                    String line = colNames.stream()
-                            .map(c -> escapeCsv(row.get(c)))
-                            .collect(Collectors.joining(","));
-                    osw.write(line + "\n");
+                    osw.write(colNames.stream().map(c -> escapeCsv(row.get(c))).collect(Collectors.joining(",")) + "\n");
                 }
-                osw.flush(); osw.close();
-                org.springframework.http.HttpHeaders h = new org.springframework.http.HttpHeaders();
-                h.setContentType(org.springframework.http.MediaType.parseMediaType("text/csv;charset=UTF-8"));
-                h.set(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
-                        "attachment; filename=" + tableName + "_export_" + System.currentTimeMillis() + ".csv");
-                return ResponseEntity.ok().headers(h).body(bos.toByteArray());
+                osw.flush();
             }
         } catch (org.springframework.security.access.AccessDeniedException e) { throw e;
         } catch (Exception e) {

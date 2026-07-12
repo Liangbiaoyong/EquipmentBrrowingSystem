@@ -10,13 +10,9 @@ import com.gzhu.equipment.mapper.SysLogMapper;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.ByteArrayOutputStream;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
@@ -37,12 +33,13 @@ public class AuditLogController {
         return R.ok(sysLogMapper.selectPage(new Page<>(page,size),w));
     }
 
-    @GetMapping(value = "/export", produces = "application/octet-stream")
+    @GetMapping("/export")
     @ApiOperation("导出操作日志（CSV/XLSX）") @PreAuthorize("hasAuthority('admin:log')")
-    public ResponseEntity<byte[]> exportCsv(
+    public void exportCsv(
             @RequestParam(required=false)String username,
             @RequestParam(required=false)Integer status,
-            @RequestParam(defaultValue="csv")String format) throws Exception {
+            @RequestParam(defaultValue="csv")String format,
+            javax.servlet.http.HttpServletResponse response) throws Exception {
         LambdaQueryWrapper<SysLog> w=new LambdaQueryWrapper<>();
         if(username!=null&&!username.isEmpty())w.like(SysLog::getUsername,username);
         if(status!=null)w.eq(SysLog::getStatus,status);
@@ -70,16 +67,19 @@ public class AuditLogController {
                 rows.add(row);
             }
             byte[] xlsx=ExcelExportUtil.exportToXlsx(rows,headers);
-            HttpHeaders h=new HttpHeaders();
-            h.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
-            h.set(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=logs_export_"+System.currentTimeMillis()+".xlsx");
-            return ResponseEntity.ok().headers(h).body(xlsx);
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setHeader("Content-Disposition","attachment; filename=logs_export_"+System.currentTimeMillis()+".xlsx");
+            response.setContentLength(xlsx.length);
+            response.getOutputStream().write(xlsx);
+            response.getOutputStream().flush();
+            return;
         }
 
-        // CSV (默认) — 正确转义
-        ByteArrayOutputStream bos=new ByteArrayOutputStream();
-        bos.write(0xEF);bos.write(0xBB);bos.write(0xBF);
-        OutputStreamWriter osw=new OutputStreamWriter(bos,StandardCharsets.UTF_8);
+        // CSV
+        response.setContentType("text/csv;charset=UTF-8");
+        response.setHeader("Content-Disposition","attachment; filename=logs_export_"+System.currentTimeMillis()+".csv");
+        response.getOutputStream().write(new byte[]{(byte)0xEF,(byte)0xBB,(byte)0xBF});
+        OutputStreamWriter osw=new OutputStreamWriter(response.getOutputStream(),StandardCharsets.UTF_8);
         osw.write("用户名,操作,方法,IP地址,耗时(ms),状态,时间\n");
         for(SysLog l:logs){
             osw.write(escapeCsv(l.getUsername())+",");
@@ -92,9 +92,6 @@ public class AuditLogController {
             osw.write("\n");
         }
         osw.flush();osw.close();
-        HttpHeaders h=new HttpHeaders();h.setContentType(MediaType.parseMediaType("text/csv;charset=UTF-8"));
-        h.set(HttpHeaders.CONTENT_DISPOSITION,"attachment; filename=logs_export_"+System.currentTimeMillis()+".csv");
-        return ResponseEntity.ok().headers(h).body(bos.toByteArray());
     }
 
     private String escapeCsv(String val) {
