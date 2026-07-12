@@ -63,8 +63,8 @@ minio:
   secret-key: minioadmin
   bucket: device-borrow
   image-max-width: 1920
-  image-quality: 0.8
-  image-max-size: 5242880
+  image-quality: 0.7
+  image-max-size: 1048576
 
 jwt:
   secret: local-test-secret-key-must-be-at-least-256-bits-long-for-hmac-sha512

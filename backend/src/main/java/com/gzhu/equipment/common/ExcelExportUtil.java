@@ -54,16 +54,17 @@ public class ExcelExportUtil {
                 }
             }
 
-            // 自动调整列宽
+            // 设置固定列宽（避免 autoSizeColumn 在无字体 Docker 环境崩溃）
             for (int i = 0; i < headers.size(); i++) {
-                sheet.autoSizeColumn(i);
-                int width = sheet.getColumnWidth(i);
-                if (width > 15000) sheet.setColumnWidth(i, 15000);
-                else if (width < 3000) sheet.setColumnWidth(i, 3000);
+                sheet.setColumnWidth(i, 4200); // 约30个中文字符宽度
             }
+
+            // 冻结首行
+            sheet.createFreezePane(0, 1);
 
             ByteArrayOutputStream bos = new ByteArrayOutputStream();
             wb.write(bos);
+            bos.flush();
             return bos.toByteArray();
         } catch (Exception e) {
             throw new RuntimeException("XLSX导出失败: " + e.getMessage(), e);

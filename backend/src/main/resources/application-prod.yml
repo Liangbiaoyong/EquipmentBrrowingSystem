@@ -48,8 +48,8 @@ minio:
   secret-key: ${MINIO_SECRET_KEY}
   bucket: device-borrow
   image-max-width: 1920
-  image-quality: 0.8
-  image-max-size: 5242880
+  image-quality: 0.7
+  image-max-size: 1048576
 
 jwt:
   secret: ${JWT_SECRET}

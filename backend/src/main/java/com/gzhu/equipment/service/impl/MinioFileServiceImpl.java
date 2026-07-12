@@ -67,13 +67,16 @@ public class MinioFileServiceImpl implements MinioFileService {
             }
 
             // 上传到 MinIO
-            try (InputStream is = new ByteArrayInputStream(compressed)) {
+            try {
+                ByteArrayInputStream is = new ByteArrayInputStream(compressed);
                 minioClient.putObject(PutObjectArgs.builder()
                         .bucket(minioConfig.getBucket())
                         .object(objectPath)
                         .stream(is, compressed.length, -1)
                         .contentType("image/jpeg")
                         .build());
+            } catch (Exception e) {
+                throw new RuntimeException("MinIO上传请求失败: " + e.getMessage(), e);
             }
 
             log.info("图片上传成功: path={} size={}KB", objectPath, compressed.length / 1024);
@@ -130,34 +133,33 @@ public class MinioFileServiceImpl implements MinioFileService {
         double quality = minioConfig.getImageQuality();
         long maxSize = minioConfig.getImageMaxSize();
 
+        // 限制最大宽度
+        int targetWidth = Math.min(width, maxWidth);
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
 
-        // 缩放 + 压缩
-        Thumbnails.Builder<?> builder = Thumbnails.of(original);
-        if (width > maxWidth) {
-            builder.width(maxWidth);
-        }
-        builder.outputFormat("jpg")
-                .outputQuality(quality)
-                .toOutputStream(bos);
-
-        // 如果压缩后仍超过5MB，进一步降低质量
-        if (bos.size() > maxSize) {
+        // 渐进式压缩：从默认质量开始，不够就降低质量直到 1MB 以下
+        double[] qualities = {quality, 0.5, 0.35, 0.25};
+        for (double q : qualities) {
             bos.reset();
-            double adjustedQuality = quality * 0.7;
             Thumbnails.of(original)
-                    .width(Math.min(width, maxWidth))
+                    .width(targetWidth)
                     .outputFormat("jpg")
-                    .outputQuality(adjustedQuality)
+                    .outputQuality(q)
                     .toOutputStream(bos);
-            log.debug("图片二次压缩: original={}KB adjusted={}KB quality={}",
-                    original.getWidth() * original.getHeight() / 1024,
-                    bos.size() / 1024, String.format("%.2f", adjustedQuality));
+            if (bos.size() <= maxSize) break;
+
+            // 质量已经很低了，进一步缩小尺寸
+            if (q == qualities[qualities.length - 1] && bos.size() > maxSize) {
+                bos.reset();
+                Thumbnails.of(original)
+                        .width(Math.min(targetWidth, 1280))
+                        .outputFormat("jpg")
+                        .outputQuality(0.3)
+                        .toOutputStream(bos);
+            }
         }
 
-        log.debug("图片压缩完成: {}x{} → {}KB (质量={})",
-                width, height, bos.size() / 1024, String.format("%.2f", quality));
-
+        log.debug("图片压缩完成: {}x{} → {}KB", width, height, bos.size() / 1024);
         return bos.toByteArray();
     }
 
