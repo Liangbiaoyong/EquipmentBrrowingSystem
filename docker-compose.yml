@@ -87,6 +87,7 @@ services:
       - "8080:8080"
     volumes:
       - backend-logs:/app/logs
+      - ./TEMP:/app/TEMP
     networks:
       - dev-net
 
