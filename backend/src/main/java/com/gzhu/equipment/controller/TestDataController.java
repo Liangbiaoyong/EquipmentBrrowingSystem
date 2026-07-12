@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -24,6 +25,7 @@ public class TestDataController {
     private static final Random RND = new Random();
     private static final String TEST_PWD = "$2a$10$WMR7yG3.4Tavv912DxxynevSB7laOXLZ.mkvkV2HxHQuClpB5OVgi";
 
+    @Transactional
     @PostMapping("/generate")
     @ApiOperation("一键生成测试数据")
     @PreAuthorize("hasAuthority('admin:user')")
@@ -77,7 +79,8 @@ public class TestDataController {
         List<Long> devIds = db.queryForList("SELECT id FROM device WHERE device_status IN (1,2,3) LIMIT 200", Long.class);
         List<Long> userIds = db.queryForList("SELECT id FROM sys_user WHERE username LIKE 'testTeacher%' OR username LIKE 'testStudent%'", Long.class);
         List<Long> admins = db.queryForList("SELECT id FROM sys_user WHERE user_type IN (2,3) LIMIT 5", Long.class);
-        if (devIds.isEmpty() || userIds.isEmpty()) return 0;
+        if (devIds.isEmpty() || userIds.isEmpty()) { log.warn("无法生成借用数据: devIds={} userIds={}", devIds.size(), userIds.size()); return 0; }
+        if (admins.isEmpty()) { log.warn("无管理员账户，跳过审批记录"); }
 
         LocalDate today = LocalDate.now();
         int total = 0;
@@ -106,30 +109,35 @@ public class TestDataController {
                 else if (roll < 0.85) status = "BORROWING";
                 else { status = "OVERDUE"; overdue = 1 + RND.nextInt(30); end = today.minusDays(overdue).atTime(18, 0); }
 
+                try {
                 db.update("INSERT INTO borrow_record (user_id,device_id,start_time,end_time,status,reason,purpose,purpose_category,purpose_subcategory,current_step,real_return_time,overdue_days,create_time) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                         uid, did, start, end, status, "测试", purpose, pcat, subs.get(RND.nextInt(subs.size())),
                         "PENDING_APPROVAL".equals(status) ? 1 : 2, realRet, overdue, day.atStartOfDay());
                 Long bid = db.queryForObject("SELECT LAST_INSERT_ID()", Long.class);
+                if (bid == null) continue;
                 total++;
 
                 // 审批记录
-                if (!Arrays.asList("PENDING_APPROVAL","CANCELLED").contains(status)) {
-                    Long a1 = admins.get(RND.nextInt(admins.size()));
-                    String res1 = "REJECTED".equals(status) ? "REJECTED" : "APPROVED";
-                    db.update("INSERT INTO approval_log (borrow_id,step,approver_id,result,comment,operate_time) VALUES (?,1,?,?,?,?)",
-                            bid, a1, res1, "APPROVED".equals(res1) ? "通过" : "驳回", start.plusHours(1));
-                    if ("APPROVED".equals(res1)) {
-                        Long a2 = admins.get(RND.nextInt(admins.size()));
-                        db.update("INSERT INTO approval_log (borrow_id,step,approver_id,result,comment,operate_time) VALUES (?,2,?,?,?,?)",
-                                bid, a2, "APPROVED", "终审通过", start.plusHours(3));
-                    }
+                if (!admins.isEmpty() && !Arrays.asList("PENDING_APPROVAL","CANCELLED").contains(status)) {
+                    try {
+                        Long a1 = admins.get(RND.nextInt(admins.size()));
+                        String res1 = "REJECTED".equals(status) ? "REJECTED" : "APPROVED";
+                        db.update("INSERT INTO approval_log (borrow_id,step,approver_id,result,comment,operate_time) VALUES (?,1,?,?,?,?)",
+                                bid, a1, res1, "APPROVED".equals(res1) ? "通过" : "驳回", start.plusHours(1));
+                        if ("APPROVED".equals(res1)) {
+                            Long a2 = admins.get(RND.nextInt(admins.size()));
+                            db.update("INSERT INTO approval_log (borrow_id,step,approver_id,result,comment,operate_time) VALUES (?,2,?,?,?,?)",
+                                    bid, a2, "APPROVED", "终审通过", start.plusHours(3));
+                        }
+                    } catch (Exception ignored) {}
                 }
                 // 10% 概率生成维修记录
                 if ("RETURNED".equals(status) && RND.nextDouble() < 0.10) {
                     String fault = Arrays.asList("屏幕损坏","无法开机","按键失灵","接口松动","电池老化").get(RND.nextInt(5));
-                    db.update("INSERT INTO repair_record (device_id,borrow_id,fault_description,status,repair_comment,create_time) VALUES (?,?,?,?,?,?)",
-                            did, bid, fault + "-测试", RND.nextBoolean() ? "FIXED" : "PENDING", "测试维修", day.plusDays(1).atStartOfDay());
+                    try { db.update("INSERT INTO repair_record (device_id,borrow_id,fault_description,status,repair_comment,create_time) VALUES (?,?,?,?,?,?)",
+                            did, bid, fault + "-测试", RND.nextBoolean() ? "FIXED" : "PENDING", "测试维修", day.plusDays(1).atStartOfDay()); } catch (Exception ignored) {}
                 }
+                } catch (Exception e) { log.warn("跳过异常记录: {}", e.getMessage()); }
             }
         }
         return total;
