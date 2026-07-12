@@ -3,6 +3,7 @@ package com.gzhu.equipment.controller;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceCategoryMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
+import com.gzhu.equipment.mapper.SysUserMapper;
 import com.gzhu.equipment.security.JwtTokenProvider;
 import com.gzhu.equipment.security.LoginRateLimiter;
 import com.gzhu.equipment.security.TokenBlacklist;
@@ -33,6 +34,7 @@ class StatisticsControllerTest {
     @MockBean private DeviceMapper deviceMapper;
     @MockBean private BorrowRecordMapper borrowMapper;
     @MockBean private DeviceCategoryMapper categoryMapper;
+    @MockBean private SysUserMapper sysUserMapper;
     @MockBean private JwtTokenProvider jwtTokenProvider;
     @MockBean private LoginRateLimiter loginRateLimiter;
     @MockBean private TokenBlacklist tokenBlacklist;
