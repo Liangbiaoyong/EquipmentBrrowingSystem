@@ -47,14 +47,16 @@ public class TestDataController {
     @PreAuthorize("hasAuthority('admin:user')")
     public R<Map<String,Object>> cleanup() {
         Map<String,Object> r = new LinkedHashMap<>();
-        db.update("DELETE FROM overdue_record WHERE borrow_id IN (SELECT id FROM borrow_record WHERE user_id IN (SELECT id FROM sys_user WHERE username LIKE 'testTeacher%' OR username LIKE 'testStudent%'))");
-        db.update("DELETE FROM borrow_outcome WHERE borrow_id IN (SELECT id FROM borrow_record WHERE user_id IN (SELECT id FROM sys_user WHERE username LIKE 'testTeacher%' OR username LIKE 'testStudent%'))");
-        db.update("DELETE FROM approval_log WHERE borrow_id IN (SELECT id FROM borrow_record WHERE user_id IN (SELECT id FROM sys_user WHERE username LIKE 'testTeacher%' OR username LIKE 'testStudent%'))");
-        int borrows = db.update("DELETE FROM borrow_record WHERE user_id IN (SELECT id FROM sys_user WHERE username LIKE 'testTeacher%' OR username LIKE 'testStudent%')");
-        int users = db.update("DELETE FROM sys_user WHERE username LIKE 'testTeacher%' OR username LIKE 'testStudent%'");
-        int repairs = db.update("DELETE FROM repair_record WHERE fault_description LIKE '%测试%'");
-        r.put("users", users); r.put("borrows", borrows); r.put("repairs", repairs);
-        log.warn("测试数据已清除: users={} borrows={}", users, borrows);
+        int total=0;
+        // 分步执行，避免MySQL子查询限制
+        try { total+=db.update("DELETE o FROM overdue_record o INNER JOIN borrow_record b ON o.borrow_id=b.id INNER JOIN sys_user u ON b.user_id=u.id WHERE u.username LIKE 'testTeacher%' OR u.username LIKE 'testStudent%'"); }catch(Exception e){log.warn("cleanup overdue: {}",e.getMessage());}
+        try { total+=db.update("DELETE oc FROM borrow_outcome oc INNER JOIN borrow_record b ON oc.borrow_id=b.id INNER JOIN sys_user u ON b.user_id=u.id WHERE u.username LIKE 'testTeacher%' OR u.username LIKE 'testStudent%'"); }catch(Exception e){log.warn("cleanup outcome: {}",e.getMessage());}
+        try { total+=db.update("DELETE a FROM approval_log a INNER JOIN borrow_record b ON a.borrow_id=b.id INNER JOIN sys_user u ON b.user_id=u.id WHERE u.username LIKE 'testTeacher%' OR u.username LIKE 'testStudent%'"); }catch(Exception e){log.warn("cleanup approval: {}",e.getMessage());}
+        try { total+=db.update("DELETE b FROM borrow_record b INNER JOIN sys_user u ON b.user_id=u.id WHERE u.username LIKE 'testTeacher%' OR u.username LIKE 'testStudent%'"); }catch(Exception e){log.warn("cleanup borrow: {}",e.getMessage());}
+        int users=0; try{users=db.update("DELETE FROM sys_user WHERE username LIKE 'testTeacher%' OR username LIKE 'testStudent%'");}catch(Exception e){log.warn("cleanup users: {}",e.getMessage());}
+        int repairs=0; try{repairs=db.update("DELETE FROM repair_record WHERE fault_description LIKE '%测试%'");}catch(Exception e){log.warn("cleanup repairs: {}",e.getMessage());}
+        total+=users+repairs; r.put("deleted",total); r.put("users",users); r.put("repairs",repairs);
+        log.warn("测试数据已清除: total={} users={} repairs={}", total, users, repairs);
         return R.ok(r);
     }
 
