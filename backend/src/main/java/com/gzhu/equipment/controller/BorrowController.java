@@ -263,16 +263,23 @@ public class BorrowController {
     @ApiOperation("逾期统计数据")
     @PreAuthorize("hasAuthority('return:manage')")
     public R<java.util.Map<String, Object>> overdueStats() {
-        var overdueTotal = borrowService.count(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>()
-                        .eq(BorrowRecord::getStatus, "OVERDUE"));
-        var collectedTotal = borrowService.count(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>()
-                        .eq(BorrowRecord::getStatus, "RETURNED")
-                        .isNotNull(BorrowRecord::getDamageReport));
+        var w = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>()
+                .and(q -> q.eq(BorrowRecord::getStatus, "OVERDUE")
+                        .or(q2 -> q2.eq(BorrowRecord::getStatus, "BORROWING").lt(BorrowRecord::getEndTime, java.time.LocalDateTime.now())));
+        var overdueTotal = borrowService.count(w);
+        var avgDays = borrowService.getBaseMapper().selectList(w).stream()
+                .mapToLong(b -> b.getOverdueDays() != null ? b.getOverdueDays() :
+                    java.time.Duration.between(b.getEndTime(), java.time.LocalDateTime.now()).toDays())
+                .average().orElse(0);
+        var notified = overdueRecordMapper.selectCount(
+                new LambdaQueryWrapper<com.gzhu.equipment.entity.OverdueRecord>().gt(com.gzhu.equipment.entity.OverdueRecord::getNotifyCount, 0));
+        var collected = overdueRecordMapper.selectCount(
+                new LambdaQueryWrapper<com.gzhu.equipment.entity.OverdueRecord>().eq(com.gzhu.equipment.entity.OverdueRecord::getCollectionStatus, "COLLECTED"));
         java.util.Map<String, Object> stats = new java.util.LinkedHashMap<>();
         stats.put("overdueTotal", overdueTotal);
-        stats.put("collectedTotal", collectedTotal);
+        stats.put("avgDays", Math.round(avgDays));
+        stats.put("notified", notified);
+        stats.put("collected", collected);
         return R.ok(stats);
     }
 

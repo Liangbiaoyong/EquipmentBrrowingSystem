@@ -98,20 +98,18 @@ public class StatisticsController {
         deviceStats.put("scrap", pendingScrap + scrappedCount);
         data.put("deviceStats", deviceStats);
 
-        // 教师只统计持有设备的借用记录
+        // 借用概览：借出中/逾期 使用设备维度(与借还状态卡片一致)；待审批/总借用使用记录维度
         String custodian = getTeacherCustodian();
         LambdaQueryWrapper<BorrowRecord> bwBase = new LambdaQueryWrapper<>();
         if (custodian != null) {
             bwBase.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", custodian);
         }
-        Long borrowingCount = borrowMapper.selectCount(bwBase.clone().eq(BorrowRecord::getStatus, "BORROWING"));
-        Long overdueCount = borrowMapper.selectCount(bwBase.clone().eq(BorrowRecord::getStatus, "OVERDUE"));
         Long pendingCount = borrowMapper.selectCount(bwBase.clone().eq(BorrowRecord::getStatus, "PENDING_APPROVAL"));
         Long totalBorrows = borrowMapper.selectCount(bwBase);
 
         Map<String, Long> borrowStats = new LinkedHashMap<>();
-        borrowStats.put("borrowing", borrowingCount);
-        borrowStats.put("overdue", overdueCount);
+        borrowStats.put("borrowing", deviceBorrowingCount);
+        borrowStats.put("overdue", overdueCount2);
         borrowStats.put("pendingApproval", pendingCount);
         borrowStats.put("total", totalBorrows);
         data.put("borrowStats", borrowStats);
@@ -209,26 +207,7 @@ public class StatisticsController {
                            javax.servlet.http.HttpServletResponse response) throws Exception {
 
         if ("xlsx".equalsIgnoreCase(format)) {
-            LinkedHashMap<String, String> headers = new LinkedHashMap<>();
-            headers.put("name","指标"); headers.put("value","数值");
-            List<Map<String, Object>> rows = new ArrayList<>();
-            rows.add(Map.of("name","设备总数","value",deviceMapper.selectCount(null)));
-            rows.add(Map.of("name","--借还状态--","value",""));
-            rows.add(Map.of("name","可借用","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 1))));
-            rows.add(Map.of("name","借用中","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 2))));
-            rows.add(Map.of("name","不可借","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 3))));
-            rows.add(Map.of("name","逾期","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 4))));
-            rows.add(Map.of("name","--设备状态--","value",""));
-            rows.add(Map.of("name","正常","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 1))));
-            rows.add(Map.of("name","待维修","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 2))));
-            rows.add(Map.of("name","无法维修","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 3))));
-            rows.add(Map.of("name","待报废","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 4))));
-            rows.add(Map.of("name","已报废","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 5))));
-            rows.add(Map.of("name","借出中","value",borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "BORROWING"))));
-            rows.add(Map.of("name","逾期未还","value",borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "OVERDUE"))));
-            rows.add(Map.of("name","待审批","value",borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "PENDING_APPROVAL"))));
-            rows.add(Map.of("name","总借用次数","value",borrowMapper.selectCount(null)));
-            byte[] xlsx = com.gzhu.equipment.common.ExcelExportUtil.exportToXlsx(rows, headers);
+            byte[] xlsx = buildComprehensiveXlsx();
             response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             response.setHeader("Content-Disposition", "attachment; filename=statistics_export_" + System.currentTimeMillis() + ".xlsx");
             response.setContentLength(xlsx.length);
@@ -237,29 +216,114 @@ public class StatisticsController {
             return;
         }
 
-        // CSV
+        // CSV — 完整报表
         response.setContentType("text/csv;charset=UTF-8");
         response.setHeader("Content-Disposition", "attachment; filename=statistics_export_" + System.currentTimeMillis() + ".csv");
         response.getOutputStream().write(new byte[]{(byte)0xEF,(byte)0xBB,(byte)0xBF});
         try (OutputStreamWriter w = new OutputStreamWriter(response.getOutputStream(), StandardCharsets.UTF_8)) {
-            w.write("指标,数值\n");
+            w.write("=== 设备概览 ===\n指标,数值\n");
             w.write("设备总数," + deviceMapper.selectCount(null) + "\n");
-            w.write("--借还状态--\n");
             w.write("可借用," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 1)) + "\n");
             w.write("借用中," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 2)) + "\n");
             w.write("不可借," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 3)) + "\n");
             w.write("逾期," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 4)) + "\n");
-            w.write("--设备状态--\n");
             w.write("正常," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 1)) + "\n");
             w.write("待维修," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 2)) + "\n");
             w.write("无法维修," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 3)) + "\n");
             w.write("待报废," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 4)) + "\n");
             w.write("已报废," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 5)) + "\n");
-            w.write("借出中," + borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "BORROWING")) + "\n");
-            w.write("逾期未还," + borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "OVERDUE")) + "\n");
+            w.write("借出中," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 2)) + "\n");
+            w.write("逾期未还," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 4)) + "\n");
             w.write("待审批," + borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "PENDING_APPROVAL")) + "\n");
-            w.write("总借用次数," + borrowMapper.selectCount(null) + "\n");
+            w.write("总借用," + borrowMapper.selectCount(null) + "\n\n");
+
+            // 趋势
+            w.write("=== 本月借用趋势 ===\n日期,次数\n");
+            LocalDate start = LocalDate.now().withDayOfMonth(1); LocalDate end = LocalDate.now();
+            var trend = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+                    .select("DATE(create_time) as date","COUNT(*) as count")
+                    .ge("create_time", start.atStartOfDay()).le("create_time", end.plusDays(1).atStartOfDay())
+                    .groupBy("DATE(create_time)").orderByAsc("date"));
+            for (var r : trend) w.write(r.get("date") + "," + r.get("count") + "\n");
+
+            // 热门设备
+            w.write("\n=== 热门设备 TOP10 ===\n设备,借用次数\n");
+            var topDev = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+                    .select("d.name as name","COUNT(*) as cnt").apply("LEFT JOIN device d ON borrow_record.device_id=d.id")
+                    .groupBy("d.name").orderByDesc("cnt").last("LIMIT 10"));
+            for (var r : topDev) w.write((r.get("name")!=null?r.get("name"):"未知") + "," + r.get("cnt") + "\n");
+
+            // 高频用户
+            w.write("\n=== 高频用户 TOP10 ===\n用户,借用次数\n");
+            var topUser = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+                    .select("u.real_name as name","COUNT(*) as cnt").apply("LEFT JOIN sys_user u ON borrow_record.user_id=u.id")
+                    .groupBy("u.real_name").orderByDesc("cnt").last("LIMIT 10"));
+            for (var r : topUser) w.write((r.get("name")!=null?r.get("name"):"未知") + "," + r.get("cnt") + "\n");
+
+            // 分类利用率
+            w.write("\n=== 分类利用率 ===\n分类,借用次数\n");
+            var util = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+                    .select("dc.name as name","COUNT(*) as cnt").apply("LEFT JOIN device d ON borrow_record.device_id=d.id")
+                    .apply("LEFT JOIN device_category dc ON d.category_id=dc.id").groupBy("dc.name").orderByDesc("cnt").last("LIMIT 10"));
+            for (var r : util) w.write((r.get("name")!=null?r.get("name"):"未知") + "," + r.get("cnt") + "\n");
+
+            // 目的分布
+            w.write("\n=== 目的分布 ===\n目的大类,次数\n");
+            var purposes = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+                    .select("purpose_category as name","COUNT(*) as cnt").isNotNull("purpose_category").ne("purpose_category","")
+                    .groupBy("purpose_category").orderByDesc("cnt"));
+            for (var r : purposes) w.write((r.get("name")!=null?r.get("name"):"未分类") + "," + r.get("cnt") + "\n");
         }
+    }
+
+    private byte[] buildComprehensiveXlsx() {
+        try (org.apache.poi.xssf.usermodel.XSSFWorkbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
+            // Sheet 1: 概览
+            org.apache.poi.ss.usermodel.Sheet s1 = wb.createSheet("概览");
+            String[] labels = {"设备总数","可借用","借用中","不可借","逾期","正常","待维修","无法维修","待报废","已报废","借出中","逾期未还","待审批","总借用"};
+            long[] vals = {
+                deviceMapper.selectCount(null),
+                deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 1)),
+                deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 2)),
+                deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 3)),
+                deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 4)),
+                deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 1)),
+                deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 2)),
+                deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 3)),
+                deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 4)),
+                deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 5)),
+                deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 2)),
+                deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 4)),
+                borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "PENDING_APPROVAL")),
+                borrowMapper.selectCount(null)
+            };
+            org.apache.poi.ss.usermodel.Row r1 = s1.createRow(0); r1.createCell(0).setCellValue("指标"); r1.createCell(1).setCellValue("数值");
+            for (int i = 0; i < labels.length; i++) { org.apache.poi.ss.usermodel.Row row = s1.createRow(i+1); row.createCell(0).setCellValue(labels[i]); row.createCell(1).setCellValue(vals[i]); }
+
+            // Sheet 2: 趋势
+            org.apache.poi.ss.usermodel.Sheet s2 = wb.createSheet("借用趋势");
+            LocalDate start = LocalDate.now().withDayOfMonth(1), end = LocalDate.now();
+            var trend = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>().select("DATE(create_time) as date","COUNT(*) as count").ge("create_time",start.atStartOfDay()).le("create_time",end.plusDays(1).atStartOfDay()).groupBy("DATE(create_time)").orderByAsc("date"));
+            org.apache.poi.ss.usermodel.Row r2 = s2.createRow(0); r2.createCell(0).setCellValue("日期"); r2.createCell(1).setCellValue("次数");
+            int i = 1; for (var row : trend) { org.apache.poi.ss.usermodel.Row r = s2.createRow(i++); r.createCell(0).setCellValue(String.valueOf(row.get("date"))); r.createCell(1).setCellValue(((Number)row.get("count")).doubleValue()); }
+
+            // Sheet 3: 热门设备
+            org.apache.poi.ss.usermodel.Sheet s3 = wb.createSheet("热门设备TOP10");
+            var topDev = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>().select("d.name as name","COUNT(*) as cnt").apply("LEFT JOIN device d ON borrow_record.device_id=d.id").groupBy("d.name").orderByDesc("cnt").last("LIMIT 10"));
+            org.apache.poi.ss.usermodel.Row r3 = s3.createRow(0); r3.createCell(0).setCellValue("设备"); r3.createCell(1).setCellValue("次数");
+            i = 1; for (var row : topDev) { org.apache.poi.ss.usermodel.Row r = s3.createRow(i++); r.createCell(0).setCellValue(String.valueOf(row.get("name"))); r.createCell(1).setCellValue(((Number)row.get("cnt")).doubleValue()); }
+
+            // Sheet 4: 目的分布
+            org.apache.poi.ss.usermodel.Sheet s4 = wb.createSheet("目的分布");
+            var purposes = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>().select("purpose_category as name","COUNT(*) as cnt").isNotNull("purpose_category").ne("purpose_category","").groupBy("purpose_category").orderByDesc("cnt"));
+            org.apache.poi.ss.usermodel.Row r4 = s4.createRow(0); r4.createCell(0).setCellValue("目的大类"); r4.createCell(1).setCellValue("次数");
+            i = 1; for (var row : purposes) { org.apache.poi.ss.usermodel.Row r = s4.createRow(i++); r.createCell(0).setCellValue(String.valueOf(row.get("name"))); r.createCell(1).setCellValue(((Number)row.get("cnt")).doubleValue()); }
+
+            for (int s = 1; s <= 4; s++) wb.getSheetAt(s-1).setColumnWidth(0, 5000);
+
+            java.io.ByteArrayOutputStream bos = new java.io.ByteArrayOutputStream();
+            wb.write(bos); return bos.toByteArray();
+        } catch (Exception e) { throw new RuntimeException("XLSX生成失败", e); }
     }
 
     // ==================== V6 目的与成果统计（增强版） ====================

@@ -82,7 +82,7 @@ async function loadUsers(){
 async function doGenerate(){
   generating.value=true
   try{
-    const{data}=await axios.post('/admin/test-data/generate')
+    const{data}=await axios.post('/admin/test-data/generate',null,{timeout:120000})
     addLog(`生成完成: 教师${data.teachers}个 学生${data.students}个 借用${data.borrows}条`,'success')
     ElMessage.success('测试数据生成完成')
     loadUsers()
@@ -95,7 +95,7 @@ async function doCleanup(){
   catch{return}
   cleaning.value=true
   try{
-    const{data}=await axios.delete('/admin/test-data/cleanup')
+    const{data}=await axios.delete('/admin/test-data/cleanup',{timeout:120000})
     addLog(`清除完成: 用户${data.users}个 借用${data.borrows}条 维修${data.repairs}条`,'warning')
     ElMessage.success('测试数据已清除')
     loadUsers()
