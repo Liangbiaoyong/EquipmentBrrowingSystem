@@ -17,7 +17,7 @@
         <el-popover placement="top" :width="300" trigger="click">
           <template #reference><el-link type="info" :underline="false" style="font-size:12px">忘记密码？</el-link></template>
           <div style="font-size:13px;line-height:1.6">
-            <p><strong>本地账户：</strong>请联系系统管理员重置密码。</p>
+            <p><strong>本地账户：</strong>请使用CAS登录重置密码或联系统管理员重置密码。</p>
             <p><strong>CAS账户：</strong>使用右侧「广州大学 CAS 登录」按钮登录，系统将自动同步CAS密码。</p>
             <p style="color:#909399;margin-top:4px">CAS密码即学校统一认证密码，与上网/选课密码相同。</p>
           </div>

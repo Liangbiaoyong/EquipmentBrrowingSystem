@@ -294,7 +294,8 @@ public class BackupController {
                 dumpCmd, "-h" + dbHost, "-P" + dbPort, "-u" + dbUser, "-p" + dbPass,
                 "--default-auth=mysql_native_password",
                 "--single-transaction", "--routines", "--triggers",
-                "--default-character-set=utf8mb4", dbName);
+                "--default-character-set=utf8mb4",
+                "--ssl=0", dbName);
         pb.redirectOutput(new File(filePath));
         return pb;
     }
@@ -306,7 +307,7 @@ public class BackupController {
     }
 
     private ProcessBuilder buildLocalRestoreCommand(String mysqlCmd, String dbName, String dbHost, int dbPort, String filePath) {
-        return new ProcessBuilder(mysqlCmd, "-h" + dbHost, "-P" + dbPort, "-u" + dbUser, "-p" + dbPass, "--default-auth=mysql_native_password", dbName)
+        return new ProcessBuilder(mysqlCmd, "-h" + dbHost, "-P" + dbPort, "-u" + dbUser, "-p" + dbPass, "--default-auth=mysql_native_password", "--ssl=0", dbName)
                 .redirectInput(new File(filePath));
     }
 
