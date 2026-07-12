@@ -23,7 +23,8 @@
       </el-form>
     </el-card>
     <el-alert v-else title="CAS认证账户" type="info" :closable="false" show-icon style="max-width:450px">
-      CAS统一认证用户的密码由学校CAS系统管理，请通过学校门户修改密码。下次CAS登录时将自动同步。
+      <p>使用登录页的「广州大学 CAS 登录」按钮登录，系统将自动同步 CAS 密码。</p>
+      <p style="color:#909399;margin-top:4px;font-size:12px">CAS密码即学校统一认证密码，与上网/选课密码相同。</p>
     </el-alert>
   </div>
 </template>
