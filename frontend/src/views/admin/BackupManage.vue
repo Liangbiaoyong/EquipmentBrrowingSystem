@@ -12,10 +12,7 @@
     <!-- 操作按钮栏 -->
     <div class="action-bar">
       <el-button type="primary" :icon="Download" @click="doExport" :loading="exporting">立即备份</el-button>
-      <el-upload :show-file-list="false" :before-upload="b => (importFile=b,false)" accept=".sql,.gz" style="display:inline-block;margin-left:8px">
-        <el-button type="warning" :icon="Upload" @click="triggerImport">导入恢复</el-button>
-      </el-upload>
-      <el-input ref="importInput" type="file" accept=".sql,.gz" style="display:none" @change="onImportFile"/>
+      <el-button type="warning" :icon="Upload" @click="triggerImport">导入恢复</el-button>
       <el-button @click="refreshAll" :icon="RefreshRight" style="margin-left:auto">刷新</el-button>
     </div>
 
@@ -55,9 +52,8 @@
     <!-- 导入恢复对话框 -->
     <el-dialog v-model="importVisible" title="导入恢复数据库" width="440px">
       <el-alert title="上传SQL文件将覆盖当前数据库，操作不可撤销！" type="error" show-icon :closable="false" style="margin-bottom:12px"/>
-      <el-upload drag :show-file-list="true" :auto-upload="false" :limit="1" accept=".sql,.gz" :on-change="onImportChange">
-        <el-icon :size="40"><UploadFilled/></el-icon><div style="margin-top:8px">拖拽或点击上传 .sql 文件</div>
-      </el-upload>
+      <input type="file" ref="fileInputRef" accept=".sql,.gz" @change="onImportFile" style="display:block;width:100%;padding:8px;border:1px dashed #dcdfe6;border-radius:6px;cursor:pointer"/>
+      <div v-if="importFileName" style="margin-top:8px;font-size:13px;color:#409EFF">已选择: {{ importFileName }}</div>
       <template #footer><el-button @click="importVisible=false">取消</el-button><el-button type="danger" @click="confirmImport" :loading="restoring" :disabled="!importFile">确认导入恢复</el-button></template>
     </el-dialog>
   </div>
@@ -142,9 +138,11 @@ async function confirmRestore() {
   } finally { restoring.value = false }
 }
 
-function triggerImport() { importVisible.value = true; importFile.value = null }
+const fileInputRef = ref(null); const importFileName = ref('')
 
-function onImportChange(file) { importFile.value = file?.raw || file }
+function triggerImport() { importVisible.value = true; importFile.value = null; importFileName.value = '' }
+
+function onImportFile(e) { const f = e.target?.files?.[0]; if (f) { importFile.value = f; importFileName.value = f.name } }
 
 async function confirmImport() {
   if (!importFile.value) { ElMessage.warning('请选择SQL文件'); return }
