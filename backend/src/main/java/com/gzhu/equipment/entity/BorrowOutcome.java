@@ -16,7 +16,7 @@ public class BorrowOutcome implements Serializable {
     private Long borrowId;
     private Long deviceId;
 
-    /** 成果类型: 学术论文/专利/软著/科研项目结题/科研获奖/竞赛获奖/学术著作/研究报告/标准制定/新产品工艺/教学成果奖/毕设论文/实体模型/大创结题/媒体报道/人才培养 */
+    /** 成果类型: 学术论文/专利/软著/科研项目结题/科研获奖/竞赛获奖/学术著作/研究报告/标准制定/新产品工艺/教学成果奖/毕设论文/实体模型/大创结题/媒体报道/人才培养/其他 */
     private String outcomeType;
     /** 成果标题 */
     private String title;

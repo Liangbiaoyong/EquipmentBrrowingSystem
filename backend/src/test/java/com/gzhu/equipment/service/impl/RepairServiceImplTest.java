@@ -38,7 +38,7 @@ class RepairServiceImplTest {
         assertThat(result.getStatus()).isEqualTo("PENDING");
         assertThat(result.getDeviceId()).isEqualTo(1L);
         assertThat(device.getBorrowStatus()).isEqualTo(3);
-        assertThat(device.getDeviceStatus()).isEqualTo(3);
+        assertThat(device.getDeviceStatus()).isEqualTo(2); // createFromDamage → 待维修(2)
         verify(deviceMapper).updateById(device);
         verify(repairMapper).insert(any(RepairRecord.class));
     }

@@ -49,6 +49,7 @@
           <el-option label="学科竞赛与创新" value="学科竞赛与创新"/><el-option label="学术交流与合作" value="学术交流与合作"/>
           <el-option label="社会服务与文化传承" value="社会服务与文化传承"/><el-option label="行政与公共服务" value="行政与公共服务"/>
           <el-option label="个人发展与兴趣" value="个人发展与兴趣"/>
+          <el-option label="其他" value="其他"/>
         </el-select>
       </el-form-item>
       <el-form-item label="子分类" v-if="f.purposeCategory"><el-select v-model="f.purposeSubcategory" placeholder="选择具体用途" style="width:100%">
@@ -58,7 +59,9 @@
         <template v-else-if="f.purposeCategory==='学术交流与合作'"><el-option label="学术会议/展览" value="学术会议/展览"/><el-option label="联合教学/工作坊" value="联合教学/工作坊"/><el-option label="访问学者/博士后研究" value="访问学者/博士后研究"/></template>
         <template v-else-if="f.purposeCategory==='社会服务与文化传承'"><el-option label="科普活动/开放日" value="科普活动/开放日"/><el-option label="校企合作基地建设" value="校企合作基地建设"/><el-option label="古建筑测绘/乡村振兴" value="古建筑测绘/乡村振兴"/></template>
         <template v-else-if="f.purposeCategory==='行政与公共服务'"><el-option label="学院行政活动" value="学院行政活动"/><el-option label="日常办公" value="日常办公"/></template>
-        <template v-else><el-option label="自主学习与训练" value="自主学习与训练"/></template>
+        <template v-else-if="f.purposeCategory==='个人发展与兴趣'"><el-option label="自主学习与训练" value="自主学习与训练"/><el-option label="其他" value="其他"/></template>
+        <template v-else-if="f.purposeCategory==='其他'"><el-option label="其他" value="其他"/></template>
+        <template v-else><el-option label="其他" value="其他"/></template>
       </el-select></el-form-item>
       <el-form-item label="目的详情" required><el-input v-model="f.purpose" type="textarea" :rows="2" placeholder="请详细描述借用目的，如项目名称/课程名称/竞赛名称等..."/></el-form-item>
       <el-form-item label="备注"><el-input v-model="f.reason" type="textarea" :rows="1" placeholder="其他补充说明(可选)"/></el-form-item>

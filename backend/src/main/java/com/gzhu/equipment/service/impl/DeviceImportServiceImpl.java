@@ -127,8 +127,8 @@ public class DeviceImportServiceImpl implements DeviceImportService {
     public int clearByBatchId(String batchId) {
         log.info("清除导入批次: batchId={}", batchId);
         return deviceMapper.delete(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Device>()
-                        .eq(Device::getImportBatchId, batchId));
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Device>()
+                        .eq("import_batch_id", batchId));
     }
 
     // ==================== CSV 智能导入 ====================
@@ -327,9 +327,9 @@ public class DeviceImportServiceImpl implements DeviceImportService {
 
         // 查出现有所有 asset_no
         List<Device> allExisting = deviceMapper.selectList(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Device>()
-                        .select(Device::getId, Device::getAssetNo)
-                        .isNotNull(Device::getAssetNo));
+                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<Device>()
+                        .select("id", "asset_no")
+                        .isNotNull("asset_no"));
 
         int deleted = 0;
         for (Device existing : allExisting) {

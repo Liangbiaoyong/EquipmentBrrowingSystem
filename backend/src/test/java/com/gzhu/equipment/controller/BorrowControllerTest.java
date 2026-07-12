@@ -12,6 +12,7 @@ import com.gzhu.equipment.mapper.AttachmentMapper;
 import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.service.BorrowService;
 import com.gzhu.equipment.service.MinioFileService;
+import com.gzhu.equipment.mapper.BorrowOutcomeMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -69,6 +70,9 @@ class BorrowControllerTest {
     @MockBean
     private ApprovalLogMapper approvalLogMapper;
 
+    @MockBean
+    private BorrowOutcomeMapper borrowOutcomeMapper;
+
     @BeforeEach
     void setUp() {
         JwtUserPrincipal principal = new JwtUserPrincipal(
@@ -85,6 +89,7 @@ class BorrowControllerTest {
         dto.setStartTime(LocalDateTime.now().plusDays(1));
         dto.setEndTime(LocalDateTime.now().plusDays(3));
         dto.setReason("实验用");
+        dto.setPurpose("实验测试");
         dto.setApproverId(2L);
         return dto;
     }
