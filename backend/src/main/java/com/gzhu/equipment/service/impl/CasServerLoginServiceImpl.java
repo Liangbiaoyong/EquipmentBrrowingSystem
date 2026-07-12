@@ -34,11 +34,10 @@ public class CasServerLoginServiceImpl implements CasServerLoginService {
         // 临时输出文件
         Path tmpFile = Files.createTempFile("cas_result_", ".json");
         try {
-            // 构建命令
+            // 构建命令（工作目录已设为 cliPath，classpath 用相对路径 . 和 lib/*）
             String javaHome = System.getProperty("java.home");
             String javaBin = javaHome + File.separator + "bin" + File.separator + "java";
-            String classpath = cliPath + File.separator + "*" + File.pathSeparator
-                    + cliPath + File.separator + "lib" + File.pathSeparator + "*";
+            String classpath = "." + File.pathSeparator + "lib/*";
             String[] cmd = {
                 javaBin, "-cp", classpath, "cas_login",
                 "-u", username, "-p", password,
