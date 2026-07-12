@@ -15,7 +15,7 @@
         <el-option label="可借用" :value="1"/><el-option label="借用中" :value="2"/><el-option label="不可借" :value="3"/><el-option label="逾期" :value="4"/>
       </el-select></el-col>
       <el-col :span="4"><el-select v-model="q.deviceStatus" placeholder="设备状态" clearable @change="search">
-        <el-option label="正常" :value="1"/><el-option label="待维修" :value="2"/><el-option label="维修中" :value="3"/><el-option label="待报废" :value="4"/><el-option label="已报废" :value="5"/>
+        <el-option label="正常" :value="1"/><el-option label="待维修" :value="2"/><el-option label="无法维修" :value="3"/><el-option label="待报废" :value="4"/><el-option label="已报废" :value="5"/>
       </el-select></el-col>
       <el-col :span="2"><el-button type="primary" @click="search">搜索</el-button></el-col>
       <el-col :span="2"><el-button @click="resetSearch">重置</el-button></el-col>
@@ -64,7 +64,7 @@ function syncToQuery(){
 const borrowStatusMap={1:'success',2:'warning',3:'danger',4:'danger'}
 const borrowStatusTextMap={1:'可借用',2:'借用中',3:'不可借',4:'逾期'}
 const deviceStatusMap={1:'success',2:'warning',3:'danger',4:'info',5:'info'}
-const deviceStatusTextMap={1:'正常',2:'待维修',3:'维修中',4:'待报废',5:'已报废'}
+const deviceStatusTextMap={1:'正常',2:'待维修',3:'无法维修',4:'待报废',5:'已报废'}
 
 function borrowStatusType(v){return borrowStatusMap[v]||'info'}
 function borrowStatusText(v){return borrowStatusTextMap[v]||'未知'}

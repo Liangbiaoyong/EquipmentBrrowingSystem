@@ -72,7 +72,7 @@ const route=useRoute();const loading=ref(true);const detail=ref(null);const uplo
 const borrowStatusMap={1:'success',2:'warning',3:'danger',4:'danger'}
 const borrowStatusTextMap={1:'可借用',2:'借用中',3:'不可借',4:'逾期'}
 const deviceStatusMap={1:'success',2:'warning',3:'danger',4:'info',5:'info'}
-const deviceStatusTextMap={1:'正常',2:'待维修',3:'维修中',4:'待报废',5:'已报废'}
+const deviceStatusTextMap={1:'正常',2:'待维修',3:'无法维修',4:'待报废',5:'已报废'}
 function borrowStatusTagType(v){return borrowStatusMap[v]||'info'}
 function borrowStatusText(v){return borrowStatusTextMap[v]||'未知'}
 function deviceStatusTagType(v){return deviceStatusMap[v]||'info'}

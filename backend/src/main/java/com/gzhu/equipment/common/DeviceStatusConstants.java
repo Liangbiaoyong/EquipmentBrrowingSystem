@@ -22,7 +22,7 @@ public final class DeviceStatusConstants {
     public static final int DEVICE_NORMAL = 1;
     /** 待维修（已报修未开始） */
     public static final int DEVICE_PENDING_REPAIR = 2;
-    /** 维修中 */
+    /** 无法维修 */
     public static final int DEVICE_REPAIRING = 3;
     /** 待报废 */
     public static final int DEVICE_PENDING_SCRAP = 4;
@@ -45,7 +45,7 @@ public final class DeviceStatusConstants {
         switch (status) {
             case DEVICE_NORMAL: return "正常";
             case DEVICE_PENDING_REPAIR: return "待维修";
-            case DEVICE_REPAIRING: return "维修中";
+            case DEVICE_REPAIRING: return "无法维修";
             case DEVICE_PENDING_SCRAP: return "待报废";
             case DEVICE_SCRAPPED: return "已报废";
             default: return "未知";

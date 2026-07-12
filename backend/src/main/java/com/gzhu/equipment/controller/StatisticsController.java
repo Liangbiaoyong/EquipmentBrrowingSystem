@@ -221,7 +221,7 @@ public class StatisticsController {
             rows.add(Map.of("name","--设备状态--","value",""));
             rows.add(Map.of("name","正常","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 1))));
             rows.add(Map.of("name","待维修","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 2))));
-            rows.add(Map.of("name","维修中","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 3))));
+            rows.add(Map.of("name","无法维修","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 3))));
             rows.add(Map.of("name","待报废","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 4))));
             rows.add(Map.of("name","已报废","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 5))));
             rows.add(Map.of("name","借出中","value",borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "BORROWING"))));
@@ -252,7 +252,7 @@ public class StatisticsController {
             w.write("--设备状态--\n");
             w.write("正常," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 1)) + "\n");
             w.write("待维修," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 2)) + "\n");
-            w.write("维修中," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 3)) + "\n");
+            w.write("无法维修," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 3)) + "\n");
             w.write("待报废," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 4)) + "\n");
             w.write("已报废," + deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 5)) + "\n");
             w.write("借出中," + borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "BORROWING")) + "\n");

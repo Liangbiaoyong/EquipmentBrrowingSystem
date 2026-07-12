@@ -72,6 +72,23 @@ public class RepairServiceImpl extends ServiceImpl<RepairRecordMapper, RepairRec
         }
     }
 
+    /** V3新增：无法修复 → 设备状态变为无法维修 */
+    @Override @Transactional
+    public void markUnrepairable(Long id, String comment) {
+        RepairRecord r = repairMapper.selectById(id);
+        if (r != null) {
+            r.setStatus("UNREPAIRABLE"); r.setRepairComment(comment);
+            r.setFixedTime(LocalDateTime.now()); repairMapper.updateById(r);
+            Device device = deviceMapper.selectById(r.getDeviceId());
+            if (device != null) {
+                device.setBorrowStatus(3);   // 不可借
+                device.setDeviceStatus(3);   // 无法维修
+                deviceMapper.updateById(device);
+                log.info("设备标记无法维修: deviceId={}", r.getDeviceId());
+            }
+        }
+    }
+
     /** V3新增：标记设备待报废 */
     @Override @Transactional
     public void markScrap(Long id, String comment) {

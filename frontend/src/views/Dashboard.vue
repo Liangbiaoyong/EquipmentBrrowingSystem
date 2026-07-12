@@ -99,7 +99,7 @@ const borrowStatusCards=reactive([
 const deviceStatusCards=reactive([
   {label:'正常',value:'-',color:'#67C23A'},
   {label:'待维修',value:'-',color:'#E6A23C'},
-  {label:'维修中',value:'-',color:'#F56C6C'},
+  {label:'无法维修',value:'-',color:'#F56C6C'},
   {label:'待报废',value:'-',color:'#909399'},
   {label:'已报废',value:'-',color:'#C0C4CC'}
 ])

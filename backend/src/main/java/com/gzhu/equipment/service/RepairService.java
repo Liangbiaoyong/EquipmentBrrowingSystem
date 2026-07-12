@@ -12,6 +12,8 @@ public interface RepairService extends IService<RepairRecord> {
     void startRepair(Long id, Long repairBy);
     /** 修复完成 → 设备恢复正常 */
     void markFixed(Long id, String comment);
+    /** 无法修复 → 设备状态变为无法维修 */
+    void markUnrepairable(Long id, String comment);
     /** V3: 标记设备待报废 */
     void markScrap(Long id, String comment);
     /** V3: 确认报废 */

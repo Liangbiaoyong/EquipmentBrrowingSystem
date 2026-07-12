@@ -31,7 +31,7 @@
       </el-select></el-form-item>
       <el-form-item label="设备物理状态"><el-select v-model="form.deviceStatus" style="width:100%">
         <el-option label="正常" :value="1"/><el-option label="待维修" :value="2"/>
-        <el-option label="维修中" :value="3"/><el-option label="待报废" :value="4"/>
+        <el-option label="无法维修" :value="3"/><el-option label="待报废" :value="4"/>
         <el-option label="已报废" :value="5"/>
       </el-select></el-form-item>
       <el-form-item label="借用类型"><el-select v-model="form.borrowType" style="width:100%">
@@ -56,7 +56,7 @@ const form=reactive({id:null,name:'',model:'',location:'',borrowStatus:1,deviceS
 const borrowStatusMap={1:'success',2:'warning',3:'danger',4:'danger'}
 const borrowStatusTextMap={1:'可借用',2:'借用中',3:'不可借',4:'逾期'}
 const deviceStatusMap={1:'success',2:'warning',3:'danger',4:'info',5:'info'}
-const deviceStatusTextMap={1:'正常',2:'待维修',3:'维修中',4:'待报废',5:'已报废'}
+const deviceStatusTextMap={1:'正常',2:'待维修',3:'无法维修',4:'待报废',5:'已报废'}
 const roleNameMap={0:'学生',1:'教师',2:'实验室管理员',3:'系统管理员'}
 
 function borrowStatusTag(v){return borrowStatusMap[v]||'info'}

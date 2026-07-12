@@ -66,7 +66,7 @@
             <div class="status-grid">
               <div class="status-item"><span class="s-dot s-green"></span><span class="s-label">正常</span><span class="s-val">{{ overview.deviceNormal || 0 }}</span></div>
               <div class="status-item"><span class="s-dot s-amber"></span><span class="s-label">待维修</span><span class="s-val">{{ overview.devicePendingRepair || 0 }}</span></div>
-              <div class="status-item"><span class="s-dot s-blue"></span><span class="s-label">维修中</span><span class="s-val">{{ overview.deviceRepairing || 0 }}</span></div>
+              <div class="status-item"><span class="s-dot s-blue"></span><span class="s-label">无法维修</span><span class="s-val">{{ overview.deviceRepairing || 0 }}</span></div>
               <div class="status-item"><span class="s-dot s-red"></span><span class="s-label">待报废</span><span class="s-val">{{ overview.devicePendingScrap || 0 }}</span></div>
               <div class="status-item"><span class="s-dot s-grey"></span><span class="s-label">已报废</span><span class="s-val">{{ overview.deviceScrapped || 0 }}</span></div>
             </div>

@@ -44,6 +44,11 @@ public class RepairController {
         repairService.markFixed(id,comment); return R.ok("设备已恢复正常");
     }
 
+    @PutMapping("/{id}/unrepairable") @ApiOperation("无法修复(设备→无法维修)") @PreAuthorize("hasAuthority('repair:manage')")
+    public R<String> markUnrepairable(@PathVariable Long id,@RequestParam(required=false,defaultValue="")String comment){
+        repairService.markUnrepairable(id,comment); return R.ok("已标记无法维修");
+    }
+
     @PutMapping("/{id}/scrap") @ApiOperation("标记待报废(设备→待报废)") @PreAuthorize("hasAuthority('repair:manage')")
     public R<String> markScrap(@PathVariable Long id,@RequestParam(required=false,defaultValue="")String comment){
         repairService.markScrap(id,comment); return R.ok("已标记待报废");
