@@ -5,7 +5,7 @@
         <el-card><el-table :data="categories" stripe>
           <el-table-column prop="id" label="ID" width="80"/><el-table-column prop="name" label="分类名称" min-width="160"/><el-table-column prop="code" label="编码" width="120"/><el-table-column prop="sort" label="排序" width="80"/>
           <el-table-column label="状态" width="80"><template #default="{row}"><el-tag :type="row.status===1?'success':'info'">{{ row.status===1?'启用':'禁用' }}</el-tag></template></el-table-column>
-          <el-table-column label="操作" width="120"><template #default="{row}"><el-button size="small" @click="editCategory(row)">编辑</el-button><el-button size="small" type="danger" @click="toggleCategory(row)">{{ row.status===1?'禁用':'启用' }}</el-button></template></el-table-column>
+          <el-table-column label="操作" width="170" fixed="right"><template #default="{row}"><div style="white-space:nowrap"><el-button size="small" @click="editCategory(row)">编辑</el-button><el-button size="small" :type="row.status===1?'danger':''" @click="toggleCategory(row)">{{ row.status===1?'禁用':'启用' }}</el-button></div></template></el-table-column>
         </el-table></el-card>
       </el-tab-pane>
 

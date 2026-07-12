@@ -2,12 +2,14 @@
   <div class="manage"><h2>设备管理</h2>
     <el-card>
       <el-row :gutter="10">
-        <el-col :span="6"><el-input v-model="q.keyword" placeholder="搜索名称/资产编号" clearable @keyup.enter="load"/></el-col>
+        <el-col :span="5"><el-input v-model="q.keyword" placeholder="搜索ID/名称/资产编号" clearable @keyup.enter="load"/></el-col>
+        <el-col :span="5"><el-input v-model="q.location" placeholder="搜索存放地" clearable @keyup.enter="load"/></el-col>
         <el-col :span="3"><el-button type="primary" @click="load">搜索</el-button></el-col>
       </el-row>
     </el-card>
     <el-card style="margin-top:15px">
       <el-table :data="list" v-loading="loading" stripe>
+        <el-table-column prop="id" label="设备ID" width="70"/>
         <el-table-column prop="assetNo" label="资产编号" width="130"/>
         <el-table-column prop="name" label="名称" min-width="160"/>
         <el-table-column prop="location" label="存放地" min-width="120" show-overflow-tooltip/>
@@ -50,7 +52,7 @@ import { ref,reactive,onMounted } from 'vue';import { deviceApi } from '@/api/de
 const loading=ref(false);const list=ref([]);const total=ref(0)
 const editVisible=ref(false);const approverVisible=ref(false)
 const approverCurrentId=ref(null);const approverId=ref(null);const users=ref([])
-const q=reactive({page:1,size:20,keyword:''})
+const q=reactive({page:1,size:20,keyword:'',location:''})
 const form=reactive({id:null,name:'',model:'',location:'',borrowStatus:1,deviceStatus:1,borrowType:2,description:''})
 
 const borrowStatusMap={1:'success',2:'warning',3:'danger',4:'danger'}
@@ -66,7 +68,7 @@ function deviceStatusText(v){return deviceStatusTextMap[v]||v}
 function roleName(t){return roleNameMap[t]||t}
 function getApproverName(id){if(!id)return'未设置';const u=users.value.find(x=>x.id===id);return u?u.realName||u.username:`ID:${id}`}
 
-async function load(){loading.value=true;try{const{data}=await deviceApi.list({...q});list.value=data.records||[];total.value=data.total||0}catch(e){console.error(e)}finally{loading.value=false}}
+async function load(){loading.value=true;try{const{data}=await deviceApi.list({page:q.page,size:q.size,keyword:q.keyword||undefined,location:q.location||undefined});list.value=data.records||[];total.value=data.total||0}catch(e){console.error(e)}finally{loading.value=false}}
 async function loadUsers(){try{const{data}=await axios.get('/admin/users',{params:{page:1,size:500}});users.value=data.records||[]}catch{}}
 
 function openEdit(row){

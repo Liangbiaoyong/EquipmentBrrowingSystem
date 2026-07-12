@@ -22,6 +22,7 @@
         </el-select>
         <el-button type="primary" @click="load">查询</el-button>
         <el-button type="warning" @click="batchNotify" :disabled="!selectedIds.length">批量催还({{selectedIds.length}})</el-button>
+        <el-button @click="doRefresh" :loading="refreshing">检测逾期</el-button>
       </div>
     </el-card>
 
@@ -72,7 +73,7 @@ const nameCache=ref({})
 
 const stats=reactive({overdueTotal:0,avgDays:0,notified:0,collected:0})
 
-const dlg=reactive({show:false,force:false,row:null,damage:'',remark:'',loading:false})
+const dlg=reactive({show:false,force:false,row:null,damage:'',remark:'',loading:false}); const refreshing=ref(false)
 
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
 function getDN(id){return nameCache.value['d'+id]||'设备#'+id}
@@ -118,6 +119,8 @@ async function submitDlg(){
     ElMessage.success(dlg.force?'强制归还完成':'归还成功');dlg.show=false;load();loadStats()
   }catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}finally{dlg.loading=false}
 }
+
+async function doRefresh(){refreshing.value=true;try{const{data}=await axios.post('/borrows/overdue/refresh');ElMessage.success(`检测完成: 标记了${data}条逾期记录`);load();loadStats()}catch(e){ElMessage.error('刷新失败')}finally{refreshing.value=false}}
 
 async function batchNotify(){
   for(const id of selectedIds.value){try{await axios.post(`/borrows/${id}/overdue-notify`)}catch{}}

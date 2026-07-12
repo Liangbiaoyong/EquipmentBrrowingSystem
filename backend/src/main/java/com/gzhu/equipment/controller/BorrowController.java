@@ -323,6 +323,26 @@ public class BorrowController {
                         .orderByDesc(com.gzhu.equipment.entity.OverdueRecord::getCreateTime)));
     }
 
+    @PostMapping("/overdue/refresh")
+    @ApiOperation("手动刷新逾期状态（检查所有到期未还的借用）")
+    @PreAuthorize("hasAuthority('return:manage')")
+    public R<Integer> refreshOverdue() {
+        int count = 0;
+        var borrowing = borrowService.list(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>()
+                        .eq(BorrowRecord::getStatus, "BORROWING")
+                        .lt(BorrowRecord::getEndTime, java.time.LocalDateTime.now()));
+        for (BorrowRecord br : borrowing) {
+            long days = java.time.Duration.between(br.getEndTime(), java.time.LocalDateTime.now()).toDays();
+            br.setStatus("OVERDUE");
+            br.setOverdueDays((int) days);
+            borrowService.updateById(br);
+            count++;
+        }
+        log.info("手动逾期刷新: {}条记录", count);
+        return R.ok(count);
+    }
+
     @GetMapping("/overdue/stats")
     @ApiOperation("逾期统计数据")
     @PreAuthorize("hasAuthority('return:manage')")
