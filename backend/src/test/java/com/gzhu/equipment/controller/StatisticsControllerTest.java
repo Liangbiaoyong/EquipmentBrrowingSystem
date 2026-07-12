@@ -80,4 +80,16 @@ class StatisticsControllerTest {
                 .andExpect(header().exists("Content-Disposition"))
                 .andExpect(content().contentType("text/csv;charset=UTF-8"));
     }
+
+    @Test @DisplayName("GET /statistics/export?format=xlsx → 导出XLSX")
+    void exportXlsx_shouldReturnFile() throws Exception {
+        when(deviceMapper.selectCount(any())).thenReturn(100L, 80L, 15L, 5L, 10L, 20L, 30L, 40L, 50L, 60L, 70L, 80L, 90L, 100L);
+        when(borrowMapper.selectCount(any())).thenReturn(20L, 3L, 10L, 200L);
+
+        mockMvc.perform(get("/statistics/export").param("format", "xlsx"))
+                .andDo(print())
+                .andExpect(status().isOk())
+                .andExpect(header().exists("Content-Disposition"))
+                .andExpect(content().contentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+    }
 }

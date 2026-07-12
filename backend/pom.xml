@@ -145,6 +145,12 @@
             <artifactId>commons-io</artifactId>
             <version>2.15.1</version>
         </dependency>
+        <!-- POI 5.2.5 requires commons-compress >= 1.26 (Spring Boot 2.7.x manages 1.21) -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-compress</artifactId>
+            <version>1.26.0</version>
+        </dependency>
 
         <!-- Lombok -->
         <dependency>
