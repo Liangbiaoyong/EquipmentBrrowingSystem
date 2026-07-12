@@ -1,0 +1,150 @@
+{
+  "ok" : true,
+  "preflight_trace" : {
+    "pre_userinfo_status" : 200,
+    "pre_userinfo_body" : "{\"code\":300,\"message\":\"用户未登录，请重新登录\",\"data\":null,\"count\":0,\"vals\":null}",
+    "auth_address_status" : 200,
+    "auth_address_body" : "{\"code\":0,\"message\":\"查询成功\",\"data\":\"http://libbooking.gzhu.edu.cn/authcenter/toLoginPage?redirectUrl=http%3A%2F%2Flibbooking.gzhu.edu.cn%2Fic-web%2F%2Fauth%2Ftoken%3Fuuid%3D95b140cb392e489c96cc74644c7694b6&queryParam=&typeCode=&extInfo=95b140cb392e489c96cc74644c7694b6\",\"count\":0,\"vals\":null}",
+    "mode" : "auth-address"
+  },
+  "bootstrap_to_login_page" : "http://libbooking.gzhu.edu.cn/authcenter/toLoginPage?redirectUrl=http%3A%2F%2Flibbooking.gzhu.edu.cn%2Fic-web%2F%2Fauth%2Ftoken%3Fuuid%3D95b140cb392e489c96cc74644c7694b6&queryParam=&typeCode=&extInfo=95b140cb392e489c96cc74644c7694b6",
+  "bootstrap_location" : "https://newcas.gzhu.edu.cn/cas/login?service=http%3A%2F%2Flibbooking.gzhu.edu.cn%2Fauthcenter%2FdoAuth%2F6d7de9395d164bcf9ea406a2b2738cd8",
+  "bootstrap_status" : 302,
+  "service_url" : "http://libbooking.gzhu.edu.cn/authcenter/doAuth/4edbd40b8d1b4ef8970355950765d41f",
+  "login_url" : "https://newcas.gzhu.edu.cn/cas/login?service=http%3A%2F%2Flibbooking.gzhu.edu.cn%2Fauthcenter%2FdoAuth%2F6d7de9395d164bcf9ea406a2b2738cd8",
+  "final_url" : "https://libbooking.gzhu.edu.cn",
+  "final_status" : 200,
+  "final_response_headers" : {
+    "accept-ranges" : [ "bytes" ],
+    "connection" : [ "keep-alive" ],
+    "content-length" : [ "6461" ],
+    "content-type" : [ "text/html" ],
+    "date" : [ "Sun, 12 Jul 2026 08:22:07 GMT" ],
+    "etag" : [ "\"68d5e964-193d\"" ],
+    "last-modified" : [ "Fri, 26 Sep 2025 01:16:20 GMT" ],
+    "server" : [ "nginx/1.28.0" ]
+  },
+  "final_html_error" : "页面标题: Information Commons",
+  "redirect_hops" : [ {
+    "method" : "POST",
+    "url" : "https://newcas.gzhu.edu.cn/cas/login?service=http%3A%2F%2Flibbooking.gzhu.edu.cn%2Fauthcenter%2FdoAuth%2F6d7de9395d164bcf9ea406a2b2738cd8",
+    "status" : 302,
+    "location" : "http://libbooking.gzhu.edu.cn/authcenter/doAuth/6d7de9395d164bcf9ea406a2b2738cd8?ticket=ST-543764-MyCAZmjWa9lNcjvafcNn-cas"
+  }, {
+    "method" : "GET",
+    "url" : "http://libbooking.gzhu.edu.cn/authcenter/doAuth/6d7de9395d164bcf9ea406a2b2738cd8?ticket=ST-543764-MyCAZmjWa9lNcjvafcNn-cas",
+    "status" : 302,
+    "location" : "http://libbooking.gzhu.edu.cn/ic-web//auth/token?uuid=95b140cb392e489c96cc74644c7694b6&uniToken=eyJhbGciOiJIUzUxMiIsInppcCI6IkdaSVAifQ.H4sIAAAAAAAAAGVRu27DMAz8F80ZHCuBg6zxkiWLswUdCJFNVehhSBTgoui_V0VjSWnH4-GOd-SnMP6u3QUsiaOQvdzu-67rpBQbwSHRL-GSMRuhIODFr0jjKeMVgVI-Oa4kOR61OnmscgMxtn5IM7fYwrsP7SDS8mRY5gyc4orIgjYlB2KgWLj5zbsaIEX2dgSGInVM4fox1whkS0G1THlPVS9tmUff6ZHk9pLNllkHwrHRxBxFe3f-e6Z2pf5JK5LTr5nBfHZI-O8V2Vsct8NBHnb7oR--vgFfz6tttwEAAA.cDdfn4ig_wepCQ4Bea2ukbFVcPreGcWn4RWQADgLk34iLAoQU1KcZ7SwUAnsvyaXv6wMQoehOezeT1zW9ikw8g&extInfo=95b140cb392e489c96cc74644c7694b6"
+  }, {
+    "method" : "GET",
+    "url" : "http://libbooking.gzhu.edu.cn/ic-web//auth/token?uuid=95b140cb392e489c96cc74644c7694b6&uniToken=eyJhbGciOiJIUzUxMiIsInppcCI6IkdaSVAifQ.H4sIAAAAAAAAAGVRu27DMAz8F80ZHCuBg6zxkiWLswUdCJFNVehhSBTgoui_V0VjSWnH4-GOd-SnMP6u3QUsiaOQvdzu-67rpBQbwSHRL-GSMRuhIODFr0jjKeMVgVI-Oa4kOR61OnmscgMxtn5IM7fYwrsP7SDS8mRY5gyc4orIgjYlB2KgWLj5zbsaIEX2dgSGInVM4fox1whkS0G1THlPVS9tmUff6ZHk9pLNllkHwrHRxBxFe3f-e6Z2pf5JK5LTr5nBfHZI-O8V2Vsct8NBHnb7oR--vgFfz6tttwEAAA.cDdfn4ig_wepCQ4Bea2ukbFVcPreGcWn4RWQADgLk34iLAoQU1KcZ7SwUAnsvyaXv6wMQoehOezeT1zW9ikw8g&extInfo=95b140cb392e489c96cc74644c7694b6",
+    "status" : 302,
+    "location" : "https://libbooking.gzhu.edu.cn"
+  }, {
+    "method" : "GET",
+    "url" : "https://libbooking.gzhu.edu.cn",
+    "status" : 200,
+    "location" : ""
+  } ],
+  "token_candidates_count" : 1,
+  "warmup_traces" : [ {
+    "url" : "https://libbooking.gzhu.edu.cn/",
+    "status" : 200
+  }, {
+    "url" : "https://libbooking.gzhu.edu.cn/ic-web/Language/getLanList",
+    "status" : 200
+  } ],
+  "final_body_json" : null,
+  "final_body_preview" : "<!DOCTYPE html><html lang=en><head><meta charset=utf-8><meta http-equiv=X-UA-Compatible content=\"IE=edge\"><meta name=viewport content=\"width=device-width,initial-scale=1,maximum-scale=1,minimum-scale=1,user-scalable=no\"><meta http-equiv=pragram content=no-cache><meta http-equiv=cache-control content=\"no-cache, no-store, must-revalidate\"><meta name=viewport content=\"width=device-width,initial-scale=1\"><link rel=icon href=./favicon.ico><title>Information Commons</title><script>document.write(\"<script type='text/javascript' src='./config/config.js?v=\" + Math.random() + \"'><\\/script>\");\r\n        document.write(\"<script type='text/javascript' src='./config/operatingSystem.js?v=\" + Math.random() + \"'><\\/script>\");\r\n        document.write(\"<script type='text/javascript' src='./static.js?v=\" + Math.random() + \"'><\\/script>\");</script><link href=css/chunk-058f40c0_1758849293545.css rel=prefetch><link href=css/chunk-0e6b7265_1758849293545.css rel=prefetch><link href=css/chunk-0f242a8a_1758849293",
+  "token" : "c9c59b0f98c84101b9e4c991748531ef",
+  "token_source" : "userinfo_data_token",
+  "token_preview" : "c9c59b0f98c84101b9e4c991...",
+  "cookies" : { },
+  "cookies_count" : 0,
+  "form_fields" : [ "_eventId", "execution", "lt", "pd", "pl", "rsa", "ul", "un" ],
+  "userinfo" : {
+    "code" : 0,
+    "message" : "查询成功",
+    "data" : {
+      "uuid" : "32f24cecb13944c8ab10fdd5ac89b8e2",
+      "accNo" : 101615882,
+      "pid" : "32315200033",
+      "logonName" : "32315200033",
+      "cardNo" : "00134870",
+      "cardId" : "713909182",
+      "idCard" : "",
+      "trueName" : "梁标泳",
+      "kind" : 1,
+      "ident" : 257,
+      "status" : 1,
+      "localstatus" : 1,
+      "classId" : 100458324,
+      "className" : "信计（创）231",
+      "subsidy" : 0,
+      "sex" : 1,
+      "handPhone" : "",
+      "email" : "",
+      "deptId" : 100455368,
+      "deptName" : "数学与信息科学学院",
+      "birthday" : 0,
+      "balance" : 5993,
+      "freeTime" : 0,
+      "useQuota" : null,
+      "roleId" : null,
+      "roleLevel" : null,
+      "manager" : 1,
+      "permsSet" : [ ],
+      "token" : "c9c59b0f98c84101b9e4c991748531ef",
+      "property" : 0,
+      "expiredDate" : 20270731
+    },
+    "count" : 0,
+    "vals" : null
+  },
+  "userinfo_attempts" : [ {
+    "status_code" : 200,
+    "token_used" : true,
+    "token_preview" : "eyJhbGciOiJIUzUx...",
+    "ok" : true,
+    "body" : {
+      "code" : 0,
+      "message" : "查询成功",
+      "data" : {
+        "uuid" : "32f24cecb13944c8ab10fdd5ac89b8e2",
+        "accNo" : 101615882,
+        "pid" : "32315200033",
+        "logonName" : "32315200033",
+        "cardNo" : "00134870",
+        "cardId" : "713909182",
+        "idCard" : "",
+        "trueName" : "梁标泳",
+        "kind" : 1,
+        "ident" : 257,
+        "status" : 1,
+        "localstatus" : 1,
+        "classId" : 100458324,
+        "className" : "信计（创）231",
+        "subsidy" : 0,
+        "sex" : 1,
+        "handPhone" : "",
+        "email" : "",
+        "deptId" : 100455368,
+        "deptName" : "数学与信息科学学院",
+        "birthday" : 0,
+        "balance" : 5993,
+        "freeTime" : 0,
+        "useQuota" : null,
+        "roleId" : null,
+        "roleLevel" : null,
+        "manager" : 1,
+        "permsSet" : [ ],
+        "token" : "c9c59b0f98c84101b9e4c991748531ef",
+        "property" : 0,
+        "expiredDate" : 20270731
+      },
+      "count" : 0,
+      "vals" : null
+    }
+  } ],
+  "created_at_ms" : 1783844528272
+}

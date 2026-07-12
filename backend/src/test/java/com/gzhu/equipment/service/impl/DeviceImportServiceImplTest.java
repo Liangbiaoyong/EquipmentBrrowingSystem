@@ -233,7 +233,7 @@ class DeviceImportServiceImplTest {
     }
 
     @Test
-    @DisplayName("Dry-Run（超20行）→ 只取前20条")
+    @DisplayName("Dry-Run（超20行）→ totalRows返回总数，预览只处理前20条")
     void dryRun_over20Lines_shouldCap() throws Exception {
         StringBuilder sb = new StringBuilder(headerLine() + "\n");
         for (int i = 1; i <= 30; i++) {
@@ -246,7 +246,7 @@ class DeviceImportServiceImplTest {
 
         ImportResultDTO result = importService.dryRun(toStream(sb.toString()), "test.csv");
 
-        assertThat(result.getTotalRows()).isLessThanOrEqualTo(20);
+        assertThat(result.getTotalRows()).isEqualTo(30);
     }
 
     // ==================== 格式验证 ====================
