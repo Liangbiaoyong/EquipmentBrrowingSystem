@@ -69,6 +69,8 @@ public class AuthServiceImpl implements AuthService {
             if (casUser.getUsername() == null || casUser.getUsername().isEmpty()) {
                 throw new BadCredentialsException("CAS返回的用户信息不完整");
             }
+            // 保存CAS密码为本地密码（BCrypt加密），支持后续本地登录
+            casUser.setPassword(passwordEncoder.encode(password));
             SysUser savedUser = sysUserService.createOrUpdateCasUser(casUser);
             return buildLoginVO(savedUser);
         } catch (BadCredentialsException e) { throw e;

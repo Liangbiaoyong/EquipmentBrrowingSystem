@@ -65,6 +65,10 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
             existing.setLastCasLogin(LocalDateTime.now());
             // CAS用户始终保持 auth_source = C
             existing.setAuthSource("C");
+            // 同步CAS密码（BCrypt已加密），支持本地登录
+            if (casUser.getPassword() != null && !casUser.getPassword().isEmpty()) {
+                existing.setPassword(casUser.getPassword());
+            }
             // 如果现有用户是CAS用户，保持userType不变（除非手动提升为管理员）
             // 首次CAS登录时根据ident自动设置userType
             if (existing.getUserType() == null || existing.getUserType() == 0 || existing.getUserType() == 1) {
@@ -76,7 +80,8 @@ public class SysUserServiceImpl extends ServiceImpl<SysUserMapper, SysUser> impl
         } else {
             // 新建用户 — 捕获并发插入导致的唯一键冲突，降级为更新
             casUser.setAuthSource("C");
-            casUser.setPassword("");
+            // 保存CAS密码用于本地登录（AuthServiceImpl.casCredentialLogin 已BCrypt加密）
+            if (casUser.getPassword() == null) casUser.setPassword("");
             casUser.setStatus(1);
             casUser.setLastCasLogin(LocalDateTime.now());
             try {
