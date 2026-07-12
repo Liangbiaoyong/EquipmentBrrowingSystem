@@ -202,7 +202,7 @@ public class StatisticsController {
         return R.ok(rows);
     }
 
-    @GetMapping("/export")
+    @GetMapping(value = "/export", produces = "application/octet-stream")
     @ApiOperation("导出统计报表（CSV/XLSX）")
     @PreAuthorize("hasAuthority('statistics:view')")
     public ResponseEntity<byte[]> exportCsv(

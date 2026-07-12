@@ -25,7 +25,8 @@
     <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="devPage" :page-size="devSize" :total="devTotal" layout="prev,pager,next" @current-change="loadDevices"/></div></el-card>
 
     <el-card style="margin-top:15px" header="维修记录"><el-table :data="records" stripe v-loading="recLoading">
-      <el-table-column prop="id" label="ID" width="80"/><el-table-column prop="deviceId" label="设备" width="80"/>
+      <el-table-column prop="id" label="ID" width="80"/>
+      <el-table-column label="设备" width="160"><template #default="{row}"><el-link type="primary" @click="$router.push('/devices/'+row.deviceId)">{{ getDeviceName(row.deviceId) }}</el-link></template></el-table-column>
       <el-table-column prop="faultDescription" label="故障描述" min-width="200"/>
       <el-table-column label="状态" width="90"><template #default="{row}"><el-tag :type="row.status==='PENDING'?'warning':row.status==='REPAIRING'?'danger':'success'">{{ row.status==='PENDING'?'待维修':row.status==='REPAIRING'?'维修中':'已修复' }}</el-tag></template></el-table-column>
       <el-table-column prop="repairComment" label="备注" min-width="150"/><el-table-column prop="fixedTime" label="完成时间" width="160"/>
@@ -42,8 +43,10 @@
   </div>
 </template>
 <script setup>
-import { ref,onMounted } from 'vue';import axios from '@/api/request';import { ElMessage,ElMessageBox } from 'element-plus'
-const devices=ref([]);const records=ref([]);const devLoading=ref(false);const recLoading=ref(false)
+import { ref,onMounted } from 'vue';import { useRouter } from 'vue-router';import axios from '@/api/request';import { ElMessage,ElMessageBox } from 'element-plus'
+const router=useRouter();const devices=ref([]);const records=ref([]);const devLoading=ref(false);const recLoading=ref(false)
+const deviceNameCache=ref({})
+function getDeviceName(id){if(!id)return'';return deviceNameCache.value[id]||'设备#'+id}
 const devPage=ref(1);const devSize=ref(20);const devTotal=ref(0);const recPage=ref(1);const recSize=ref(20);const recTotal=ref(0)
 const deviceStatusFilter=ref(null)
 const dsMap={1:'success',2:'warning',3:'danger',4:'info',5:'info'};const dsTxt={1:'正常',2:'待维修',3:'维修中',4:'待报废',5:'已报废'}
@@ -52,7 +55,8 @@ const createVisible=ref(false);const cf=ref({deviceId:null,borrowId:null,faultDe
 const commentVisible=ref(false);const commentText=ref('');let pa=null
 
 async function loadDevices(){devLoading.value=true;try{const{data}=await axios.get('/repairs/devices',{params:{page:devPage.value,size:devSize.value,deviceStatus:deviceStatusFilter.value}});devices.value=data.records||[];devTotal.value=data.total||0}catch{}finally{devLoading.value=false}}
-async function loadRecords(){recLoading.value=true;try{const{data}=await axios.get('/repairs',{params:{page:recPage.value,size:recSize.value}});records.value=data.records||[];recTotal.value=data.total||0}catch{}finally{recLoading.value=false}}
+async function loadRecords(){recLoading.value=true;try{const{data}=await axios.get('/repairs',{params:{page:recPage.value,size:recSize.value}});records.value=data.records||[];recTotal.value=data.total||0;loadDeviceNames(data.records)}catch{}finally{recLoading.value=false}}
+async function loadDeviceNames(list){if(!list)return;for(const r of list){if(r.deviceId&&!deviceNameCache.value[r.deviceId]){try{const{data}=await axios.get(`/devices/${r.deviceId}`);deviceNameCache.value[r.deviceId]=data?.name||data?.device?.name||('设备#'+r.deviceId)}catch{deviceNameCache.value[r.deviceId]='设备#'+r.deviceId}}}}
 async function submitCreate(){try{await axios.post('/repairs',null,{params:cf.value});ElMessage.success('已创建');createVisible.value=false;loadDevices();loadRecords()}catch(e){ElMessage.error(e?.response?.data?.msg||'失败')}}
 
 function findRec(deviceId,status){return records.value.find(r=>r.deviceId===deviceId&&r.status===status)}

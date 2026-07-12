@@ -345,7 +345,7 @@ public class DataTableController {
 
     // ==================== 表导出（CSV / XLSX） ====================
 
-    @GetMapping("/{tableName}/export")
+    @GetMapping(value = "/{tableName}/export", produces = "application/octet-stream")
     @ApiOperation("导出表数据为CSV或XLSX")
     @PreAuthorize("hasAnyAuthority('admin:user','laboratory:manage')")
     public ResponseEntity<byte[]> exportTable(

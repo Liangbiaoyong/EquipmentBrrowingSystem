@@ -62,13 +62,11 @@ public class CategoryController {
     // ==================== 映射规则管理 ====================
 
     @GetMapping("/mappings")
-    @ApiOperation("获取所有映射规则")
+    @ApiOperation("获取所有映射规则（支持按分类/国标名/关键词搜索）")
     public R<List<CategoryMapping>> listMappings(
-            @RequestParam(required = false) Long categoryId) {
-        if (categoryId != null) {
-            return R.ok(categoryService.listMappingsByCategory(categoryId));
-        }
-        return R.ok(categoryService.listMappings());
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String keyword) {
+        return R.ok(categoryService.listMappingsFiltered(categoryId, keyword));
     }
 
     @PostMapping("/mappings")

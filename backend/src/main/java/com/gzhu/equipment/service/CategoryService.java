@@ -43,6 +43,9 @@ public interface CategoryService extends IService<DeviceCategory> {
     /** 按分类ID获取映射规则 */
     List<CategoryMapping> listMappingsByCategory(Long categoryId);
 
+    /** 按分类ID + 关键词搜索映射规则 */
+    List<CategoryMapping> listMappingsFiltered(Long categoryId, String keyword);
+
     /** 新增映射规则 */
     CategoryMapping addMapping(CategoryMapping mapping);
 

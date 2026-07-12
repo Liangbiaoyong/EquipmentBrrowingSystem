@@ -138,7 +138,7 @@ public class AdminController {
 
     // ==================== 模板导出（CSV/XLSX） ====================
 
-    @GetMapping("/users/template")
+    @GetMapping(value = "/users/template", produces = "application/octet-stream")
     @ApiOperation("下载批量操作模板")
     @PreAuthorize("hasAuthority('admin:user')")
     public ResponseEntity<byte[]> downloadTemplate(@RequestParam(defaultValue = "xlsx") String format) {

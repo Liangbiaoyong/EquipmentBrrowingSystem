@@ -37,7 +37,7 @@ public class AuditLogController {
         return R.ok(sysLogMapper.selectPage(new Page<>(page,size),w));
     }
 
-    @GetMapping("/export")
+    @GetMapping(value = "/export", produces = "application/octet-stream")
     @ApiOperation("导出操作日志（CSV/XLSX）") @PreAuthorize("hasAuthority('admin:log')")
     public ResponseEntity<byte[]> exportCsv(
             @RequestParam(required=false)String username,

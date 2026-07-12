@@ -104,6 +104,18 @@ public class CategoryServiceImpl extends ServiceImpl<DeviceCategoryMapper, Devic
     }
 
     @Override
+    public List<CategoryMapping> listMappingsFiltered(Long categoryId, String keyword) {
+        LambdaQueryWrapper<CategoryMapping> w = new LambdaQueryWrapper<>();
+        if (categoryId != null) w.eq(CategoryMapping::getCategoryId, categoryId);
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            w.and(wp -> wp.like(CategoryMapping::getGbCategoryName, keyword)
+                    .or().like(CategoryMapping::getKeyword, keyword));
+        }
+        w.orderByAsc(CategoryMapping::getPriority);
+        return categoryMappingMapper.selectList(w);
+    }
+
+    @Override
     @Transactional
     public CategoryMapping addMapping(CategoryMapping mapping) {
         categoryMappingMapper.insert(mapping);
