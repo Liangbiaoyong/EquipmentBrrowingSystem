@@ -1,7 +1,7 @@
 <template>
   <div class="device-list"><h2>设备列表</h2>
     <el-card class="search-card"><el-row :gutter="10">
-      <el-col :span="6"><el-input v-model="q.assetNo" placeholder="资产编号" clearable @keyup.enter="search"/></el-col>
+      <el-col :span="6"><el-input v-model="q.assetNo" placeholder="设备ID / 资产编号" clearable @keyup.enter="search"/></el-col>
       <el-col :span="6"><el-input v-model="q.name" placeholder="名称" clearable @keyup.enter="search"/></el-col>
       <el-col :span="6"><el-input v-model="q.model" placeholder="型号" clearable @keyup.enter="search"/></el-col>
       <el-col :span="6"><el-select v-model="q.categoryId" placeholder="分类" clearable @change="search"><el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id"/></el-select></el-col>
@@ -22,7 +22,8 @@
     </el-row></el-card>
     <el-card style="margin-top:15px">
       <el-table :data="list" v-loading="loading" stripe @row-click="toDetail" style="cursor:pointer">
-        <el-table-column prop="assetNo" label="资产编号" width="140"/>
+        <el-table-column prop="id" label="设备ID" width="70"/>
+        <el-table-column prop="assetNo" label="资产编号" width="130"/>
         <el-table-column prop="name" label="名称" min-width="160"/>
         <el-table-column prop="model" label="型号" min-width="120"/>
         <el-table-column label="分类" width="120"><template #default="{row}">{{ catName(row.categoryId) }}</template></el-table-column>

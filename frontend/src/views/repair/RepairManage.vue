@@ -18,8 +18,8 @@
       <el-table-column label="设备状态" width="100"><template #default="{row}"><el-tag :type="dsType(row.deviceStatus)">{{ dsText(row.deviceStatus) }}</el-tag></template></el-table-column>
       <el-table-column label="操作" width="250" fixed="right"><template #default="{row}">
         <el-button size="small" type="primary" @click="quickCreate(row)">创建记录</el-button>
-        <el-button v-if="row.deviceStatus===2" size="small" type="warning" @click="startRepair(row.id)">开始维修</el-button>
-        <el-button v-if="row.deviceStatus===3" size="small" type="success" @click="fixDevice(row.id)">修复完成</el-button>
+        <el-button v-if="row.deviceStatus===2" size="small" type="success" @click="quickFix(row.id)">完成维修</el-button>
+        <el-button v-if="row.deviceStatus===2" size="small" type="danger" @click="quickUnrepairable(row.id)">无法维修</el-button>
       </template></el-table-column>
     </el-table>
     <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="devPage" :page-size="devSize" :total="devTotal" layout="prev,pager,next" @current-change="loadDevices"/></div></el-card>
@@ -65,7 +65,9 @@ function quickCreate(row){cf.value={deviceId:row.id,borrowId:null,faultDescripti
 function findRec(deviceId,status){return records.value.find(r=>r.deviceId===deviceId&&r.status===status)}
 function startRepair(deviceId){ElMessageBox.confirm('确认开始维修？').then(async()=>{const rec=findRec(deviceId,'PENDING');if(rec){await axios.put(`/repairs/${rec.id}/start`);ElMessage.success('维修已开始');loadDevices();loadRecords()}else ElMessage.warning('未找到待维修记录')}).catch(()=>{})}
 
-function fixDevice(deviceId){commentText.value='';commentVisible.value=true;pa=async()=>{const rec=findRec(deviceId,'REPAIRING');if(rec){await axios.put(`/repairs/${rec.id}/fix`,null,{params:{comment:commentText.value}});ElMessage.success('设备已恢复正常');loadDevices();loadRecords()}else ElMessage.warning('未找到维修中记录')}}
+function quickFix(deviceId){commentText.value='';commentVisible.value=true;pa=async()=>{const rec=findRec(deviceId,'PENDING');if(rec){await axios.put(`/repairs/${rec.id}/start`);await axios.put(`/repairs/${rec.id}/fix`,null,{params:{comment:commentText.value}});ElMessage.success('设备已恢复正常');loadDevices();loadRecords()}else ElMessage.warning('未找到待维修记录')}}
+
+function quickUnrepairable(deviceId){commentText.value='';commentVisible.value=true;pa=async()=>{const rec=findRec(deviceId,'PENDING');if(rec){await axios.put(`/repairs/${rec.id}/start`);await axios.put(`/repairs/${rec.id}/unrepairable`,null,{params:{comment:commentText.value}});ElMessage.success('已标记无法维修');loadDevices();loadRecords()}else ElMessage.warning('未找到待维修记录')}}
 
 function commentOk(){commentVisible.value=false;if(pa)pa();pa=null}
 onMounted(()=>{loadDevices();loadRecords()})

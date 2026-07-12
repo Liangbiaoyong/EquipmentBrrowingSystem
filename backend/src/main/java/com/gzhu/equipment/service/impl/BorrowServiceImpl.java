@@ -329,6 +329,12 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
     }
 
     private void createApprovalLog(Long borrowId, int step, Long approverId) {
+        // 确保 approverId 不为 null：null时自动分配系统管理员
+        if (approverId == null) {
+            SysUser sysAdmin = userMapper.selectOne(
+                    new LambdaQueryWrapper<SysUser>().eq(SysUser::getUserType, 3).eq(SysUser::getStatus, 1).last("LIMIT 1"));
+            approverId = sysAdmin != null ? sysAdmin.getId() : 1L;
+        }
         ApprovalLog log = new ApprovalLog();
         log.setBorrowId(borrowId);
         log.setStep(step);

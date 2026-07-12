@@ -44,15 +44,16 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
         if (StringUtils.hasText(model)) {
             wrapper.like(Device::getModel, model);
         }
-        // 关键词：同时匹配名称、资产编号、型号（仅当未使用分离字段时）
+        // 关键词：同时匹配名称、资产编号、型号、ID
         if (StringUtils.hasText(keyword)) {
-            wrapper.and(w -> w
-                    .like(Device::getName, keyword)
-                    .or().like(Device::getAssetNo, keyword)
-                    .or().like(Device::getModel, keyword)
-                    .or().like(Device::getLocation, keyword)
-                    .or().like(Device::getGbCategoryName, keyword)
-            );
+            wrapper.and(w -> {
+                w.like(Device::getName, keyword)
+                 .or().like(Device::getAssetNo, keyword)
+                 .or().like(Device::getModel, keyword)
+                 .or().like(Device::getLocation, keyword)
+                 .or().like(Device::getGbCategoryName, keyword);
+                try { w.or().eq(Device::getId, Long.parseLong(keyword)); } catch (NumberFormatException ignored) {}
+            });
         }
         if (categoryId != null) {
             wrapper.eq(Device::getCategoryId, categoryId);
