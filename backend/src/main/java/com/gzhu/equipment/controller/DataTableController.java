@@ -263,6 +263,26 @@ public class DataTableController {
         }
     }
 
+    @DeleteMapping("/{tableName}/rows/batch")
+    @ApiOperation("批量删除行（仅系统管理员）")
+    @PreAuthorize("hasAuthority('admin:user')")
+    public R<String> batchDeleteRows(@PathVariable String tableName,
+                                      @RequestBody List<Long> ids) {
+        if (!tableName.matches("^[a-zA-Z_][a-zA-Z0-9_]*$")) return R.fail(400, "非法表名");
+        if (READ_ONLY_TABLES.contains(tableName)) return R.fail(403, "此表不可删除记录");
+        if (ids == null || ids.isEmpty()) return R.fail(400, "未选择记录");
+
+        try {
+            String placeholders = ids.stream().map(i -> "?").collect(java.util.stream.Collectors.joining(","));
+            String sql = "DELETE FROM `" + tableName + "` WHERE id IN (" + placeholders + ")";
+            int rows = jdbcTemplate.update(sql, ids.toArray());
+            log.warn("批量删除行: table={} count={}", tableName, ids.size());
+            return R.ok("已删除 " + rows + " 行");
+        } catch (Exception e) {
+            return R.fail(500, "批量删除失败: " + e.getMessage());
+        }
+    }
+
     // ==================== 新增行（仅系统管理员） ====================
 
     @PostMapping("/{tableName}")
@@ -302,31 +322,7 @@ public class DataTableController {
         }
     }
 
-    // ==================== 列管理（仅系统管理员） ====================
-
-    @PostMapping("/{tableName}/columns")
-    @ApiOperation("新增列")
-    @PreAuthorize("hasAuthority('admin:user')")
-    public R<String> addColumn(@PathVariable String tableName,
-                                @RequestBody Map<String, String> body) {
-        if (!tableName.matches("^[a-zA-Z_][a-zA-Z0-9_]*$")) return R.fail(400, "非法表名");
-        if (READ_ONLY_TABLES.contains(tableName)) return R.fail(403, "此表不可修改结构");
-        String colName = body.get("columnName");
-        String colType = body.getOrDefault("columnType", "varchar(255)");
-        String colComment = body.getOrDefault("columnComment", "");
-        if (colName == null || !colName.matches("^[a-zA-Z_][a-zA-Z0-9_]*$"))
-            return R.fail(400, "非法列名");
-
-        try {
-            String sql = "ALTER TABLE `" + tableName + "` ADD COLUMN `" + colName + "` " + colType
-                    + (colComment.isEmpty() ? "" : " COMMENT '" + colComment.replace("'", "''") + "'");
-            jdbcTemplate.execute(sql);
-            log.warn("列新增: table={} col={} type={}", tableName, colName, colType);
-            return R.ok("已新增列: " + colName);
-        } catch (Exception e) {
-            return R.fail(500, "新增列失败: " + e.getMessage());
-        }
-    }
+    // ==================== 列管理（仅系统管理员，仅支持删除列） ====================
 
     @DeleteMapping("/{tableName}/columns")
     @ApiOperation("删除列（仅系统管理员）")

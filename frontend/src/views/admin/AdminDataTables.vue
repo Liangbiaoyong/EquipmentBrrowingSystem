@@ -30,7 +30,7 @@
             <el-button v-if="isAdmin&&!readOnly" type="success" @click="openNewRow">新增行</el-button>
             <el-dropdown v-if="isAdmin&&!readOnly" @command="handleColumn">
               <el-button type="warning">列管理 <el-icon><ArrowDown/></el-icon></el-button>
-              <template #dropdown><el-dropdown-menu><el-dropdown-item command="add">新增列</el-dropdown-item><el-dropdown-item command="drop">删除列</el-dropdown-item></el-dropdown-menu></template>
+              <template #dropdown><el-dropdown-menu><el-dropdown-item command="drop">删除列</el-dropdown-item></el-dropdown-menu></template>
             </el-dropdown>
             <el-button type="danger" v-if="isAdmin&&selectedRows.length&&!readOnly" @click="batchDelete">批量删除({{selectedRows.length}})</el-button>
           </div>
@@ -85,29 +85,15 @@
       <template #footer><el-button @click="newRowVisible=false">取消</el-button><el-button type="primary" @click="submitNewRow">确认新增</el-button></template>
     </el-dialog>
 
-    <!-- 列管理对话框 -->
-    <el-dialog v-model="colVisible" :title="colAction==='add'?'新增列':'删除列'" width="450px">
-      <template v-if="colAction==='add'">
-        <el-form label-width="80px">
-          <el-form-item label="列名"><el-input v-model="colForm.columnName" placeholder="英文列名，如 new_field"/></el-form-item>
-          <el-form-item label="类型"><el-select v-model="colForm.columnType" style="width:100%">
-            <el-option label="VARCHAR(255)" value="varchar(255)"/><el-option label="INT" value="int"/>
-            <el-option label="BIGINT" value="bigint"/><el-option label="DECIMAL(10,2)" value="decimal(10,2)"/>
-            <el-option label="TEXT" value="text"/><el-option label="DATETIME" value="datetime"/>
-            <el-option label="TINYINT" value="tinyint"/>
-          </el-select></el-form-item>
-          <el-form-item label="注释"><el-input v-model="colForm.columnComment" placeholder="列注释"/></el-form-item>
-        </el-form>
-      </template>
-      <template v-else>
-        <el-form label-width="80px">
-          <el-form-item label="选择列"><el-select v-model="colForm.columnName" placeholder="选择要删除的列" style="width:100%">
-            <el-option v-for="c in columns" :key="c.COLUMN_NAME" :label="`${c.COLUMN_COMMENT||c.COLUMN_NAME} (${c.COLUMN_NAME})`" :value="c.COLUMN_NAME" :disabled="c.COLUMN_NAME==='id'"/>
-          </el-select></el-form-item>
-        </el-form>
-        <el-alert title="删除列将永久删除该列的所有数据，不可恢复！" type="warning" show-icon :closable="false"/>
-      </template>
-      <template #footer><el-button @click="colVisible=false">取消</el-button><el-button :type="colAction==='drop'?'danger':'primary'" @click="submitColumn">{{ colAction==='add'?'新增':'确认删除' }}</el-button></template>
+    <!-- 删除列对话框 -->
+    <el-dialog v-model="colVisible" title="删除列" width="450px">
+      <el-form label-width="80px">
+        <el-form-item label="选择列"><el-select v-model="colForm.columnName" placeholder="选择要删除的列" style="width:100%">
+          <el-option v-for="c in columns" :key="c.COLUMN_NAME" :label="`${c.COLUMN_COMMENT||c.COLUMN_NAME} (${c.COLUMN_NAME})`" :value="c.COLUMN_NAME" :disabled="c.COLUMN_NAME==='id'"/>
+        </el-select></el-form-item>
+      </el-form>
+      <el-alert title="删除列将永久删除该列的所有数据，不可恢复！" type="warning" show-icon :closable="false"/>
+      <template #footer><el-button @click="colVisible=false">取消</el-button><el-button type="danger" @click="submitColumn">确认删除</el-button></template>
     </el-dialog>
   </div>
 </template>
@@ -120,9 +106,6 @@ const batchCol=ref('');const batchVal=ref('')
 
 // 新增行
 const newRowVisible=ref(false);const newRow=reactive({})
-// 列管理
-const colVisible=ref(false);const colAction=ref('add');const colForm=reactive({columnName:'',columnType:'varchar(255)',columnComment:''})
-
 function checkAdmin(){try{const p=JSON.parse(localStorage.getItem('permissions')||'[]');isAdmin.value=p.includes('admin:user')}catch{isAdmin.value=false}}
 
 async function loadTables(){try{const{data}=await axios.get('/admin/data-tables/tables');tables.value=data||[]}catch(e){console.error(e)}}
@@ -150,7 +133,7 @@ async function batchUpdate(){
 }
 async function batchDelete(){
   try{await ElMessageBox.confirm(`将删除${selectedRows.value.length}行，不可恢复！`,'危险操作',{type:'error'})
-    for(const id of selectedRows.value){await axios.delete(`/admin/data-tables/${currentTable.value}/${id}`)}
+    await axios.delete(`/admin/data-tables/${currentTable.value}/rows/batch`,{data:selectedRows.value})
     ElMessage.success('批量删除完成');selectedRows.value=[];loadData()
   }catch{}
 }
@@ -164,20 +147,15 @@ async function submitNewRow(){
   try{await axios.post(`/admin/data-tables/${currentTable.value}`,{...newRow});ElMessage.success('新增成功');newRowVisible.value=false;loadData()}catch(e){ElMessage.error('新增失败: '+(e?.response?.data?.msg||e.message))}
 }
 
-// 列管理
-function handleColumn(cmd){colAction.value=cmd;colForm.columnName='';colForm.columnType='varchar(255)';colForm.columnComment='';colVisible.value=true}
+// 列管理（仅删除）
+const colVisible=ref(false);const colForm=reactive({columnName:''})
+function handleColumn(){colForm.columnName='';colVisible.value=true}
 async function submitColumn(){
-  if(!colForm.columnName){ElMessage.warning('请输入列名');return}
+  if(!colForm.columnName){ElMessage.warning('请选择列');return}
   try{
-    if(colAction.value==='add'){
-      await axios.post(`/admin/data-tables/${currentTable.value}/columns`,{columnName:colForm.columnName,columnType:colForm.columnType,columnComment:colForm.columnComment})
-      ElMessage.success('列已新增')
-    } else {
-      await ElMessageBox.confirm(`确认删除列 "${colForm.columnName}"？此操作不可恢复！`,'危险操作',{type:'error'})
-      await axios.delete(`/admin/data-tables/${currentTable.value}/columns`,{params:{columnName:colForm.columnName}})
-      ElMessage.success('列已删除')
-    }
-    colVisible.value=false;loadData()
+    await ElMessageBox.confirm(`确认删除列 "${colForm.columnName}"？此操作不可恢复！`,'危险操作',{type:'error'})
+    await axios.delete(`/admin/data-tables/${currentTable.value}/columns`,{params:{columnName:colForm.columnName}})
+    ElMessage.success('列已删除');colVisible.value=false;loadData()
   }catch(e){if(e!=='cancel')ElMessage.error('操作失败: '+(e?.response?.data?.msg||e.message))}
 }
 

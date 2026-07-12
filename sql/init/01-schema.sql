@@ -202,7 +202,7 @@ CREATE TABLE IF NOT EXISTS `approval_log` (
   `id` bigint NOT NULL AUTO_INCREMENT,
   `borrow_id` bigint NOT NULL COMMENT '关联借用单',
   `step` int NOT NULL COMMENT '第几级审批',
-  `approver_id` bigint NOT NULL COMMENT '审批人ID',
+  `approver_id` bigint DEFAULT NULL COMMENT '审批人ID（可为空，表示待管理员手动分配）',
   `result` varchar(20) DEFAULT 'PENDING' COMMENT 'PENDING/APPROVED/REJECTED',
   `comment` text COMMENT '审批意见',
   `operate_time` datetime DEFAULT CURRENT_TIMESTAMP,
