@@ -168,19 +168,59 @@ public class BorrowController {
         }
     }
 
+    // ==================== V6 借用浏览 ====================
+
+    @GetMapping("/browse")
+    @ApiOperation("借用浏览（综合查询+排序）")
+    @PreAuthorize("hasAnyAuthority('borrow:view','return:manage','approval:first','approval:second')")
+    public R<IPage<BorrowRecord>> browse(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false, defaultValue = "desc") String order) {
+        var w = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>();
+        if (status != null && !status.isEmpty()) w.eq(BorrowRecord::getStatus, status);
+        if (keyword != null && !keyword.isEmpty()) {
+            w.and(wp -> wp.like(BorrowRecord::getPurpose, keyword).or().like(BorrowRecord::getReason, keyword));
+        }
+        if (startDate != null) w.ge(BorrowRecord::getCreateTime, java.time.LocalDate.parse(startDate).atStartOfDay());
+        if (endDate != null) w.le(BorrowRecord::getCreateTime, java.time.LocalDate.parse(endDate).plusDays(1).atStartOfDay());
+        if (sort != null && !sort.isEmpty()) {
+            boolean asc = "asc".equalsIgnoreCase(order);
+            switch (sort) {
+                case "id": w.orderBy(true, asc, BorrowRecord::getId); break;
+                case "startTime": w.orderBy(true, asc, BorrowRecord::getStartTime); break;
+                case "endTime": w.orderBy(true, asc, BorrowRecord::getEndTime); break;
+                case "overdueDays": w.orderBy(true, asc, BorrowRecord::getOverdueDays); break;
+                default: w.orderByDesc(BorrowRecord::getId);
+            }
+        } else {
+            w.orderByDesc(BorrowRecord::getId);
+        }
+        return R.ok(borrowService.page(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), w));
+    }
+
     // ==================== V6 逾期管理 ====================
 
     @GetMapping("/overdue")
-    @ApiOperation("逾期未归还列表")
+    @ApiOperation("逾期未归还列表（含已标记逾期+到期未归还）")
     @PreAuthorize("hasAuthority('return:manage')")
     public R<IPage<BorrowRecord>> overdueList(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size) {
+        // 查询 OVERDUE 状态 + BORROWING且已过endTime的
         IPage<BorrowRecord> pg = borrowService.page(
                 new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size),
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>()
-                        .eq(BorrowRecord::getStatus, "OVERDUE")
-                        .orderByDesc(BorrowRecord::getOverdueDays));
+                        .and(w -> w.eq(BorrowRecord::getStatus, "OVERDUE")
+                                .or(w2 -> w2.eq(BorrowRecord::getStatus, "BORROWING")
+                                        .lt(BorrowRecord::getEndTime, java.time.LocalDateTime.now())))
+                        .orderByDesc(BorrowRecord::getOverdueDays)
+                        .orderByAsc(BorrowRecord::getEndTime));
         return R.ok(pg);
     }
 

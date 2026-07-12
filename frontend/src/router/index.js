@@ -20,6 +20,7 @@ const routes = [
       { path: 'devices/:id', name: 'DeviceDetail', component: () => import('@/views/device/DeviceDetail.vue'), meta: { title: '设备详情', perm: 'device:view' } },
       // 借用
       { path: 'borrows/create', name: 'BorrowCreate', component: () => import('@/views/borrow/BorrowCreate.vue'), meta: { title: '借用申请', perm: 'borrow:create' } },
+      { path: 'borrows/browse', name: 'BorrowBrowse', component: () => import('@/views/borrow/BorrowBrowse.vue'), meta: { title: '借用浏览', perm: 'borrow:view' } },
       { path: 'borrows/my', name: 'MyBorrows', component: () => import('@/views/borrow/MyBorrows.vue'), meta: { title: '我的借用', perm: 'borrow:my' } },
       { path: 'borrows/:id', name: 'BorrowDetail', component: () => import('@/views/borrow/BorrowDetail.vue'), meta: { title: '借用详情', perm: 'borrow:view' } },
       { path: 'borrows/:id/return', name: 'BorrowReturn', component: () => import('@/views/borrow/BorrowReturn.vue'), meta: { title: '归还登记', perm: 'borrow:return' } },
