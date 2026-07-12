@@ -9,7 +9,9 @@
       <span class="section-hint">设备借用与归还生命周期</span>
     </div>
     <div class="stat-grid five-col" v-loading="loading">
-      <div class="stat-card" v-for="s in borrowStatusCards" :key="s.label">
+      <div class="stat-card" v-for="s in borrowStatusCards" :key="s.label"
+           :style="{cursor:s.status!==undefined?'pointer':'default'}"
+           @click="s.status!==undefined&&goDevices({borrowStatus:s.status})">
         <div class="sc-bar" :style="{background:s.color}"></div>
         <div class="sc-body">
           <div class="sc-icon">
@@ -28,7 +30,8 @@
       <span class="section-hint">设备硬件健康状况</span>
     </div>
     <div class="stat-grid five-col">
-      <div class="stat-card phys-card" v-for="s in deviceStatusCards" :key="s.label">
+      <div class="stat-card phys-card" v-for="s in deviceStatusCards" :key="s.label"
+           style="cursor:pointer" @click="goDevices({deviceStatus:s.status})">
         <div class="sc-bar" :style="{background:s.color}"></div>
         <div class="sc-body">
           <span class="phys-dot" :style="{background:s.color}"></span>
@@ -83,26 +86,29 @@
 
 <script setup>
 import {ref,reactive,onMounted} from 'vue'
+import {useRouter} from 'vue-router'
 import {statsApi} from '@/api/statistics'
 import {Monitor,CircleCheck,Clock,WarningFilled,RemoveFilled,Cpu,Setting,CircleClose,DeleteFilled,Search,Plus,List} from '@element-plus/icons-vue'
 
-const loading=ref(true);const trendData=ref([]);const maxT=ref(1)
+const router=useRouter();const loading=ref(true);const trendData=ref([]);const maxT=ref(1)
 
 const borrowStatusCards=reactive([
-  {label:'设备总数',value:'-',color:'#909399',icon:Monitor},
-  {label:'可借用',value:'-',color:'#67C23A',icon:CircleCheck},
-  {label:'借用中',value:'-',color:'#409EFF',icon:Clock},
-  {label:'不可借',value:'-',color:'#E6A23C',icon:WarningFilled},
-  {label:'逾期',value:'-',color:'#F56C6C',icon:RemoveFilled}
+  {label:'设备总数',value:'-',color:'#909399',icon:Monitor,status:null},
+  {label:'可借用',value:'-',color:'#67C23A',icon:CircleCheck,status:1},
+  {label:'借用中',value:'-',color:'#409EFF',icon:Clock,status:2},
+  {label:'不可借',value:'-',color:'#E6A23C',icon:WarningFilled,status:3},
+  {label:'逾期',value:'-',color:'#F56C6C',icon:RemoveFilled,status:4}
 ])
 
 const deviceStatusCards=reactive([
-  {label:'正常',value:'-',color:'#67C23A'},
-  {label:'待维修',value:'-',color:'#E6A23C'},
-  {label:'无法维修',value:'-',color:'#F56C6C'},
-  {label:'待报废',value:'-',color:'#909399'},
-  {label:'已报废',value:'-',color:'#C0C4CC'}
+  {label:'正常',value:'-',color:'#67C23A',status:1},
+  {label:'待维修',value:'-',color:'#E6A23C',status:2},
+  {label:'无法维修',value:'-',color:'#F56C6C',status:3},
+  {label:'待报废',value:'-',color:'#909399',status:4},
+  {label:'已报废',value:'-',color:'#C0C4CC',status:5}
 ])
+
+function goDevices(params){router.push({path:'/devices',query:params})}
 
 const borrowCards=reactive([
   {label:'借出中',value:'-',color:'#409EFF'},
