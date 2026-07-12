@@ -18,6 +18,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import org.springframework.jdbc.core.JdbcTemplate;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -35,6 +36,7 @@ class StatisticsControllerTest {
     @MockBean private BorrowRecordMapper borrowMapper;
     @MockBean private DeviceCategoryMapper categoryMapper;
     @MockBean private SysUserMapper sysUserMapper;
+    @MockBean private JdbcTemplate jdbcTemplate;
     @MockBean private JwtTokenProvider jwtTokenProvider;
     @MockBean private LoginRateLimiter loginRateLimiter;
     @MockBean private TokenBlacklist tokenBlacklist;

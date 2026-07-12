@@ -30,6 +30,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @RestController
@@ -42,6 +43,7 @@ public class StatisticsController {
     private final BorrowRecordMapper borrowMapper;
     private final DeviceCategoryMapper categoryMapper;
     private final SysUserMapper sysUserMapper;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     /** 如果是教师角色，返回其姓名用于筛选持有设备；否则返回null */
     private String getTeacherCustodian() {
@@ -248,24 +250,24 @@ public class StatisticsController {
 
             // 热门设备
             w.write("\n=== 热门设备 TOP10 ===\n设备,借用次数\n");
-            var topDev = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
-                    .select("d.name as name","COUNT(*) as cnt").apply("LEFT JOIN device d ON borrow_record.device_id=d.id")
-                    .groupBy("d.name").orderByDesc("cnt").last("LIMIT 10"));
-            for (var r : topDev) w.write((r.get("name")!=null?r.get("name"):"未知") + "," + r.get("cnt") + "\n");
+            try {
+                for (var r : jdbcTemplate.queryForList("SELECT d.name AS name,COUNT(*) AS cnt FROM borrow_record LEFT JOIN device d ON borrow_record.device_id=d.id GROUP BY d.name ORDER BY cnt DESC LIMIT 10"))
+                    w.write((r.get("name")!=null?r.get("name"):"未知") + "," + r.get("cnt") + "\n");
+            } catch (Exception e) { log.warn("热门设备查询失败: {}", e.getMessage()); }
 
             // 高频用户
             w.write("\n=== 高频用户 TOP10 ===\n用户,借用次数\n");
-            var topUser = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
-                    .select("u.real_name as name","COUNT(*) as cnt").apply("LEFT JOIN sys_user u ON borrow_record.user_id=u.id")
-                    .groupBy("u.real_name").orderByDesc("cnt").last("LIMIT 10"));
-            for (var r : topUser) w.write((r.get("name")!=null?r.get("name"):"未知") + "," + r.get("cnt") + "\n");
+            try {
+                for (var r : jdbcTemplate.queryForList("SELECT u.real_name AS name,COUNT(*) AS cnt FROM borrow_record LEFT JOIN sys_user u ON borrow_record.user_id=u.id GROUP BY u.real_name ORDER BY cnt DESC LIMIT 10"))
+                    w.write((r.get("name")!=null?r.get("name"):"未知") + "," + r.get("cnt") + "\n");
+            } catch (Exception e) { log.warn("高频用户查询失败: {}", e.getMessage()); }
 
             // 分类利用率
             w.write("\n=== 分类利用率 ===\n分类,借用次数\n");
-            var util = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
-                    .select("dc.name as name","COUNT(*) as cnt").apply("LEFT JOIN device d ON borrow_record.device_id=d.id")
-                    .apply("LEFT JOIN device_category dc ON d.category_id=dc.id").groupBy("dc.name").orderByDesc("cnt").last("LIMIT 10"));
-            for (var r : util) w.write((r.get("name")!=null?r.get("name"):"未知") + "," + r.get("cnt") + "\n");
+            try {
+                for (var r : jdbcTemplate.queryForList("SELECT dc.name AS name,COUNT(*) AS cnt FROM borrow_record LEFT JOIN device d ON borrow_record.device_id=d.id LEFT JOIN device_category dc ON d.category_id=dc.id GROUP BY dc.name ORDER BY cnt DESC LIMIT 10"))
+                    w.write((r.get("name")!=null?r.get("name"):"未知") + "," + r.get("cnt") + "\n");
+            } catch (Exception e) { log.warn("分类利用率查询失败: {}", e.getMessage()); }
 
             // 目的分布
             w.write("\n=== 目的分布 ===\n目的大类,次数\n");
@@ -309,7 +311,7 @@ public class StatisticsController {
 
             // Sheet 3: 热门设备
             org.apache.poi.ss.usermodel.Sheet s3 = wb.createSheet("热门设备TOP10");
-            var topDev = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>().select("d.name as name","COUNT(*) as cnt").apply("LEFT JOIN device d ON borrow_record.device_id=d.id").groupBy("d.name").orderByDesc("cnt").last("LIMIT 10"));
+            var topDev = jdbcTemplate.queryForList("SELECT d.name AS name,COUNT(*) AS cnt FROM borrow_record LEFT JOIN device d ON borrow_record.device_id=d.id GROUP BY d.name ORDER BY cnt DESC LIMIT 10");
             org.apache.poi.ss.usermodel.Row r3 = s3.createRow(0); r3.createCell(0).setCellValue("设备"); r3.createCell(1).setCellValue("次数");
             i = 1; for (var row : topDev) { org.apache.poi.ss.usermodel.Row r = s3.createRow(i++); r.createCell(0).setCellValue(String.valueOf(row.get("name"))); r.createCell(1).setCellValue(((Number)row.get("cnt")).doubleValue()); }
 
