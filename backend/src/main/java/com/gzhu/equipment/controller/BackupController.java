@@ -46,12 +46,13 @@ public class BackupController {
         String filePath = backupDir + File.separator + fileName;
 
         try {
-            String dumpCmd = detectDumpTool();
+            // 优先使用 docker exec 在 MySQL 容器内执行 mysqldump（规避 auth 插件问题）
             ProcessBuilder pb;
-            if (dumpCmd.startsWith("docker")) {
+            if (isCmdOk("docker")) {
                 pb = buildDockerDumpCommand(dbName, filePath);
             } else {
-                pb = buildLocalDumpCommand(dumpCmd, dbName, dbHost, dbPort, filePath);
+                String cmd = isCmdOk("mariadb-dump") ? "mariadb-dump" : "mysqldump";
+                pb = buildLocalDumpCommand(cmd, dbName, dbHost, dbPort, filePath);
             }
 
             log.info("备份命令: {}", String.join(" ", pb.command()).replaceAll("-p\\S+", "-p***"));

@@ -42,9 +42,11 @@
       <!-- 报废规则管理 -->
       <el-tab-pane label="报废规则" name="rules">
         <el-card shadow="never">
-          <div style="margin-bottom:12px;display:flex;gap:8px">
+          <div style="margin-bottom:12px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
             <el-button type="primary" @click="ruleForm={};ruleVisible=true">+ 新增规则</el-button>
-            <span style="color:#909399;font-size:12px;margin-left:8px;align-self:center">规则按优先级排序，关键词与国标分类名包含匹配即生效</span>
+            <el-button @click="showBatch=true">批量录入</el-button>
+            <el-button type="warning" @click="initDefaultRules">初始化默认规则</el-button>
+            <span style="color:#909399;font-size:12px;margin-left:8px">规则按优先级排序，关键词与国标分类名包含匹配即生效</span>
           </div>
           <el-table :data="rules" stripe>
             <el-table-column prop="id" label="ID" width="60"/>
@@ -58,6 +60,13 @@
         </el-card>
       </el-tab-pane>
     </el-tabs>
+
+    <!-- 批量录入对话框 -->
+    <el-dialog v-model="showBatch" title="批量录入规则" width="550px">
+      <p style="color:#909399;font-size:13px;margin-bottom:8px">每行一条规则，格式: <code>国标关键词,最低年限,优先级,说明</code> (逗号分隔)</p>
+      <el-input v-model="batchText" type="textarea" :rows="10" placeholder="计算机设备,6,10,计算机及外设&#10;办公设备,6,10,办公用设备&#10;车辆,8,10,机动车辆"/>
+      <template #footer><el-button @click="showBatch=false">取消</el-button><el-button type="primary" @click="doBatchImport" :loading="batchLoading">批量导入</el-button></template>
+    </el-dialog>
 
     <!-- 规则编辑对话框 -->
     <el-dialog v-model="ruleVisible" :title="ruleForm.id?'编辑规则':'新增规则'" width="450px">
@@ -85,6 +94,27 @@ const categories = ref([]); const sortBy = ref(''); const sortOrder = ref('desc'
 
 const rules = ref([])
 const ruleForm = ref({}); const ruleVisible = ref(false)
+const showBatch = ref(false); const batchText = ref(''); const batchLoading = ref(false)
+
+const defaultRules = `计算机设备,6,10,计算机及外设
+办公设备,6,10,办公用设备
+车辆,8,10,机动车辆
+图书档案设备,5,10,图书档案类
+机械设备,10,10,机械加工设备
+电气设备,5,10,电气电力设备
+雷达,10,20,雷达导航类
+无线电,10,20,无线电设备
+卫星导航,10,20,卫星导航设备
+通信设备,5,15,通信传输设备
+广播,5,15,广播电视设备
+电视,5,15,电视设备
+电影设备,5,15,电影放映设备
+仪器仪表,5,15,仪器仪表及测量
+电子和通信测量,5,15,电子通信测量设备
+计量标准,5,15,计量标准器具
+量具,5,15,量具衡器
+衡器,5,15,衡器
+家具,15,10,家具及装具`
 
 function onSort({prop,order}){sortBy.value=prop;sortOrder.value=order||'desc';loadDevices()}
 
@@ -107,6 +137,17 @@ async function scrapDevice(row){
 }
 
 async function loadRules(){try{const{data}=await axios.get('/scrap/rules');rules.value=data||[]}catch{}}
+
+function initDefaultRules(){batchText.value=defaultRules;showBatch.value=true}
+async function doBatchImport(){
+  const lines=batchText.value.split('\n').filter(l=>l.trim());if(!lines.length){ElMessage.warning('请输入规则');return}
+  batchLoading.value=true;let ok=0,fail=0
+  for(const line of lines){
+    const p=line.split(',');if(p.length<2)continue
+    try{await axios.post('/scrap/rules',{gbKeyword:p[0].trim(),minYears:parseInt(p[1]),priority:p[2]?parseInt(p[2]):100,remark:p[3]?p[3].trim():''});ok++}catch{fail++}
+  }
+  ElMessage.success(`导入完成: 成功${ok}个, 失败${fail}个`);batchLoading.value=false;showBatch.value=false;loadRules()
+}
 
 function editRule(row){ruleForm.value={...row};ruleVisible.value=true}
 async function saveRule(){try{if(ruleForm.value.id){await axios.put('/scrap/rules/'+ruleForm.value.id,ruleForm.value)}else{await axios.post('/scrap/rules',ruleForm.value)};ElMessage.success('已保存');ruleVisible.value=false;loadRules()}catch(e){ElMessage.error(e?.response?.data?.msg||'保存失败')}}
