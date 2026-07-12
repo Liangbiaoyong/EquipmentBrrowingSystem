@@ -6,9 +6,12 @@ import com.gzhu.equipment.common.R;
 import lombok.extern.slf4j.Slf4j;
 import com.gzhu.equipment.entity.BorrowRecord;
 import com.gzhu.equipment.entity.Device;
+import com.gzhu.equipment.entity.SysUser;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceCategoryMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
+import com.gzhu.equipment.mapper.SysUserMapper;
+import com.gzhu.equipment.security.JwtUserPrincipal;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
@@ -16,6 +19,8 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayOutputStream;
@@ -36,6 +41,27 @@ public class StatisticsController {
     private final DeviceMapper deviceMapper;
     private final BorrowRecordMapper borrowMapper;
     private final DeviceCategoryMapper categoryMapper;
+    private final SysUserMapper sysUserMapper;
+
+    /** 如果是教师角色，返回其姓名用于筛选持有设备；否则返回null */
+    private String getTeacherCustodian() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof JwtUserPrincipal p) {
+            SysUser user = sysUserMapper.selectById(p.getUserId());
+            if (user != null && user.getUserType() != null && user.getUserType() == 1) {
+                return user.getRealName();
+            }
+        }
+        return null;
+    }
+
+    /** 构建设备查询条件（教师只看自己持有的设备） */
+    private LambdaQueryWrapper<Device> deviceWrapper() {
+        LambdaQueryWrapper<Device> w = new LambdaQueryWrapper<>();
+        String custodian = getTeacherCustodian();
+        if (custodian != null) w.eq(Device::getCustodian, custodian);
+        return w;
+    }
 
     @GetMapping("/overview")
     @ApiOperation("仪表盘概览")
@@ -43,16 +69,16 @@ public class StatisticsController {
     public R<Map<String, Object>> overview() {
         Map<String, Object> data = new LinkedHashMap<>();
 
-        Long totalDevices = deviceMapper.selectCount(null);
-        Long availableCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 1));
-        Long deviceBorrowingCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 2));
-        Long unavailableCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 3));
-        Long overdueCount2 = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 4));
-        Long normalCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 1));
-        Long repairCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 3));
-        Long pendingRepair = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 2));
-        Long pendingScrap = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 4));
-        Long scrappedCount = deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 5));
+        Long totalDevices = deviceMapper.selectCount(deviceWrapper());
+        Long availableCount = deviceMapper.selectCount(deviceWrapper().eq(Device::getBorrowStatus, 1));
+        Long deviceBorrowingCount = deviceMapper.selectCount(deviceWrapper().eq(Device::getBorrowStatus, 2));
+        Long unavailableCount = deviceMapper.selectCount(deviceWrapper().eq(Device::getBorrowStatus, 3));
+        Long overdueCount2 = deviceMapper.selectCount(deviceWrapper().eq(Device::getBorrowStatus, 4));
+        Long normalCount = deviceMapper.selectCount(deviceWrapper().eq(Device::getDeviceStatus, 1));
+        Long repairCount = deviceMapper.selectCount(deviceWrapper().eq(Device::getDeviceStatus, 3));
+        Long pendingRepair = deviceMapper.selectCount(deviceWrapper().eq(Device::getDeviceStatus, 2));
+        Long pendingScrap = deviceMapper.selectCount(deviceWrapper().eq(Device::getDeviceStatus, 4));
+        Long scrappedCount = deviceMapper.selectCount(deviceWrapper().eq(Device::getDeviceStatus, 5));
 
         Map<String, Long> deviceStats = new LinkedHashMap<>();
         deviceStats.put("total", totalDevices);
@@ -72,10 +98,16 @@ public class StatisticsController {
         deviceStats.put("scrap", pendingScrap + scrappedCount);
         data.put("deviceStats", deviceStats);
 
-        Long borrowingCount = borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "BORROWING"));
-        Long overdueCount = borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "OVERDUE"));
-        Long pendingCount = borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "PENDING_APPROVAL"));
-        Long totalBorrows = borrowMapper.selectCount(null);
+        // 教师只统计持有设备的借用记录
+        String custodian = getTeacherCustodian();
+        LambdaQueryWrapper<BorrowRecord> bwBase = new LambdaQueryWrapper<>();
+        if (custodian != null) {
+            bwBase.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", custodian);
+        }
+        Long borrowingCount = borrowMapper.selectCount(bwBase.clone().eq(BorrowRecord::getStatus, "BORROWING"));
+        Long overdueCount = borrowMapper.selectCount(bwBase.clone().eq(BorrowRecord::getStatus, "OVERDUE"));
+        Long pendingCount = borrowMapper.selectCount(bwBase.clone().eq(BorrowRecord::getStatus, "PENDING_APPROVAL"));
+        Long totalBorrows = borrowMapper.selectCount(bwBase);
 
         Map<String, Long> borrowStats = new LinkedHashMap<>();
         borrowStats.put("borrowing", borrowingCount);
@@ -87,6 +119,14 @@ public class StatisticsController {
         return R.ok(data);
     }
 
+    /** 教师角色限制借用查询条件 */
+    private void applyTeacherFilter(QueryWrapper<BorrowRecord> w) {
+        String custodian = getTeacherCustodian();
+        if (custodian != null) {
+            w.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", custodian);
+        }
+    }
+
     @GetMapping("/trend")
     @ApiOperation("本月借用趋势（按天）")
     @PreAuthorize("hasAuthority('statistics:view')")
@@ -94,12 +134,14 @@ public class StatisticsController {
         LocalDate start = LocalDate.now().withDayOfMonth(1);
         LocalDate end = LocalDate.now();
 
-        var rows = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+        var w = new QueryWrapper<BorrowRecord>()
                 .select("DATE(create_time) as date", "COUNT(*) as count")
                 .ge("create_time", start.atStartOfDay())
                 .le("create_time", end.plusDays(1).atStartOfDay())
                 .groupBy("DATE(create_time)")
-                .orderByAsc("date"));
+                .orderByAsc("date");
+        applyTeacherFilter(w);
+        var rows = borrowMapper.selectMaps(w);
 
         return R.ok(rows);
     }
@@ -109,12 +151,14 @@ public class StatisticsController {
     @PreAuthorize("hasAuthority('statistics:view')")
     public R<List<Map<String, Object>>> topDevices() {
         try {
-            var rows = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+            var w = new QueryWrapper<BorrowRecord>()
                     .select("d.name as deviceName", "COUNT(*) as borrowCount")
                     .apply("LEFT JOIN device d ON borrow_record.device_id = d.id")
                     .groupBy("d.name")
                     .orderByDesc("borrowCount")
-                    .last("LIMIT 10"));
+                    .last("LIMIT 10");
+            applyTeacherFilter(w);
+            var rows = borrowMapper.selectMaps(w);
             return R.ok(rows != null ? rows : java.util.Collections.emptyList());
         } catch (Exception e) {
             log.warn("热门设备查询失败: {}", e.getMessage());
@@ -127,12 +171,14 @@ public class StatisticsController {
     @PreAuthorize("hasAuthority('statistics:view')")
     public R<List<Map<String, Object>>> topUsers() {
         try {
-            var rows = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+            var w = new QueryWrapper<BorrowRecord>()
                     .select("u.real_name as userName", "COUNT(*) as borrowCount")
                     .apply("LEFT JOIN sys_user u ON borrow_record.user_id = u.id")
                     .groupBy("u.real_name")
                     .orderByDesc("borrowCount")
-                    .last("LIMIT 10"));
+                    .last("LIMIT 10");
+            applyTeacherFilter(w);
+            var rows = borrowMapper.selectMaps(w);
             return R.ok(rows != null ? rows : java.util.Collections.emptyList());
         } catch (Exception e) {
             log.warn("热门用户查询失败: {}", e.getMessage());
@@ -144,13 +190,15 @@ public class StatisticsController {
     @ApiOperation("设备利用率分析（按分类）")
     @PreAuthorize("hasAuthority('statistics:view')")
     public R<List<Map<String, Object>>> utilization() {
-        var rows = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+        var w = new QueryWrapper<BorrowRecord>()
                 .select("dc.name as categoryName", "COUNT(*) as borrowCount")
                 .apply("LEFT JOIN device d ON borrow_record.device_id = d.id")
                 .apply("LEFT JOIN device_category dc ON d.category_id = dc.id")
                 .groupBy("dc.name")
                 .orderByDesc("borrowCount")
-                .last("LIMIT 10"));
+                .last("LIMIT 10");
+        applyTeacherFilter(w);
+        var rows = borrowMapper.selectMaps(w);
         return R.ok(rows);
     }
 

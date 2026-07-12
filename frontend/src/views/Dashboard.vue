@@ -1,33 +1,189 @@
 <template>
-  <div class="dashboard"><h2>仪表盘</h2>
-    <h3 style="margin:10px 0 8px">借还状态</h3>
-    <el-row :gutter="20" v-loading="loading">
-      <el-col :span="6" v-for="s in borrowStatusCards" :key="s.label"><el-card shadow="hover" class="stat-card" :style="{borderTop:`3px solid ${s.color}`}"><div class="stat-value" :style="{color:s.color}">{{s.value}}</div><div class="stat-label">{{s.label}}</div></el-card></el-col>
+  <div class="dashboard">
+    <h2 class="dash-title">仪表盘</h2>
+
+    <!-- 借还状态 — 5卡片均匀分布 -->
+    <div class="section-header">
+      <span class="section-dot section-dot-blue"></span>
+      <h3 class="section-title">借还状态</h3>
+      <span class="section-hint">设备借用与归还生命周期</span>
+    </div>
+    <div class="stat-grid five-col" v-loading="loading">
+      <div class="stat-card" v-for="s in borrowStatusCards" :key="s.label">
+        <div class="sc-bar" :style="{background:s.color}"></div>
+        <div class="sc-body">
+          <div class="sc-icon">
+            <el-icon :size="20" :color="s.color"><component :is="s.icon"/></el-icon>
+          </div>
+          <div class="sc-value" :style="{color:s.color}">{{ s.value }}</div>
+          <div class="sc-label">{{ s.label }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 设备物理状态 — 5卡片均匀分布 -->
+    <div class="section-header">
+      <span class="section-dot section-dot-amber"></span>
+      <h3 class="section-title">设备物理状态</h3>
+      <span class="section-hint">设备硬件健康状况</span>
+    </div>
+    <div class="stat-grid five-col">
+      <div class="stat-card phys-card" v-for="s in deviceStatusCards" :key="s.label">
+        <div class="sc-bar" :style="{background:s.color}"></div>
+        <div class="sc-body">
+          <span class="phys-dot" :style="{background:s.color}"></span>
+          <div class="sc-value" :style="{color:s.color}">{{ s.value }}</div>
+          <div class="sc-label">{{ s.label }}</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 借用概览 + 趋势 -->
+    <el-row :gutter="16" style="margin-top:20px">
+      <el-col :span="12">
+        <div class="overview-panel">
+          <div class="section-header" style="margin-bottom:12px">
+            <span class="section-dot section-dot-green"></span>
+            <h3 class="section-title">借用概览</h3>
+          </div>
+          <div class="overview-grid">
+            <div class="ov-item" v-for="s in borrowCards" :key="s.label">
+              <div class="ov-value" :style="{color:s.color}">{{ s.value }}</div>
+              <div class="ov-label">{{ s.label }}</div>
+            </div>
+          </div>
+        </div>
+      </el-col>
+      <el-col :span="12">
+        <div class="overview-panel">
+          <div class="section-header" style="margin-bottom:12px">
+            <span class="section-dot section-dot-blue"></span>
+            <h3 class="section-title">本月借用趋势</h3>
+          </div>
+          <div class="trend-bars" v-if="trendData.length">
+            <div v-for="t in trendData" :key="t.date" class="trend-item">
+              <div class="trend-fill" :style="{height:Math.max(3,t.count/maxT*60)+'px'}"></div>
+              <span class="trend-date">{{ t.date.substring(5) }}</span>
+              <span class="trend-count">{{ t.count }}</span>
+            </div>
+          </div>
+          <el-empty v-else description="暂无数据" :image-size="50"/>
+        </div>
+      </el-col>
     </el-row>
-    <h3 style="margin:15px 0 8px">设备状态</h3>
-    <el-row :gutter="20">
-      <el-col :span="4" v-for="s in deviceStatusCards" :key="s.label" v-if="s.label!=='总设备'"><el-card shadow="hover" class="stat-card" :style="{borderTop:`3px solid ${s.color}`}"><div class="stat-value" :style="{color:s.color}">{{s.value}}</div><div class="stat-label">{{s.label}}</div></el-card></el-col>
-    </el-row>
-    <el-row :gutter="20" style="margin-top:20px">
-      <el-col :span="8"><el-card header="借用概览"><el-row :gutter="10"><el-col :span="6" v-for="s in borrowCards" :key="s.label"><div class="mini-stat"><div class="mini-value" :style="{color:s.color}">{{s.value}}</div><div class="mini-label">{{s.label}}</div></div></el-col></el-row></el-card></el-col>
-      <el-col :span="8"><el-card header="本月借用趋势"><div class="trend-bars" v-if="trendData.length"><div v-for="t in trendData" :key="t.date" class="trend-item"><div class="trend-fill" :style="{height:Math.max(3,t.count/maxT*100)+'px'}"/><span class="trend-date">{{t.date.substring(5)}}</span></div></div><el-empty v-else description="暂无数据" :image-size="50"/></el-card></el-col>
-      <el-col :span="8"><el-card header="快捷入口"><el-space wrap><el-button type="primary" @click="$router.push('/devices')">浏览设备</el-button><el-button type="success" @click="$router.push('/borrows/create')">借用申请</el-button><el-button @click="$router.push('/borrows/my')">我的借用</el-button></el-space></el-card></el-col>
-    </el-row>
+
+    <!-- 快捷入口 -->
+    <div class="quick-actions">
+      <el-button type="primary" @click="$router.push('/devices')"><el-icon><Search/></el-icon> 浏览设备</el-button>
+      <el-button type="success" @click="$router.push('/borrows/create')"><el-icon><Plus/></el-icon> 借用申请</el-button>
+      <el-button @click="$router.push('/borrows/my')"><el-icon><List/></el-icon> 我的借用</el-button>
+    </div>
   </div>
 </template>
+
 <script setup>
-import {ref,reactive,onMounted} from 'vue';import {statsApi} from '@/api/statistics'
+import {ref,reactive,onMounted} from 'vue'
+import {statsApi} from '@/api/statistics'
+import {Monitor,CircleCheck,Clock,WarningFilled,RemoveFilled,Cpu,Setting,CircleClose,DeleteFilled,Search,Plus,List} from '@element-plus/icons-vue'
+
 const loading=ref(true);const trendData=ref([]);const maxT=ref(1)
-const borrowStatusCards=reactive([{label:'总设备',value:'-',color:'#909399'},{label:'可借用',value:'-',color:'#67C23A'},{label:'借用中',value:'-',color:'#409EFF'},{label:'不可借',value:'-',color:'#E6A23C'},{label:'逾期',value:'-',color:'#F56C6C'}])
-const deviceStatusCards=reactive([{label:'正常',value:'-',color:'#67C23A'},{label:'待维修',value:'-',color:'#E6A23C'},{label:'维修中',value:'-',color:'#F56C6C'},{label:'待报废',value:'-',color:'#909399'},{label:'已报废',value:'-',color:'#DCDFE6'}])
-const borrowCards=reactive([{label:'借出中',value:'-',color:'#409EFF'},{label:'逾期未还',value:'-',color:'#F56C6C'},{label:'待审批',value:'-',color:'#E6A23C'},{label:'总借用',value:'-',color:'#67C23A'}])
-onMounted(async()=>{try{const{data:ov}=await statsApi.overview();const ds=ov.deviceStats;const bs=ov.borrowStats;
-  borrowStatusCards[0].value=ds.total||0;borrowStatusCards[1].value=ds.borrowAvailable||ds.available||0;borrowStatusCards[2].value=ds.borrowBorrowing||ds.borrowing||0;borrowStatusCards[3].value=ds.borrowUnavailable||0;borrowStatusCards[4].value=ds.borrowOverdue||0;
-  deviceStatusCards[0].value=ds.deviceNormal||0;deviceStatusCards[1].value=ds.devicePendingRepair||0;deviceStatusCards[2].value=ds.deviceRepairing||ds.repair||0;deviceStatusCards[3].value=ds.devicePendingScrap||0;deviceStatusCards[4].value=ds.deviceScrapped||0;
-  borrowCards[0].value=bs.borrowing;borrowCards[1].value=bs.overdue;borrowCards[2].value=bs.pendingApproval;borrowCards[3].value=bs.total}catch{};try{const{data:td}=await statsApi.trend();trendData.value=td||[];maxT.value=Math.max(1,...trendData.value.map(t=>t.count||0))}catch{}finally{loading.value=false}})
+
+const borrowStatusCards=reactive([
+  {label:'设备总数',value:'-',color:'#909399',icon:Monitor},
+  {label:'可借用',value:'-',color:'#67C23A',icon:CircleCheck},
+  {label:'借用中',value:'-',color:'#409EFF',icon:Clock},
+  {label:'不可借',value:'-',color:'#E6A23C',icon:WarningFilled},
+  {label:'逾期',value:'-',color:'#F56C6C',icon:RemoveFilled}
+])
+
+const deviceStatusCards=reactive([
+  {label:'正常',value:'-',color:'#67C23A'},
+  {label:'待维修',value:'-',color:'#E6A23C'},
+  {label:'维修中',value:'-',color:'#F56C6C'},
+  {label:'待报废',value:'-',color:'#909399'},
+  {label:'已报废',value:'-',color:'#C0C4CC'}
+])
+
+const borrowCards=reactive([
+  {label:'借出中',value:'-',color:'#409EFF'},
+  {label:'逾期未还',value:'-',color:'#F56C6C'},
+  {label:'待审批',value:'-',color:'#E6A23C'},
+  {label:'总借用',value:'-',color:'#67C23A'}
+])
+
+onMounted(async()=>{
+  try{
+    const{data:ov}=await statsApi.overview()
+    const ds=ov.deviceStats;const bs=ov.borrowStats
+    borrowStatusCards[0].value=ds.total||0
+    borrowStatusCards[1].value=ds.borrowAvailable||ds.available||0
+    borrowStatusCards[2].value=ds.borrowBorrowing||ds.borrowing||0
+    borrowStatusCards[3].value=ds.borrowUnavailable||0
+    borrowStatusCards[4].value=ds.borrowOverdue||0
+    deviceStatusCards[0].value=ds.deviceNormal||0
+    deviceStatusCards[1].value=ds.devicePendingRepair||0
+    deviceStatusCards[2].value=ds.deviceRepairing||ds.repair||0
+    deviceStatusCards[3].value=ds.devicePendingScrap||0
+    deviceStatusCards[4].value=ds.deviceScrapped||0
+    borrowCards[0].value=bs.borrowing||0
+    borrowCards[1].value=bs.overdue||0
+    borrowCards[2].value=bs.pendingApproval||0
+    borrowCards[3].value=bs.total||0
+  }catch{}finally{loading.value=false}
+  try{const{data:td}=await statsApi.trend();trendData.value=td||[];maxT.value=Math.max(1,...trendData.value.map(t=>t.count||0))}catch{}
+})
 </script>
+
 <style scoped>
-.dashboard{padding:20px}.stat-card{text-align:center}.stat-value{font-size:28px;font-weight:bold}.stat-label{font-size:13px;color:#909399;margin-top:8px}
-.mini-stat{text-align:center;padding:5px 0}.mini-value{font-size:22px;font-weight:bold}.mini-label{font-size:11px;color:#909399}
-.trend-bars{display:flex;align-items:flex-end;justify-content:space-around;height:80px;padding-top:5px}.trend-item{display:flex;flex-direction:column;align-items:center;flex:1}.trend-fill{width:16px;background:#409EFF;border-radius:3px 3px 0 0;min-height:3px;transition:height 0.5s}.trend-date{font-size:9px;color:#909399;margin-top:3px;writing-mode:vertical-rl}
+.dashboard{padding:24px;max-width:1100px;margin:0 auto}
+.dash-title{font-size:22px;font-weight:600;color:#303133;margin:0 0 20px 0}
+
+/* 区域标题 */
+.section-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.section-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.section-dot-blue{background:#409EFF}.section-dot-amber{background:#E6A23C}.section-dot-green{background:#67C23A}
+.section-title{font-size:15px;font-weight:600;color:#303133;margin:0}
+.section-hint{font-size:12px;color:#909399}
+
+/* 5列均匀网格 */
+.stat-grid.five-col{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:4px}
+
+/* 状态卡片 */
+.stat-card{background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,0.06);transition:transform 0.15s,box-shadow 0.15s}
+.stat-card:hover{transform:translateY(-2px);box-shadow:0 4px 10px rgba(0,0,0,0.1)}
+.sc-bar{height:3px}
+.sc-body{padding:16px 12px 14px;text-align:center}
+.sc-icon{margin-bottom:6px}
+.sc-value{font-size:28px;font-weight:700;line-height:1.2}
+.sc-label{font-size:12px;color:#909399;margin-top:4px}
+
+/* 物理状态卡片微差异 */
+.phys-card .sc-bar{height:3px;opacity:0.6}
+.phys-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-bottom:8px}
+
+/* 借用概览 */
+.overview-panel{background:#fff;border-radius:8px;padding:16px 20px;box-shadow:0 1px 4px rgba(0,0,0,0.06);height:100%}
+.overview-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.ov-item{text-align:center;padding:10px 4px}
+.ov-value{font-size:24px;font-weight:700}
+.ov-label{font-size:12px;color:#909399;margin-top:4px}
+
+/* 趋势图 */
+.trend-bars{display:flex;align-items:flex-end;justify-content:space-around;height:80px;gap:2px}
+.trend-item{display:flex;flex-direction:column;align-items:center;flex:1;min-width:0}
+.trend-fill{width:14px;background:linear-gradient(180deg,#409EFF,#66B1FF);border-radius:3px 3px 0 0;min-height:2px;transition:height 0.4s}
+.trend-date{font-size:9px;color:#909399;margin-top:3px;white-space:nowrap}
+.trend-count{font-size:10px;color:#606266;font-weight:600;margin-top:1px}
+
+/* 快捷入口 */
+.quick-actions{display:flex;gap:10px;justify-content:center;margin-top:20px;padding-top:16px;border-top:1px solid #EBEEF5}
+
+/* 响应式 */
+@media(max-width:768px){
+  .stat-grid.five-col{grid-template-columns:repeat(3,1fr)}
+  .overview-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:480px){
+  .stat-grid.five-col{grid-template-columns:repeat(2,1fr)}
+}
 </style>
