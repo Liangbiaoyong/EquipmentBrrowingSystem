@@ -261,7 +261,6 @@ public class StatisticsController {
             w.write("总借用次数," + borrowMapper.selectCount(null) + "\n");
         }
     }
-    }
 
     // ==================== V6 目的与成果统计（增强版） ====================
 
