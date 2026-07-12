@@ -5,12 +5,18 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.ByteArrayOutputStream;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -35,7 +41,12 @@ public class DataTableController {
             "device", "device_image", "device_category", "category_mapping",
             "borrow_record", "approval_log", "attachment",
             "notification", "repair_record",
-            "laboratory", "laboratory_room"
+            "laboratory", "laboratory_room", "category_description",
+            "borrow_outcome"
+    );
+    /** 实验室管理员不可见的敏感表（仅系统管理员） */
+    private static final Set<String> SECURITY_SENSITIVE = Set.of(
+            "sys_user", "sys_log", "system_config"
     );
 
     /** 系统管理员禁止编辑的表（核心安全表，只读） */
@@ -144,8 +155,8 @@ public class DataTableController {
     // ==================== 单行更新 ====================
 
     @PutMapping("/{tableName}/{id}")
-    @ApiOperation("更新单行数据")
-    @PreAuthorize("hasAnyAuthority('admin:user','laboratory:manage')")
+    @ApiOperation("更新单行数据（仅系统管理员）")
+    @PreAuthorize("hasAuthority('admin:user')")
     public R<String> updateRow(
             @PathVariable String tableName,
             @PathVariable Long id,
@@ -252,6 +263,153 @@ public class DataTableController {
         }
     }
 
+    // ==================== 新增行（仅系统管理员） ====================
+
+    @PostMapping("/{tableName}")
+    @ApiOperation("新增一行数据")
+    @PreAuthorize("hasAuthority('admin:user')")
+    public R<String> insertRow(@PathVariable String tableName,
+                                @RequestBody Map<String, Object> row) {
+        if (!canAccess(tableName)) return R.fail(403, "无权访问");
+        if (READ_ONLY_TABLES.contains(tableName)) return R.fail(403, "此表不可新增记录");
+        if (!tableName.matches("^[a-zA-Z_][a-zA-Z0-9_]*$")) return R.fail(400, "非法表名");
+        if (row.isEmpty()) return R.fail(400, "无数据");
+
+        try {
+            Set<String> validCols = getColumnNames(tableName);
+            row.keySet().removeIf(k -> !validCols.contains(k) || "id".equals(k));
+            if (row.isEmpty()) return R.fail(400, "无有效列");
+
+            StringBuilder cols = new StringBuilder("(");
+            StringBuilder vals = new StringBuilder("(");
+            List<Object> params = new ArrayList<>();
+            boolean first = true;
+            for (Map.Entry<String, Object> e : row.entrySet()) {
+                if (!first) { cols.append(", "); vals.append(", "); }
+                cols.append("`").append(e.getKey()).append("`");
+                vals.append("?");
+                params.add(e.getValue());
+                first = false;
+            }
+            cols.append(")"); vals.append(")");
+
+            String sql = "INSERT INTO `" + tableName + "` " + cols + " VALUES " + vals;
+            int rows = jdbcTemplate.update(sql, params.toArray());
+            log.warn("数据表新增: table={} rows={}", tableName, rows);
+            return R.ok("新增 " + rows + " 行");
+        } catch (Exception e) {
+            return R.fail(500, "新增失败: " + e.getMessage());
+        }
+    }
+
+    // ==================== 列管理（仅系统管理员） ====================
+
+    @PostMapping("/{tableName}/columns")
+    @ApiOperation("新增列")
+    @PreAuthorize("hasAuthority('admin:user')")
+    public R<String> addColumn(@PathVariable String tableName,
+                                @RequestBody Map<String, String> body) {
+        if (!tableName.matches("^[a-zA-Z_][a-zA-Z0-9_]*$")) return R.fail(400, "非法表名");
+        if (READ_ONLY_TABLES.contains(tableName)) return R.fail(403, "此表不可修改结构");
+        String colName = body.get("columnName");
+        String colType = body.getOrDefault("columnType", "varchar(255)");
+        String colComment = body.getOrDefault("columnComment", "");
+        if (colName == null || !colName.matches("^[a-zA-Z_][a-zA-Z0-9_]*$"))
+            return R.fail(400, "非法列名");
+
+        try {
+            String sql = "ALTER TABLE `" + tableName + "` ADD COLUMN `" + colName + "` " + colType
+                    + (colComment.isEmpty() ? "" : " COMMENT '" + colComment.replace("'", "''") + "'");
+            jdbcTemplate.execute(sql);
+            log.warn("列新增: table={} col={} type={}", tableName, colName, colType);
+            return R.ok("已新增列: " + colName);
+        } catch (Exception e) {
+            return R.fail(500, "新增列失败: " + e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/{tableName}/columns")
+    @ApiOperation("删除列（仅系统管理员）")
+    @PreAuthorize("hasAuthority('admin:user')")
+    public R<String> dropColumn(@PathVariable String tableName,
+                                 @RequestParam String columnName) {
+        if (!tableName.matches("^[a-zA-Z_][a-zA-Z0-9_]*$")) return R.fail(400, "非法表名");
+        if (READ_ONLY_TABLES.contains(tableName)) return R.fail(403, "此表不可修改结构");
+        if (!columnName.matches("^[a-zA-Z_][a-zA-Z0-9_]*$")) return R.fail(400, "非法列名");
+        if ("id".equals(columnName)) return R.fail(400, "不能删除主键列");
+
+        try {
+            jdbcTemplate.execute("ALTER TABLE `" + tableName + "` DROP COLUMN `" + columnName + "`");
+            log.warn("列删除: table={} col={}", tableName, columnName);
+            return R.ok("已删除列: " + columnName);
+        } catch (Exception e) {
+            return R.fail(500, "删除列失败: " + e.getMessage());
+        }
+    }
+
+    // ==================== 表导出（CSV / XLSX） ====================
+
+    @GetMapping("/{tableName}/export")
+    @ApiOperation("导出表数据为CSV或XLSX")
+    @PreAuthorize("hasAnyAuthority('admin:user','laboratory:manage')")
+    public ResponseEntity<byte[]> exportTable(
+            @PathVariable String tableName,
+            @RequestParam(defaultValue = "csv") String format) {
+        if (!canAccess(tableName)) {
+            throw new org.springframework.security.access.AccessDeniedException("无权访问");
+        }
+        if (!tableName.matches("^[a-zA-Z_][a-zA-Z0-9_]*$")) {
+            throw new IllegalArgumentException("非法表名");
+        }
+
+        try {
+            List<Map<String, Object>> columns = jdbcTemplate.queryForList(
+                    "SELECT COLUMN_NAME, DATA_TYPE, COLUMN_COMMENT FROM information_schema.COLUMNS " +
+                    "WHERE TABLE_SCHEMA = 'device_borrow' AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION", tableName);
+            List<Map<String, Object>> rows = jdbcTemplate.queryForList(
+                    "SELECT * FROM `" + tableName + "` LIMIT 10000");
+
+            if ("xlsx".equalsIgnoreCase(format)) {
+                LinkedHashMap<String, String> headers = new LinkedHashMap<>();
+                for (Map<String, Object> col : columns) {
+                    String key = (String) col.get("COLUMN_NAME");
+                    String label = (String) col.getOrDefault("COLUMN_COMMENT", key);
+                    headers.put(key, (label == null || label.isEmpty()) ? key : key + "(" + label + ")");
+                }
+                byte[] xlsx = com.gzhu.equipment.common.ExcelExportUtil.exportToXlsx(rows, headers);
+                org.springframework.http.HttpHeaders h = new org.springframework.http.HttpHeaders();
+                h.setContentType(org.springframework.http.MediaType.parseMediaType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+                h.set(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=" + tableName + "_export_" + System.currentTimeMillis() + ".xlsx");
+                return ResponseEntity.ok().headers(h).body(xlsx);
+            } else {
+                // CSV
+                ByteArrayOutputStream bos = new ByteArrayOutputStream();
+                bos.write(0xEF); bos.write(0xBB); bos.write(0xBF);
+                OutputStreamWriter osw = new OutputStreamWriter(bos, StandardCharsets.UTF_8);
+                // 表头
+                List<String> colNames = columns.stream().map(m -> (String) m.get("COLUMN_NAME")).collect(Collectors.toList());
+                osw.write(String.join(",", colNames) + "\n");
+                for (Map<String, Object> row : rows) {
+                    String line = colNames.stream()
+                            .map(c -> escapeCsv(row.get(c)))
+                            .collect(Collectors.joining(","));
+                    osw.write(line + "\n");
+                }
+                osw.flush(); osw.close();
+                org.springframework.http.HttpHeaders h = new org.springframework.http.HttpHeaders();
+                h.setContentType(org.springframework.http.MediaType.parseMediaType("text/csv;charset=UTF-8"));
+                h.set(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=" + tableName + "_export_" + System.currentTimeMillis() + ".csv");
+                return ResponseEntity.ok().headers(h).body(bos.toByteArray());
+            }
+        } catch (org.springframework.security.access.AccessDeniedException e) { throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("导出失败: " + e.getMessage(), e);
+        }
+    }
+
     // ==================== 辅助 ====================
 
     private boolean canAccess(String tableName) {
@@ -272,5 +430,14 @@ public class DataTableController {
                 "WHERE TABLE_SCHEMA = 'device_borrow' AND TABLE_NAME = ?", tableName)
                 .stream().map(m -> (String) m.get("COLUMN_NAME"))
                 .collect(Collectors.toSet());
+    }
+
+    private String escapeCsv(Object val) {
+        if (val == null) return "\"\"";
+        String s = String.valueOf(val);
+        if (s.contains(",") || s.contains("\"") || s.contains("\n") || s.contains("\r")) {
+            return "\"" + s.replace("\"", "\"\"") + "\"";
+        }
+        return s;
     }
 }

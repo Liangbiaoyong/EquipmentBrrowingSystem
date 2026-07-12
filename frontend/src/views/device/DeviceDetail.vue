@@ -35,9 +35,23 @@
         </el-card>
       </el-col>
       <el-col :span="8">
-        <el-card header="设备图片">
+        <el-card>
+          <template #header><div style="display:flex;justify-content:space-between;align-items:center"><span>设备图片</span><span v-if="isAdmin" style="font-size:12px;color:#909399">管理员可管理</span></div></template>
+          <!-- 管理员上传区域 -->
+          <div v-if="isAdmin" style="margin-bottom:12px">
+            <el-upload :show-file-list="false" :before-upload="beforeUpload"
+              :http-request="uploadImage" accept="image/*">
+              <el-button type="primary" size="small" :loading="uploading">
+                <el-icon><Upload/></el-icon> 上传图片
+              </el-button>
+            </el-upload>
+            <span style="font-size:11px;color:#909399;margin-left:6px">支持 JPG/PNG，自动压缩</span>
+          </div>
           <el-empty v-if="!detail.images?.length" description="暂无图片"><template #image><svg width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="8" fill="#f0f2f5"/><text x="40" y="45" text-anchor="middle" fill="#909399" font-size="12">暂无图片</text></svg></template></el-empty>
-          <el-image v-for="img in detail.images" :key="img.id" :src="`/api/v1/files/${img.imageUrl}`" fit="cover" style="width:100%;height:200px;margin-bottom:10px;border-radius:4px" :preview-src-list="detail.images.map(i=>`/api/v1/minio/${i.imageUrl}`)"><template #error><div class="img-error"><svg width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="4" fill="#f0f2f5"/><text x="40" y="45" text-anchor="middle" fill="#909399" font-size="12">暂无图片</text></svg></div></template></el-image>
+          <div v-for="img in detail.images" :key="img.id" style="position:relative;margin-bottom:10px">
+            <el-image :src="`/api/v1/files/${img.imageUrl}`" fit="cover" style="width:100%;height:200px;border-radius:4px" :preview-src-list="detail.images.map(i=>`/api/v1/minio/${i.imageUrl}`)"><template #error><div class="img-error"><svg width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="4" fill="#f0f2f5"/><text x="40" y="45" text-anchor="middle" fill="#909399" font-size="12">加载失败</text></svg></div></template></el-image>
+            <el-button v-if="isAdmin" size="small" type="danger" circle style="position:absolute;top:4px;right:4px;opacity:0.85" @click="deleteImage(img.id)"><el-icon><Delete/></el-icon></el-button>
+          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -51,8 +65,8 @@
   </div>
 </template>
 <script setup>
-import { ref,onMounted } from 'vue';import { useRoute } from 'vue-router';import { deviceApi } from '@/api/device';import { Warning } from '@element-plus/icons-vue'
-const route=useRoute();const loading=ref(true);const detail=ref(null)
+import { ref,onMounted } from 'vue';import { useRoute } from 'vue-router';import { deviceApi } from '@/api/device';import { Warning,Upload,Delete } from '@element-plus/icons-vue';import axios from '@/api/request';import { ElMessage } from 'element-plus'
+const route=useRoute();const loading=ref(true);const detail=ref(null);const uploading=ref(false)
 
 const borrowStatusMap={1:'success',2:'warning',3:'danger',4:'danger'}
 const borrowStatusTextMap={1:'可借用',2:'借用中',3:'不可借',4:'逾期'}
@@ -63,6 +77,38 @@ function borrowStatusText(v){return borrowStatusTextMap[v]||'未知'}
 function deviceStatusTagType(v){return deviceStatusMap[v]||'info'}
 function deviceStatusText(v){return deviceStatusTextMap[v]||'未知'}
 
-onMounted(async()=>{try{const{data}=await deviceApi.getById(route.params.id);detail.value=data}catch(e){console.error('加载设备详情失败',e)}finally{loading.value=false}})
+// 判断当前用户是否为管理员（LAB_ADMIN=2 或 SYSTEM_ADMIN=3）
+const isAdmin=ref(false)
+function checkAdmin(){
+  try{
+    const perms=JSON.parse(localStorage.getItem('permissions')||'[]')
+    const userType=localStorage.getItem('userType')
+    isAdmin.value=perms.includes('device:manage')||userType==='2'||userType==='3'
+  }catch{isAdmin.value=false}
+}
+
+function beforeUpload(file){
+  const isImage=file.type.startsWith('image/')
+  if(!isImage){ElMessage.warning('仅支持图片格式');return false}
+  const isLt10M=file.size/1024/1024<10
+  if(!isLt10M){ElMessage.warning('图片大小不能超过10MB');return false}
+  return true
+}
+
+async function uploadImage(options){
+  const deviceId=Number(route.params.id)
+  uploading.value=true
+  try{await deviceApi.uploadImage(deviceId,options.file);ElMessage.success('图片上传成功');await loadDetail()}catch(e){ElMessage.error('上传失败: '+(e?.response?.data?.msg||e?.message))}finally{uploading.value=false}
+}
+
+async function deleteImage(imageId){
+  try{await deviceApi.deleteImage(imageId);ElMessage.success('图片已删除');await loadDetail()}catch(e){ElMessage.error('删除失败: '+(e?.response?.data?.msg||e?.message))}
+}
+
+async function loadDetail(){
+  try{const{data}=await deviceApi.getById(route.params.id);detail.value=data}catch(e){console.error('加载设备详情失败',e)}
+}
+
+onMounted(async()=>{checkAdmin();loading.value=true;await loadDetail();loading.value=false})
 </script>
 <style scoped>.device-detail{padding:20px}.img-error{width:100%;height:200px;display:flex;align-items:center;justify-content:center;background:#f0f2f5;border-radius:4px}</style>

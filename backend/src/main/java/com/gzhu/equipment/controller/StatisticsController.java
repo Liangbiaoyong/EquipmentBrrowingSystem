@@ -155,12 +155,41 @@ public class StatisticsController {
     }
 
     @GetMapping("/export")
-    @ApiOperation("导出统计报表（CSV）")
+    @ApiOperation("导出统计报表（CSV/XLSX）")
     @PreAuthorize("hasAuthority('statistics:view')")
-    public ResponseEntity<byte[]> exportCsv() throws Exception {
+    public ResponseEntity<byte[]> exportCsv(
+            @RequestParam(defaultValue = "csv") String format) throws Exception {
+
+        if ("xlsx".equalsIgnoreCase(format)) {
+            LinkedHashMap<String, String> headers = new LinkedHashMap<>();
+            headers.put("name","指标"); headers.put("value","数值");
+            List<Map<String, Object>> rows = new ArrayList<>();
+            rows.add(Map.of("name","设备总数","value",deviceMapper.selectCount(null)));
+            rows.add(Map.of("name","--借还状态--","value",""));
+            rows.add(Map.of("name","可借用","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 1))));
+            rows.add(Map.of("name","借用中","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 2))));
+            rows.add(Map.of("name","不可借","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 3))));
+            rows.add(Map.of("name","逾期","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getBorrowStatus, 4))));
+            rows.add(Map.of("name","--设备状态--","value",""));
+            rows.add(Map.of("name","正常","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 1))));
+            rows.add(Map.of("name","待维修","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 2))));
+            rows.add(Map.of("name","维修中","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 3))));
+            rows.add(Map.of("name","待报废","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 4))));
+            rows.add(Map.of("name","已报废","value",deviceMapper.selectCount(new LambdaQueryWrapper<Device>().eq(Device::getDeviceStatus, 5))));
+            rows.add(Map.of("name","借出中","value",borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "BORROWING"))));
+            rows.add(Map.of("name","逾期未还","value",borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "OVERDUE"))));
+            rows.add(Map.of("name","待审批","value",borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getStatus, "PENDING_APPROVAL"))));
+            rows.add(Map.of("name","总借用次数","value",borrowMapper.selectCount(null)));
+            byte[] xlsx = com.gzhu.equipment.common.ExcelExportUtil.exportToXlsx(rows, headers);
+            HttpHeaders h = new HttpHeaders();
+            h.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            h.set(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=statistics_export_" + System.currentTimeMillis() + ".xlsx");
+            return ResponseEntity.ok().headers(h).body(xlsx);
+        }
+
+        // CSV
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
         bos.write(0xEF); bos.write(0xBB); bos.write(0xBF); // BOM
-
         try (OutputStreamWriter w = new OutputStreamWriter(bos, StandardCharsets.UTF_8)) {
             w.write("指标,数值\n");
             w.write("设备总数," + deviceMapper.selectCount(null) + "\n");

@@ -6,7 +6,7 @@ export const statsApi = {
   topDevices() { return request.get('/statistics/top-devices') },
   topUsers() { return request.get('/statistics/top-users') },
   utilization() { return request.get('/statistics/utilization') },
-  exportCsv() { return request.get('/statistics/export', { responseType: 'blob' }) },
+  exportCsv(format = 'csv') { return request.get('/statistics/export', { params: { format }, responseType: 'blob' }) },
   purposes(startDate, endDate, categoryId) {
     return request.get('/statistics/purposes', { params: { startDate, endDate, categoryId } })
   },

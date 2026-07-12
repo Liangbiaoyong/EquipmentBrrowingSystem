@@ -10,7 +10,10 @@
         <el-date-picker v-model="filterDates" type="daterange" range-separator="至"
           start-placeholder="开始日期" end-placeholder="结束日期" format="YYYY-MM-DD" value-format="YYYY-MM-DD"
           style="width:260px" @change="onFilterChange"/>
-        <el-button type="primary" @click="doExport" :icon="Download">导出报表</el-button>
+        <el-dropdown @command="doExport" style="margin-left:8px">
+          <el-button type="primary" :icon="Download">导出报表<el-icon><ArrowDown/></el-icon></el-button>
+          <template #dropdown><el-dropdown-menu><el-dropdown-item command="csv">CSV 格式</el-dropdown-item><el-dropdown-item command="xlsx">Excel 格式</el-dropdown-item></el-dropdown-menu></template>
+        </el-dropdown>
       </div>
     </div>
 
@@ -178,7 +181,7 @@
 import { ref,reactive,computed,onMounted } from 'vue'
 import { statsApi } from '@/api/statistics'
 import axios from '@/api/request'
-import { Download,Monitor,CircleCheck,Clock,Bell } from '@element-plus/icons-vue'
+import { Download,Monitor,CircleCheck,Clock,Bell,ArrowDown } from '@element-plus/icons-vue'
 
 // ==================== 状态 ====================
 const activeTab = ref('overview')
@@ -309,14 +312,16 @@ async function switchTab(tab) {
   }
 }
 
-function doExport() {
-  statsApi.exportCsv().then(({ data }) => {
-    const blob = new Blob([data], { type: 'text/csv' })
+function doExport(format) {
+  const ext = format === 'xlsx' ? 'xlsx' : 'csv'
+  const mime = ext === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv'
+  statsApi.exportCsv(format).then((r) => {
+    const blob = new Blob([r.data], { type: mime })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = '统计报表.csv'
+    a.download = `统计报表_${new Date().toISOString().slice(0,10)}.${ext}`
     a.click()
-  })
+  }).catch(() => {})
 }
 
 // ==================== 初始化 ====================

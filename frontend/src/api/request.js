@@ -22,6 +22,10 @@ request.interceptors.request.use(
 // 响应拦截器：统一处理错误
 request.interceptors.response.use(
   (response) => {
+    // 二进制响应（blob/arraybuffer）直接透传，不解析JSON
+    if (response.config.responseType === 'blob' || response.config.responseType === 'arraybuffer') {
+      return response
+    }
     const res = response.data
     if (res.code !== 200) {
       // 不弹窗，由业务层处理 ('请求失败')
