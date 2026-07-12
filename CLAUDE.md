@@ -43,8 +43,14 @@ EquipmentBrrowingSystem/
 │   ├── vite.config.js             # 开发代理到 8080
 │   └── package.json
 ├── sql/init/
-│   ├── 01-schema.sql              # 9 张核心表 DDL
-│   └── 02-data.sql                # 初始管理员 + 5 个设备分类
+│   ├── 01-schema.sql              # 17 张核心表 DDL（含 V4/V5）
+│   ├── 02-data.sql                # 初始管理员 + 4用户 + 10分类 + 实验室
+│   ├── 03-test-data.sql           # 测试数据生成（每天5~50条，一个月）
+│   ├── 03-update-v2.sql           # V2迁移
+│   ├── 04-update-v3-status.sql    # V3设备状态迁移
+│   ├── 05-update-v4-purpose-outcome.sql     # V4借用目的+成果
+│   ├── 06-update-v4-enhanced-purpose-outcome.sql  # V4增强
+│   └── 07-update-v5-category-descriptions.sql     # V5分类描述
 ├── docs/                          # 需求/设计/开发/测试/用户文档
 ├── tests/                         # 集成/E2E/性能测试
 ├── docker-compose.yml             # MySQL + Redis + MinIO + 后端 + 前端
@@ -164,8 +170,9 @@ git add -A && git commit -m "<type>: <description>" && git push
 
 - **引擎**: InnoDB，字符集 `utf8mb4`
 - **命名**: 表名 `snake_case`，字段 `snake_case`，主键 `id`，时间字段 `xxx_time`
-- **核心表（9张）**: `sys_user` / `device_category` / `device` / `device_image` / `borrow_record` / `approval_log` / `attachment` / `notification` / `sys_log`
+- **核心表（17张）**: `sys_user` / `device_category` / `device` / `device_image` / `borrow_record` / `borrow_outcome` / `approval_log` / `attachment` / `notification` / `sys_log` / `category_mapping` / `category_description` / `laboratory` / `laboratory_room` / `repair_record` / `system_config` / `borrow_outcome`
 - **软删除**: 不使用逻辑删除，关键记录永久保留
+- **utf8mb4 加固**: MySQL 服务端 `MYSQL_CHARACTER_SET_SERVER=utf8mb4` + JDBC `characterEncoding=UTF-8&useUnicode=true` + CLI 导入 `--default-character-set=utf8mb4`
 
 ### 审批流
 
@@ -180,14 +187,24 @@ git add -A && git commit -m "<type>: <description>" && git push
 
 ### 部署
 
-- 完整部署方式: `docker compose up -d --build`
-- 生产环境配置文件: `application-prod.yml`，通过环境变量注入
+- **远程服务器**: `gzhu-server.ydns.eu`（公网裸暴露），SSH `root@gzhu-server.ydns.eu`
+- **项目目录**: `/home/hp506/server/EquipmentBrrowingSystem`
+- **完整部署方式**: `docker compose up -d --build`
+- **5 个容器**: `dev-mysql`(3306) / `dev-redis`(6379) / `dev-minio`(9000/9001) / `dev-backend`(8080) / `dev-frontend`(80)
+- **访问地址**: http://gzhu-server.ydns.eu (前端) / http://gzhu-server.ydns.eu:8080 (后端API)
+- **生产环境配置文件**: `application-prod.yml`，通过环境变量注入
 - `.env` 文件存储敏感信息（数据库密码、JWT密钥等），不提交到仓库
+- **Docker Hub 镜像加速**: 已配置 DaoCloud / 南京大学镜像（国内服务器必备）
+- **测试账号**: `admin/admin123`(系统管理员) / `student01/admin123`(学生) / `teacher01/admin123`(教师) / `labadmin/admin123`(实验室管理员)
+- **一键部署脚本**: `deploy-remote.sh` (Linux/Mac) / `run-deploy.bat` (Windows)
+- **初始化流程**: `01-schema.sql` → `02-data.sql` → `07-update-v5-category-descriptions.sql` → `03-test-data.sql`（按文件名排序自动执行）
 
 ## 测试策略
 
-- **单元测试**: 后端 Service 层使用 JUnit5 + Mockito，目标覆盖率 > 70%
-- **集成测试**: `tests/` 目录存放端到端或 E2E 测试
+- **单元测试**: 后端 Service 层使用 JUnit5 + Mockito，**217 个测试**（Controller 13个文件 + Service 8个文件 + Security 3个文件）
+- **测试命令**: `cd backend && mvn test`（全部通过方可提交）
+- **测试数据生成**: `sql/init/03-test-data.sql` — 生成最近一个月每天5~50条随机借用记录（含审批记录+成果数据）
+- **运行测试数据**: `docker exec -i dev-mysql mysql -uroot -proot123 --default-character-set=utf8mb4 device_borrow < sql/init/03-test-data.sql`
 - **性能测试**: JMeter 脚本模拟 30 并发用户
 - **安全测试**: 测试越权访问、XSS、文件上传漏洞
 - **提交前检查**: `mvn test` 通过 + `npm run lint` 无报错
