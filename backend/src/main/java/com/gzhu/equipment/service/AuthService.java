@@ -35,4 +35,10 @@ public interface AuthService {
      * 获取当前登录用户信息
      */
     UserInfoVO getCurrentUserInfo(Long userId);
+
+    /** 验证密码（BCrypt） */
+    boolean verifyPassword(String rawPassword, String encodedPassword);
+
+    /** 加密密码（BCrypt） */
+    String encodePassword(String rawPassword);
 }

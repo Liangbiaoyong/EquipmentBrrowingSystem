@@ -165,6 +165,38 @@ public class AuthController {
         return R.ok(users);
     }
 
+    @PutMapping("/change-password")
+    @ApiOperation("当前登录用户修改密码")
+    public R<String> changePassword(@RequestBody java.util.Map<String,String> body) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated() || !(authentication.getPrincipal() instanceof JwtUserPrincipal)) {
+            return R.fail(401, "未登录");
+        }
+        JwtUserPrincipal principal = (JwtUserPrincipal) authentication.getPrincipal();
+        String oldPassword = body.get("oldPassword");
+        String newPassword = body.get("newPassword");
+        if (oldPassword == null || newPassword == null) return R.fail(400, "旧密码和新密码不能为空");
+        if (newPassword.length() < 8) return R.fail(400, "新密码至少8位");
+
+        com.gzhu.equipment.entity.SysUser user = sysUserMapper.selectById(principal.getUserId());
+        if (user == null) return R.fail(404, "用户不存在");
+        if (!"L".equals(user.getAuthSource())) return R.fail(400, "CAS用户请使用CAS登录，系统自动同步密码");
+
+        // 验证旧密码
+        try {
+            if (!authService.verifyPassword(oldPassword, user.getPassword())) {
+                return R.fail(400, "旧密码不正确");
+            }
+        } catch (Exception e) {
+            return R.fail(400, "旧密码不正确");
+        }
+
+        user.setPassword(authService.encodePassword(newPassword));
+        sysUserMapper.updateById(user);
+        log.info("用户修改密码: userId={} username={}", user.getId(), user.getUsername());
+        return R.ok("密码修改成功，请用新密码重新登录");
+    }
+
     @GetMapping("/health")
     @ApiOperation("认证服务健康检查（含CAS模式信息）")
     public R<java.util.Map<String,Object>> health() {

@@ -365,4 +365,15 @@ public class AuthServiceImpl implements AuthService {
             return null;
         }
     }
+
+    @Override
+    public boolean verifyPassword(String rawPassword, String encodedPassword) {
+        if (rawPassword == null || encodedPassword == null) return false;
+        return passwordEncoder.matches(rawPassword, encodedPassword);
+    }
+
+    @Override
+    public String encodePassword(String rawPassword) {
+        return passwordEncoder.encode(rawPassword);
+    }
 }

@@ -259,6 +259,19 @@ public class AdminController {
         return R.ok();
     }
 
+    @PutMapping("/users/{id}/password")
+    @ApiOperation("管理员重置用户密码")
+    @PreAuthorize("hasAuthority('admin:user')")
+    public R<String> resetPassword(@PathVariable Long id, @RequestParam String newPassword) {
+        SysUser user = userMapper.selectById(id);
+        if (user == null) return R.fail(404, "用户不存在");
+        if (newPassword == null || newPassword.length() < 8) return R.fail(400, "密码至少8位");
+        user.setPassword(userService.encodePassword(newPassword));
+        userMapper.updateById(user);
+        log.info("管理员重置密码: userId={} username={}", id, user.getUsername());
+        return R.ok("密码已重置");
+    }
+
     // ==================== 文件解析 ====================
 
     private List<Map<String, String>> parseUserTemplate(MultipartFile file) throws Exception {

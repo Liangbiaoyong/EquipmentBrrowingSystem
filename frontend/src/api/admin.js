@@ -13,6 +13,7 @@ export const adminApi = {
   downloadTemplate(format = 'xlsx') { return request.get('/admin/users/template', { params: { format }, responseType: 'blob' }) },
   updateRole(id, userType) { return request.put(`/admin/users/${id}/role`, null, { params: { userType } }) },
   toggleStatus(id) { return request.put(`/admin/users/${id}/status`) },
+  resetPassword(id, newPassword) { return request.put(`/admin/users/${id}/password`, null, { params: { newPassword } }) },
   deleteUser(id) { return request.delete(`/admin/users/${id}`) },
   // 角色/部门列表（下拉用）
   getRoles() {

@@ -34,4 +34,9 @@ public interface SysUserService extends IService<SysUser> {
      */
     SysUser createLocalUser(String username, String realName, Integer userType,
                             String department, String email, String phone, String password);
+
+    /**
+     * BCrypt 密码加密
+     */
+    String encodePassword(String rawPassword);
 }

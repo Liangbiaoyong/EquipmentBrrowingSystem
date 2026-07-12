@@ -15,5 +15,8 @@ export const authApi = {
   },
   logout() {
     return request.post('/auth/logout')
+  },
+  changePassword(oldPassword, newPassword) {
+    return request.put('/auth/change-password', { oldPassword, newPassword })
   }
 }

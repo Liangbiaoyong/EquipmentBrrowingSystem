@@ -31,7 +31,7 @@
         <el-table-column prop="department" label="部门" min-width="120" show-overflow-tooltip/>
         <el-table-column label="认证" width="70"><template #default="{row}"><el-tag size="small" :type="row.authSource==='C'?'success':'info'">{{ row.authSource==='C'?'CAS':'本地' }}</el-tag></template></el-table-column>
         <el-table-column label="状态" width="70"><template #default="{row}"><el-tag :type="row.status===1?'success':'danger'" size="small">{{ row.status===1?'正常':'禁用' }}</el-tag></template></el-table-column>
-        <el-table-column label="操作" width="140" fixed="right"><template #default="{row}"><div style="white-space:nowrap"><el-button size="small" :type="row.status===1?'warning':'success'" @click="toggle(row)">{{ row.status===1?'禁用':'启用' }}</el-button><el-popconfirm title="确定删除?" @confirm="doDelete(row.id)"><template #reference><el-button size="small" type="danger" :disabled="row.username==='admin'">删除</el-button></template></el-popconfirm></div></template></el-table-column>
+        <el-table-column label="操作" width="220" fixed="right"><template #default="{row}"><div style="white-space:nowrap"><el-button size="small" :type="row.status===1?'warning':'success'" @click="toggle(row)">{{ row.status===1?'禁用':'启用' }}</el-button><el-button size="small" @click="openResetPwd(row)">改密</el-button><el-popconfirm title="确定删除?" @confirm="doDelete(row.id)"><template #reference><el-button size="small" type="danger" :disabled="row.username==='admin'">删除</el-button></template></el-popconfirm></div></template></el-table-column>
       </el-table>
       <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total,prev,pager,next" @current-change="load"/></div>
     </el-card>
@@ -52,6 +52,12 @@
       <template #footer><el-button @click="showBatch=false">取消</el-button><el-button type="primary" @click="doBatchCreate" :loading="submitting">批量创建</el-button></template>
     </el-dialog>
 
+    <!-- 重置密码对话框 -->
+    <el-dialog v-model="showResetPwd" title="重置用户密码" width="420px"><el-form label-width="80px">
+      <el-form-item label="用户"><el-tag>{{ resetPwdUser.username }}</el-tag> {{ resetPwdUser.realName }}</el-form-item>
+      <el-form-item label="新密码" required><el-input v-model="resetPwdVal" type="password" placeholder="至少8位字符" show-password/></el-form-item>
+    </el-form><template #footer><el-button @click="showResetPwd=false">取消</el-button><el-button type="primary" @click="doResetPwd">确认重置</el-button></template></el-dialog>
+
     <!-- 导入结果对话框 -->
     <el-dialog v-model="showResult" title="导入结果" width="500px">
       <el-descriptions :column="2" border><el-descriptions-item label="创建成功">{{ importResult.created }}</el-descriptions-item><el-descriptions-item label="销毁成功">{{ importResult.destroyed }}</el-descriptions-item><el-descriptions-item label="失败">{{ importResult.failed }}</el-descriptions-item></el-descriptions>
@@ -70,6 +76,7 @@ const selectedIds=ref([]);const submitting=ref(false)
 const showCreate=ref(false);const c=reactive({username:'',realName:'',userType:2,password:'',department:''})
 const showBatch=ref(false);const batchJson=ref('')
 const showResult=ref(false);const importResult=reactive({created:0,destroyed:0,failed:0,errors:[]})
+const showResetPwd=ref(false);const resetPwdUser=ref({});const resetPwdVal=ref('')
 
 const roleOptions=[{label:'学生',value:0},{label:'教师',value:1},{label:'实验室管理员',value:2},{label:'系统管理员',value:3}]
 function ut(t){const m={0:'学生',1:'教师',2:'实验室管理员',3:'系统管理员'};return m[t]||'未知'}
@@ -112,6 +119,12 @@ function downloadTemplate(format){
     const blob=new Blob([r.data],{type:mime});const a=document.createElement('a')
     a.href=URL.createObjectURL(blob);a.download=`用户批量操作模板.${ext}`;a.click()
   }).catch(e=>ElMessage.error('模板下载失败'))
+}
+
+// 重置密码
+function openResetPwd(row){resetPwdUser.value=row;resetPwdVal.value='';showResetPwd.value=true}
+async function doResetPwd(){if(!resetPwdVal.value||resetPwdVal.value.length<8){ElMessage.warning('密码至少8位');return}
+  try{await adminApi.resetPassword(resetPwdUser.value.id,resetPwdVal.value);ElMessage.success('密码已重置');showResetPwd.value=false}catch(e){ElMessage.error(e?.response?.data?.msg||e?.message||'重置失败')}
 }
 
 // 模板导入
