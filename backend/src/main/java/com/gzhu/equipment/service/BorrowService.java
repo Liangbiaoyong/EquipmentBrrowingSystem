@@ -30,6 +30,12 @@ public interface BorrowService extends IService<BorrowRecord> {
     /** 管理员核验归还（确认照片/设备状况） */
     void verifyReturn(Long borrowId, Long adminId);
 
+    /** 管理员强制归还（逾期设备，记录操作人+备注） */
+    void adminForceReturn(Long borrowId, Long adminId, String damageReport, String remark);
+
+    /** 发送催还通知（逾期，记录到逾期记录表） */
+    void sendOverdueNotify(Long borrowId, Long adminId);
+
     /** 取消借用（仅申请人、PENDING_APPROVAL状态） */
     void cancelBorrow(Long borrowId, Long userId);
 }

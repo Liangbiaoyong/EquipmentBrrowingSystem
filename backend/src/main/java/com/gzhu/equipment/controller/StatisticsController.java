@@ -187,25 +187,31 @@ public class StatisticsController {
         return ResponseEntity.ok().headers(headers).body(bos.toByteArray());
     }
 
-    // ==================== V4 目的与成果统计 ====================
+    // ==================== V6 目的与成果统计（增强版） ====================
 
     @GetMapping("/purposes")
-    @ApiOperation("借用目的分布统计")
+    @ApiOperation("借用目的分布统计（按大类）")
     @PreAuthorize("hasAuthority('statistics:view')")
     public R<List<Map<String, Object>>> purposeStats(
             @RequestParam(required = false) String startDate,
-            @RequestParam(required = false) String endDate) {
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) Long categoryId) {
         var w = new QueryWrapper<BorrowRecord>()
                 .select("COALESCE(NULLIF(purpose_category,''),'未分类') as name", "COUNT(*) as value")
                 .isNotNull("purpose_category").ne("purpose_category", "")
                 .groupBy("purpose_category").orderByDesc("value");
-        if (startDate != null) w.ge("create_time", startDate + " 00:00:00");
-        if (endDate != null) w.le("create_time", endDate + " 23:59:59");
+        if (startDate != null) w.ge("borrow_record.create_time", startDate + " 00:00:00");
+        if (endDate != null) w.le("borrow_record.create_time", endDate + " 23:59:59");
+        if (categoryId != null) w.apply("device_id IN (SELECT id FROM device WHERE category_id = {0})", categoryId);
         var rows = borrowMapper.selectMaps(w);
         // 补充未分类统计
-        var uncat = borrowMapper.selectMaps(new QueryWrapper<BorrowRecord>()
+        var uncatW = new QueryWrapper<BorrowRecord>()
                 .select("'未分类' as name", "COUNT(*) as value")
-                .and(qw -> qw.isNull("purpose_category").or().eq("purpose_category", "")));
+                .and(qw -> qw.isNull("purpose_category").or().eq("purpose_category", ""));
+        if (startDate != null) uncatW.ge("create_time", startDate + " 00:00:00");
+        if (endDate != null) uncatW.le("create_time", endDate + " 23:59:59");
+        if (categoryId != null) uncatW.apply("device_id IN (SELECT id FROM device WHERE category_id = {0})", categoryId);
+        var uncat = borrowMapper.selectMaps(uncatW);
         if (uncat != null && !uncat.isEmpty() && uncat.get(0) != null) {
             Long v = (Long) uncat.get(0).get("value");
             if (v != null && v > 0) {
@@ -215,8 +221,40 @@ public class StatisticsController {
         return R.ok(rows);
     }
 
+    @GetMapping("/purposes/detail")
+    @ApiOperation("目的分类详细统计（大类+子分类+设备分类）")
+    @PreAuthorize("hasAuthority('statistics:view')")
+    public R<Map<String, Object>> purposeDetail(
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) Long categoryId) {
+        Map<String, Object> result = new java.util.LinkedHashMap<>();
+
+        // 子分类统计
+        var subW = new QueryWrapper<BorrowRecord>()
+                .select("COALESCE(NULLIF(purpose_subcategory,''),'未指定') as name", "COUNT(*) as value")
+                .groupBy("purpose_subcategory").orderByDesc("value");
+        if (startDate != null) subW.ge("borrow_record.create_time", startDate + " 00:00:00");
+        if (endDate != null) subW.le("borrow_record.create_time", endDate + " 23:59:59");
+        if (categoryId != null) subW.apply("device_id IN (SELECT id FROM device WHERE category_id = {0})", categoryId);
+        result.put("subcategories", borrowMapper.selectMaps(subW));
+
+        // 按设备分类的目的分布
+        var catW = new QueryWrapper<BorrowRecord>()
+                .select("COALESCE(dc.name,'未分类设备') as name", "COUNT(*) as value")
+                .apply("LEFT JOIN device d ON borrow_record.device_id = d.id")
+                .apply("LEFT JOIN device_category dc ON d.category_id = dc.id")
+                .groupBy("dc.name").orderByDesc("value");
+        if (startDate != null) catW.ge("borrow_record.create_time", startDate + " 00:00:00");
+        if (endDate != null) catW.le("borrow_record.create_time", endDate + " 23:59:59");
+        if (categoryId != null) catW.apply("d.category_id = {0}", categoryId);
+        result.put("byDeviceCategory", borrowMapper.selectMaps(catW));
+
+        return R.ok(result);
+    }
+
     @GetMapping("/outcomes/stats")
-    @ApiOperation("成果产出统计（按设备/按时间）")
+    @ApiOperation("成果产出统计（概述+分布+趋势）")
     @PreAuthorize("hasAuthority('statistics:view')")
     public R<Map<String, Object>> outcomeStats(
             @RequestParam(required = false) Long deviceId,
@@ -224,35 +262,52 @@ public class StatisticsController {
             @RequestParam(required = false) String endDate) {
         Map<String, Object> result = new java.util.LinkedHashMap<>();
 
-        // 有成果记录的借用总数
+        // 成果总数
         var outcomeW = new QueryWrapper<BorrowRecord>()
                 .isNotNull("outcome").ne("outcome", "");
         if (deviceId != null) outcomeW.eq("device_id", deviceId);
         if (startDate != null) outcomeW.ge("create_time", startDate + " 00:00:00");
         if (endDate != null) outcomeW.le("create_time", endDate + " 23:59:59");
         Long outcomeTotal = borrowMapper.selectCount(outcomeW);
+        result.put("outcomeTotal", outcomeTotal != null ? outcomeTotal : 0);
 
-        // 按设备统计成果数 TOP10
-        var deviceOutcomeW = new QueryWrapper<BorrowRecord>()
-                .select("d.name as deviceName", "COUNT(*) as count")
+        // 从 borrow_outcome 表统计成果类型分布
+        try {
+            var typeW = new QueryWrapper<BorrowRecord>()
+                    .select("o.outcome_type as name", "COUNT(*) as value")
+                    .apply("LEFT JOIN borrow_outcome o ON borrow_record.id = o.borrow_id")
+                    .isNotNull("o.outcome_type").ne("o.outcome_type", "")
+                    .groupBy("o.outcome_type").orderByDesc("value");
+            if (deviceId != null) typeW.eq("borrow_record.device_id", deviceId);
+            if (startDate != null) typeW.ge("borrow_record.create_time", startDate + " 00:00:00");
+            if (endDate != null) typeW.le("borrow_record.create_time", endDate + " 23:59:59");
+            result.put("distribution", borrowMapper.selectMaps(typeW));
+        } catch (Exception e) {
+            log.warn("成果类型分布查询失败: {}", e.getMessage());
+            result.put("distribution", java.util.Collections.emptyList());
+        }
+
+        // 按设备统计 TOP10
+        var deviceW = new QueryWrapper<BorrowRecord>()
+                .select("d.name as name", "COUNT(*) as value")
                 .isNotNull("outcome").ne("outcome", "")
                 .apply("LEFT JOIN device d ON borrow_record.device_id = d.id")
-                .groupBy("d.name").orderByDesc("count").last("LIMIT 10");
-        if (startDate != null) deviceOutcomeW.ge("borrow_record.create_time", startDate + " 00:00:00");
-        if (endDate != null) deviceOutcomeW.le("borrow_record.create_time", endDate + " 23:59:59");
-        var deviceTop = borrowMapper.selectMaps(deviceOutcomeW);
+                .groupBy("d.name").orderByDesc("value").last("LIMIT 10");
+        if (deviceId != null) deviceW.eq("d.id", deviceId);
+        if (startDate != null) deviceW.ge("borrow_record.create_time", startDate + " 00:00:00");
+        if (endDate != null) deviceW.le("borrow_record.create_time", endDate + " 23:59:59");
+        result.put("deviceTop10", borrowMapper.selectMaps(deviceW));
 
-        // 按月份统计趋势
+        // 按月趋势
         var monthW = new QueryWrapper<BorrowRecord>()
-                .select("DATE_FORMAT(outcome_recorded_time,'%Y-%m') as month", "COUNT(*) as count")
+                .select("DATE_FORMAT(outcome_recorded_time,'%Y-%m') as name", "COUNT(*) as value")
                 .isNotNull("outcome").ne("outcome", "")
                 .groupBy("DATE_FORMAT(outcome_recorded_time,'%Y-%m')")
-                .orderByAsc("month").last("LIMIT 12");
-        var monthTrend = borrowMapper.selectMaps(monthW);
+                .orderByAsc("name").last("LIMIT 12");
+        if (startDate != null) monthW.ge("borrow_record.create_time", startDate + " 00:00:00");
+        if (endDate != null) monthW.le("borrow_record.create_time", endDate + " 23:59:59");
+        result.put("monthTrend", borrowMapper.selectMaps(monthW));
 
-        result.put("outcomeTotal", outcomeTotal != null ? outcomeTotal : 0);
-        result.put("deviceTop10", deviceTop != null ? deviceTop : java.util.Collections.emptyList());
-        result.put("monthTrend", monthTrend != null ? monthTrend : java.util.Collections.emptyList());
         return R.ok(result);
     }
 

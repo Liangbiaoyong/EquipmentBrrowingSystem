@@ -163,6 +163,8 @@ public class BorrowController {
         }
     }
 
+    // ==================== V6 逾期管理 ====================
+
     @GetMapping("/overdue")
     @ApiOperation("逾期未归还列表")
     @PreAuthorize("hasAuthority('return:manage')")
@@ -175,6 +177,58 @@ public class BorrowController {
                         .eq(BorrowRecord::getStatus, "OVERDUE")
                         .orderByDesc(BorrowRecord::getOverdueDays));
         return R.ok(pg);
+    }
+
+    @PutMapping("/{id}/force-return")
+    @ApiOperation("管理员强制归还逾期设备")
+    @PreAuthorize("hasAuthority('return:manage')")
+    public R<String> forceReturn(@PathVariable Long id,
+                                  @RequestParam(required = false) String damageReport,
+                                  @RequestParam(required = false) String remark) {
+        try {
+            borrowService.adminForceReturn(id, getCurrentUserId(), damageReport, remark);
+            return R.ok("强制归还完成");
+        } catch (IllegalArgumentException e) {
+            return R.fail(e.getMessage());
+        }
+    }
+
+    @PostMapping("/{id}/overdue-notify")
+    @ApiOperation("发送催还通知")
+    @PreAuthorize("hasAuthority('return:manage')")
+    public R<String> sendOverdueNotify(@PathVariable Long id) {
+        try {
+            borrowService.sendOverdueNotify(id, getCurrentUserId());
+            return R.ok("催还通知已发送");
+        } catch (IllegalArgumentException e) {
+            return R.fail(e.getMessage());
+        }
+    }
+
+    @GetMapping("/{id}/overdue-records")
+    @ApiOperation("查看逾期记录追踪")
+    public R<List<com.gzhu.equipment.entity.OverdueRecord>> getOverdueRecords(@PathVariable Long id) {
+        return R.ok(overdueRecordMapper.selectList(
+                new LambdaQueryWrapper<com.gzhu.equipment.entity.OverdueRecord>()
+                        .eq(com.gzhu.equipment.entity.OverdueRecord::getBorrowId, id)
+                        .orderByDesc(com.gzhu.equipment.entity.OverdueRecord::getCreateTime)));
+    }
+
+    @GetMapping("/overdue/stats")
+    @ApiOperation("逾期统计数据")
+    @PreAuthorize("hasAuthority('return:manage')")
+    public R<java.util.Map<String, Object>> overdueStats() {
+        var overdueTotal = borrowService.count(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>()
+                        .eq(BorrowRecord::getStatus, "OVERDUE"));
+        var collectedTotal = borrowService.count(
+                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>()
+                        .eq(BorrowRecord::getStatus, "RETURNED")
+                        .isNotNull(BorrowRecord::getDamageReport));
+        java.util.Map<String, Object> stats = new java.util.LinkedHashMap<>();
+        stats.put("overdueTotal", overdueTotal);
+        stats.put("collectedTotal", collectedTotal);
+        return R.ok(stats);
     }
 
     @GetMapping("/{id}/approval-logs")
@@ -228,6 +282,7 @@ public class BorrowController {
     // ==================== V4 成果管理 ====================
 
     private final com.gzhu.equipment.mapper.BorrowOutcomeMapper outcomeMapper;
+    private final com.gzhu.equipment.mapper.OverdueRecordMapper overdueRecordMapper;
 
     @PostMapping("/{id}/outcomes")
     @ApiOperation("新增成果记录")

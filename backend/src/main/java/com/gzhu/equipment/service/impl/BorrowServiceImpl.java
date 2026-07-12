@@ -9,10 +9,12 @@ import com.gzhu.equipment.dto.BorrowRequestDTO;
 import com.gzhu.equipment.entity.ApprovalLog;
 import com.gzhu.equipment.entity.BorrowRecord;
 import com.gzhu.equipment.entity.Device;
+import com.gzhu.equipment.entity.OverdueRecord;
 import com.gzhu.equipment.entity.SysUser;
 import com.gzhu.equipment.mapper.ApprovalLogMapper;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
+import com.gzhu.equipment.mapper.OverdueRecordMapper;
 import com.gzhu.equipment.mapper.RepairRecordMapper;
 import com.gzhu.equipment.mapper.SysUserMapper;
 import com.gzhu.equipment.service.BorrowService;
@@ -53,6 +55,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
     private final DeviceMapper deviceMapper;
     private final SysUserMapper userMapper;
     private final RepairRecordMapper repairMapper;
+    private final OverdueRecordMapper overdueMapper;
     private final SystemConfigService configService;
     private final NotificationService notificationService;
 
@@ -341,6 +344,98 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         if (!"RETURNED".equals(r.getStatus())) throw new IllegalArgumentException("该借用单尚未归还");
         // 核验通过：正式标记（可扩展为独立状态VERIFIED）
         log.info("归还核验完成: borrowId={} adminId={}", borrowId, adminId);
+    }
+
+    // ==================== V6 逾期管理增强 ====================
+
+    @Override @Transactional
+    public void adminForceReturn(Long borrowId, Long adminId, String damageReport, String remark) {
+        BorrowRecord record = borrowMapper.selectById(borrowId);
+        if (record == null) throw new IllegalArgumentException("借用单不存在");
+        if (!"OVERDUE".equals(record.getStatus())) throw new IllegalArgumentException("只有逾期状态的借用单可以强制归还");
+
+        // 执行归还逻辑
+        record.setStatus("RETURNED");
+        record.setRealReturnTime(LocalDateTime.now());
+        record.setDamageReport(damageReport);
+        borrowMapper.updateById(record);
+
+        // 恢复设备状态
+        Device device = deviceMapper.selectById(record.getDeviceId());
+        if (device != null) {
+            device.setAvailableQty(Math.min(device.getAvailableQty() + 1, device.getTotalQty()));
+            if (damageReport != null && !damageReport.trim().isEmpty()) {
+                device.setBorrowStatus(3);
+                device.setDeviceStatus(2);
+                com.gzhu.equipment.entity.RepairRecord repair = new com.gzhu.equipment.entity.RepairRecord();
+                repair.setDeviceId(record.getDeviceId());
+                repair.setBorrowId(record.getId());
+                repair.setFaultDescription(damageReport);
+                repair.setStatus("PENDING");
+                repairMapper.insert(repair);
+            } else {
+                device.setBorrowStatus(1);
+                device.setDeviceStatus(1);
+            }
+            deviceMapper.updateById(device);
+        }
+
+        // 更新逾期记录表
+        OverdueRecord ov = overdueMapper.selectOne(
+                new LambdaQueryWrapper<OverdueRecord>()
+                        .eq(OverdueRecord::getBorrowId, borrowId)
+                        .orderByDesc(OverdueRecord::getCreateTime)
+                        .last("LIMIT 1"));
+        if (ov == null) {
+            ov = new OverdueRecord();
+            ov.setBorrowId(borrowId);
+            ov.setDeviceId(record.getDeviceId());
+            ov.setUserId(record.getUserId());
+            ov.setOverdueDays(record.getOverdueDays());
+        }
+        ov.setCollectionStatus("COLLECTED");
+        ov.setAdminCollectTime(LocalDateTime.now());
+        ov.setCollectAdminId(adminId);
+        ov.setCollectRemark(remark);
+        if (ov.getId() == null) overdueMapper.insert(ov);
+        else overdueMapper.updateById(ov);
+
+        log.info("管理员强制归还: borrowId={} adminId={} remark={}", borrowId, adminId, remark);
+    }
+
+    @Override @Transactional
+    public void sendOverdueNotify(Long borrowId, Long adminId) {
+        BorrowRecord record = borrowMapper.selectById(borrowId);
+        if (record == null) throw new IllegalArgumentException("借用单不存在");
+
+        // 查找或创建逾期记录
+        OverdueRecord ov = overdueMapper.selectOne(
+                new LambdaQueryWrapper<OverdueRecord>()
+                        .eq(OverdueRecord::getBorrowId, borrowId)
+                        .orderByDesc(OverdueRecord::getCreateTime)
+                        .last("LIMIT 1"));
+        if (ov == null) {
+            ov = new OverdueRecord();
+            ov.setBorrowId(borrowId);
+            ov.setDeviceId(record.getDeviceId());
+            ov.setUserId(record.getUserId());
+            ov.setOverdueDays(record.getOverdueDays() != null ? record.getOverdueDays() : 0);
+            ov.setCollectionStatus("NOTIFIED");
+            ov.setNotifyCount(1);
+            ov.setLastNotifyTime(LocalDateTime.now());
+            overdueMapper.insert(ov);
+        } else {
+            ov.setCollectionStatus("NOTIFIED");
+            ov.setNotifyCount((ov.getNotifyCount() == null ? 0 : ov.getNotifyCount()) + 1);
+            ov.setLastNotifyTime(LocalDateTime.now());
+            overdueMapper.updateById(ov);
+        }
+
+        // 发送通知
+        String deviceName = getDeviceName(record.getDeviceId());
+        notificationService.notifyOverdue(record.getUserId(), deviceName, borrowId,
+                record.getOverdueDays() != null ? record.getOverdueDays() : 0);
+        log.info("逾期催还通知已发送: borrowId={} adminId={} count={}", borrowId, adminId, ov.getNotifyCount());
     }
 
     private String buildFlowDef(int totalSteps) {
