@@ -78,13 +78,25 @@ public class BorrowController {
     }
 
     @GetMapping("/my")
-    @ApiOperation("我的借用列表")
+    @ApiOperation("我的借用列表（支持排序）")
     @PreAuthorize("hasAuthority('borrow:my')")
     public R<IPage<BorrowRecord>> myBorrows(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String status) {
-        return R.ok(borrowService.myBorrows(getCurrentUserId(), page, size, status));
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false, defaultValue = "desc") String order) {
+        Long userId = getCurrentUserId();
+        var w = new LambdaQueryWrapper<BorrowRecord>().eq(BorrowRecord::getUserId, userId);
+        if (status != null && !status.isEmpty()) w.eq(BorrowRecord::getStatus, status);
+        // 排序
+        boolean asc = "asc".equalsIgnoreCase(order);
+        if ("id".equals(sort)) w.orderBy(true, asc, BorrowRecord::getId);
+        else if ("startTime".equals(sort)) w.orderBy(true, asc, BorrowRecord::getStartTime);
+        else if ("endTime".equals(sort)) w.orderBy(true, asc, BorrowRecord::getEndTime);
+        else if ("overdueDays".equals(sort)) w.orderBy(true, asc, BorrowRecord::getOverdueDays);
+        else w.orderByDesc(BorrowRecord::getId);
+        return R.ok(borrowService.page(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), w));
     }
 
     @GetMapping("/{id}")
@@ -149,31 +161,130 @@ public class BorrowController {
         }
     }
 
+    @GetMapping("/{id}/images")
+    @ApiOperation("获取借用相关图片（借用照片+归还照片）")
+    @PreAuthorize("hasAuthority('borrow:my')")
+    public R<java.util.Map<String, Object>> getImages(@PathVariable Long id) {
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        BorrowRecord record = borrowService.getById(id);
+        if (record != null) {
+            result.put("pickupImage", record.getPickupImage());
+        }
+        // 从附件表查询
+        var borrowImgs = attachmentMapper.selectList(
+            new LambdaQueryWrapper<Attachment>().eq(Attachment::getBizId, id).eq(Attachment::getBizType, "BORROW_IMG"));
+        var returnImgs = attachmentMapper.selectList(
+            new LambdaQueryWrapper<Attachment>().eq(Attachment::getBizId, id).eq(Attachment::getBizType, "RETURN_IMG"));
+        result.put("borrowImages", borrowImgs.stream().map(Attachment::getFileUrl).collect(java.util.stream.Collectors.toList()));
+        result.put("returnImages", returnImgs.stream().map(Attachment::getFileUrl).collect(java.util.stream.Collectors.toList()));
+        return R.ok(result);
+    }
+
+    // ==================== 取走登记 ====================
+
+    @PostMapping("/{id}/pickup")
+    @ApiOperation("登记取走设备（记录取走时间+上传借用照片）")
+    @PreAuthorize("hasAuthority('borrow:my')")
+    public R<BorrowRecord> pickupDevice(@PathVariable Long id,
+                                         @RequestParam(value = "file", required = false) MultipartFile file) {
+        BorrowRecord record = borrowService.getById(id);
+        if (record == null) return R.fail(404, "借用单不存在");
+        if (!"APPROVED".equals(record.getStatus()) && !"BORROWING".equals(record.getStatus()))
+            return R.fail("仅已通过或借用中的单据可登记取走");
+
+        record.setPickupTime(LocalDateTime.now());
+        if (record.getStatus().equals("APPROVED")) {
+            record.setStatus("BORROWING");
+        }
+
+        // 上传借用照片（如有）
+        if (file != null && !file.isEmpty()) {
+            String objectPath = minioFileService.uploadImage(file, "BORROW");
+            record.setPickupImage(objectPath);
+            // 同时记录到附件表
+            Attachment att = new Attachment();
+            att.setBizType("BORROW_IMG");
+            att.setBizId(record.getId());
+            att.setFileUrl(objectPath);
+            att.setFileSize(file.getSize());
+            att.setUploadTime(LocalDateTime.now());
+            att.setExpireTime(LocalDateTime.now().plusMonths(6));
+            attachmentMapper.insert(att);
+        }
+
+        borrowService.updateById(record);
+        log.info("取走登记: borrowId={} pickupTime={}", id, record.getPickupTime());
+        return R.ok("取走登记成功", record);
+    }
+
+    @PostMapping("/{id}/upload-image")
+    @ApiOperation("上传借用/归还照片（压缩至1MB以内）")
+    @PreAuthorize("hasAuthority('borrow:my')")
+    public R<String> uploadBorrowImage(@PathVariable Long id,
+                                        @RequestParam("file") MultipartFile file,
+                                        @RequestParam(defaultValue = "BORROW") String bizType) {
+        BorrowRecord record = borrowService.getById(id);
+        if (record == null) return R.fail(404, "借用单不存在");
+
+        try {
+            String objectPath = minioFileService.uploadImage(file, bizType);
+
+            // 根据业务类型更新对应字段
+            if ("BORROW".equals(bizType)) {
+                record.setPickupImage(objectPath);
+                borrowService.updateById(record);
+            }
+
+            // 记录附件
+            Attachment att = new Attachment();
+            att.setBizType(bizType + "_IMG");
+            att.setBizId(id);
+            att.setFileUrl(objectPath);
+            att.setFileSize(file.getSize());
+            att.setUploadTime(LocalDateTime.now());
+            att.setExpireTime(LocalDateTime.now().plusMonths(6));
+            attachmentMapper.insert(att);
+
+            return R.ok(objectPath);
+        } catch (Exception e) {
+            return R.fail("图片上传失败: " + e.getMessage());
+        }
+    }
+
     // ==================== 归还 ====================
 
     @PostMapping("/{id}/return")
-    @ApiOperation("归还登记（支持上传归还照片）")
+    @ApiOperation("归还登记（支持多张归还照片）")
     @PreAuthorize("hasAuthority('borrow:return')")
     public R<BorrowRecord> returnDevice(@PathVariable Long id,
                                          @RequestParam(required = false) String damageReport,
-                                         @RequestParam(value = "file", required = false) MultipartFile file) {
+                                         @RequestParam(value = "file", required = false) MultipartFile file,
+                                         @RequestParam(value = "files", required = false) List<MultipartFile> files) {
         try {
             BorrowRecord record = borrowService.returnDevice(id, getCurrentUserId(), damageReport);
 
-            // 上传归还照片（如有）
-            if (file != null && !file.isEmpty()) {
-                String objectPath = minioFileService.uploadImage(file, "RETURN");
-                Attachment att = new Attachment();
-                att.setBizType("RETURN_IMG");
-                att.setBizId(record.getId());
-                att.setFileUrl(objectPath);
-                att.setFileSize(file.getSize());
-                att.setUploadTime(LocalDateTime.now());
-                att.setExpireTime(LocalDateTime.now().plusMonths(6)); // 半年后过期
-                attachmentMapper.insert(att);
+            // 上传归还照片（支持单张和多张）
+            java.util.List<MultipartFile> allFiles = new java.util.ArrayList<>();
+            if (file != null && !file.isEmpty()) allFiles.add(file);
+            if (files != null) allFiles.addAll(files.stream().filter(f -> f != null && !f.isEmpty()).collect(java.util.stream.Collectors.toList()));
+
+            for (MultipartFile f : allFiles) {
+                try {
+                    String objectPath = minioFileService.uploadImage(f, "RETURN");
+                    Attachment att = new Attachment();
+                    att.setBizType("RETURN_IMG");
+                    att.setBizId(record.getId());
+                    att.setFileUrl(objectPath);
+                    att.setFileSize(f.getSize());
+                    att.setUploadTime(LocalDateTime.now());
+                    att.setExpireTime(LocalDateTime.now().plusMonths(6));
+                    attachmentMapper.insert(att);
+                } catch (Exception ex) {
+                    log.warn("归还照片上传失败: {}", ex.getMessage());
+                }
             }
 
-            return R.ok("归还成功", record);
+            return R.ok("归还成功" + (!allFiles.isEmpty() ? "，已上传" + allFiles.size() + "张照片" : ""), record);
         } catch (IllegalArgumentException e) {
             return R.fail(e.getMessage());
         } catch (Exception e) {

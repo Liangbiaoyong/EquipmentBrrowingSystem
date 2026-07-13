@@ -20,6 +20,11 @@ public class BorrowRecord implements Serializable {
     private LocalDateTime startTime;
     private LocalDateTime endTime;
 
+    /** 取走时间（实际借出开始，用户取设备时记录） */
+    private LocalDateTime pickupTime;
+    /** 取走/借用时的照片URL */
+    private String pickupImage;
+
     /** PENDING_APPROVAL / APPROVED / REJECTED / BORROWING / RETURNED / OVERDUE / CANCELLED */
     private String status;
 

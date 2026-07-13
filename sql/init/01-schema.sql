@@ -1,5 +1,5 @@
 -- ============================================================
--- 建筑学院设备借用系统 - 数据库初始化脚本
+-- 建筑学院仪器共享平台 - 数据库初始化脚本
 -- 数据库: device_borrow
 -- ============================================================
 
@@ -155,6 +155,8 @@ CREATE TABLE IF NOT EXISTS `borrow_record` (
   `device_id` bigint NOT NULL COMMENT '设备ID',
   `start_time` datetime NOT NULL COMMENT '借用开始时间',
   `end_time` datetime NOT NULL COMMENT '计划归还时间',
+  `pickup_time` datetime DEFAULT NULL COMMENT '取走时间（实际借出开始）',
+  `pickup_image` varchar(500) DEFAULT NULL COMMENT '取走/借用照片URL',
   `status` varchar(20) NOT NULL DEFAULT 'PENDING_APPROVAL' COMMENT '状态: PENDING_APPROVAL/APPROVED/REJECTED/BORROWING/RETURNED/OVERDUE/CANCELLED',
   `reason` text COMMENT '借用事由',
   `purpose` varchar(500) DEFAULT NULL COMMENT '借用目的（V4：申请时必填）',
