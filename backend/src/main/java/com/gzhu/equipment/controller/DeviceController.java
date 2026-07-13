@@ -52,7 +52,7 @@ public class DeviceController {
     // ==================== 查询 ====================
 
     @GetMapping
-    @ApiOperation("分页查询设备列表")
+    @ApiOperation("分页查询设备列表（支持排序）")
     public R<IPage<Device>> listDevices(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
@@ -66,9 +66,39 @@ public class DeviceController {
             @RequestParam(required = false) Integer borrowType,
             @RequestParam(required = false) Long laboratoryId,
             @RequestParam(required = false) String location,
-            @RequestParam(required = false) String gbCategoryName) {
-        return R.ok(deviceService.pageQuery(page, size, keyword, assetNo, name, model,
-                categoryId, borrowStatus, deviceStatus, location, gbCategoryName, borrowType, laboratoryId));
+            @RequestParam(required = false) String gbCategoryName,
+            @RequestParam(required = false) String sort,
+            @RequestParam(required = false, defaultValue = "desc") String order) {
+        // 构建查询（复用service，然后覆盖排序）
+        var wrapper = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<Device>();
+        // 应用查询条件
+        if (org.springframework.util.StringUtils.hasText(assetNo)) wrapper.like(Device::getAssetNo, assetNo);
+        if (org.springframework.util.StringUtils.hasText(name)) wrapper.like(Device::getName, name);
+        if (org.springframework.util.StringUtils.hasText(model)) wrapper.like(Device::getModel, model);
+        if (org.springframework.util.StringUtils.hasText(keyword)) {
+            wrapper.and(w -> { w.like(Device::getName, keyword).or().like(Device::getAssetNo, keyword)
+                .or().like(Device::getModel, keyword).or().like(Device::getLocation, keyword)
+                .or().like(Device::getGbCategoryName, keyword);
+                try { w.or().eq(Device::getId, Long.parseLong(keyword)); } catch (NumberFormatException ignored) {} });
+        }
+        if (categoryId != null) wrapper.eq(Device::getCategoryId, categoryId);
+        if (borrowStatus != null) wrapper.eq(Device::getBorrowStatus, borrowStatus);
+        if (deviceStatus != null) wrapper.eq(Device::getDeviceStatus, deviceStatus);
+        if (borrowType != null) wrapper.eq(Device::getBorrowType, borrowType);
+        if (laboratoryId != null) wrapper.eq(Device::getLaboratoryId, laboratoryId);
+        if (org.springframework.util.StringUtils.hasText(location)) wrapper.like(Device::getLocation, location);
+        if (org.springframework.util.StringUtils.hasText(gbCategoryName)) wrapper.like(Device::getGbCategoryName, gbCategoryName);
+        // 排序
+        boolean asc = "asc".equalsIgnoreCase(order);
+        if ("id".equals(sort)) wrapper.orderBy(true, asc, Device::getId);
+        else if ("assetNo".equals(sort)) wrapper.orderBy(true, asc, Device::getAssetNo);
+        else if ("name".equals(sort)) wrapper.orderBy(true, asc, Device::getName);
+        else if ("location".equals(sort)) wrapper.orderBy(true, asc, Device::getLocation);
+        else if ("borrowStatus".equals(sort)) wrapper.orderBy(true, asc, Device::getBorrowStatus);
+        else if ("deviceStatus".equals(sort)) wrapper.orderBy(true, asc, Device::getDeviceStatus);
+        else if ("createTime".equals(sort)) wrapper.orderBy(true, asc, Device::getCreateTime);
+        else wrapper.orderByDesc(Device::getId);
+        return R.ok(deviceMapper.selectPage(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), wrapper));
     }
 
     @GetMapping("/by-status/{type}")

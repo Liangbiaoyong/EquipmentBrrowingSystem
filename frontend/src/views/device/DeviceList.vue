@@ -21,10 +21,10 @@
       <el-col :span="2"><el-button @click="resetSearch">重置</el-button></el-col>
     </el-row></el-card>
     <el-card style="margin-top:15px">
-      <el-table :data="list" v-loading="loading" stripe @row-click="toDetail" style="cursor:pointer">
-        <el-table-column prop="id" label="设备ID" width="70"/>
-        <el-table-column prop="assetNo" label="资产编号" width="130"/>
-        <el-table-column prop="name" label="名称" min-width="160"/>
+      <el-table :data="list" v-loading="loading" stripe @row-click="toDetail" style="cursor:pointer" @sort-change="onSort">
+        <el-table-column prop="id" label="设备ID" width="75" sortable="custom"/>
+        <el-table-column prop="assetNo" label="资产编号" width="130" sortable="custom"/>
+        <el-table-column prop="name" label="名称" min-width="160" sortable="custom"/>
         <el-table-column prop="model" label="型号" min-width="120"/>
         <el-table-column label="分类" width="120"><template #default="{row}">{{ catName(row.categoryId) }}</template></el-table-column>
         <el-table-column label="使用人" width="90" prop="custodian"/>
@@ -41,6 +41,8 @@
 import { ref,reactive,onMounted,watch } from 'vue';import { useRouter,useRoute } from 'vue-router';import axios from '@/api/request';import { categoryApi } from '@/api/category'
 const router=useRouter();const route=useRoute();const loading=ref(false);const list=ref([]);const total=ref(0);const categories=ref([]);const laboratories=ref([])
 const q=reactive({page:1,size:20,assetNo:'',name:'',model:'',categoryId:null,gbCategoryName:'',location:'',borrowStatus:null,deviceStatus:null,borrowType:null,laboratoryId:null})
+const sortBy=ref('');const sortOrder=ref('desc')
+function onSort({prop,order}){sortBy.value=prop;sortOrder.value=order||'desc';search()}
 
 // 从URL恢复搜索状态
 function restoreFromQuery(){
@@ -74,7 +76,7 @@ function deviceStatusText(v){return deviceStatusTextMap[v]||'未知'}
 function catName(id){const c=categories.value.find(x=>x.id===id);return c?c.name:''}
 function labName(id){if(!id)return'';const l=laboratories.value.find(x=>x.id===id);return l?l.name:''}
 function toDetail(row){router.push(`/devices/${row.id}`)}
-async function search(){loading.value=true;syncToQuery();try{const{data}=await axios.get('/devices',{params:{page:q.page,size:q.size,assetNo:q.assetNo||undefined,name:q.name||undefined,model:q.model||undefined,categoryId:q.categoryId,gbCategoryName:q.gbCategoryName||undefined,location:q.location||undefined,borrowStatus:q.borrowStatus,deviceStatus:q.deviceStatus,borrowType:q.borrowType,laboratoryId:q.laboratoryId}});list.value=data.records||[];total.value=data.total||0}catch(e){console.error('搜索设备失败',e)}finally{loading.value=false}}
+async function search(){loading.value=true;syncToQuery();try{const{data}=await axios.get('/devices',{params:{page:q.page,size:q.size,assetNo:q.assetNo||undefined,name:q.name||undefined,model:q.model||undefined,categoryId:q.categoryId,gbCategoryName:q.gbCategoryName||undefined,location:q.location||undefined,borrowStatus:q.borrowStatus,deviceStatus:q.deviceStatus,borrowType:q.borrowType,laboratoryId:q.laboratoryId,sort:sortBy.value||undefined,order:sortOrder.value}});list.value=data.records||[];total.value=data.total||0}catch(e){console.error('搜索设备失败',e)}finally{loading.value=false}}
 function resetSearch(){q.assetNo='';q.name='';q.model='';q.categoryId=null;q.gbCategoryName='';q.location='';q.borrowStatus=null;q.deviceStatus=null;q.borrowType=null;q.laboratoryId=null;search()}
 onMounted(async()=>{try{const{data}=await categoryApi.topLevel();categories.value=data}catch{};try{const{data}=await axios.get('/laboratories/list');laboratories.value=data||[]}catch{};restoreFromQuery();search()})
 </script>

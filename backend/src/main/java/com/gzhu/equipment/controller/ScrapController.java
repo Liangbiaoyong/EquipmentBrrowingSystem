@@ -52,10 +52,13 @@ public class ScrapController {
             w.and(wp -> wp.like(Device::getName,keyword).or().like(Device::getAssetNo,keyword).or().like(Device::getGbCategoryName,keyword));
         if (categoryId != null) w.eq(Device::getCategoryId, categoryId);
 
-        // 排序
-        if ("yearsUsed".equals(sortBy)) w.orderBy(true, "asc".equals(order), Device::getPurchaseDate);
-        else if ("minYears".equals(sortBy)) {} // 内存排序
-        else w.orderByDesc(Device::getId);
+        // 排序（id/purchaseDate/yearsUsed由SQL排序；minYears由内存排序后二次处理）
+        boolean asc = "asc".equalsIgnoreCase(order);
+        if ("id".equals(sortBy)) w.orderBy(true, asc, Device::getId);
+        else if ("purchaseDate".equals(sortBy)) w.orderBy(true, asc, Device::getPurchaseDate);
+        else if ("yearsUsed".equals(sortBy)) w.orderBy(true, asc, Device::getPurchaseDate);
+        else if ("minYears".equals(sortBy)) {} // 后续内存排序
+        else w.orderBy(true, asc, Device::getId);
 
         IPage<Device> devicePage = deviceMapper.selectPage(new Page<>(page, size), w);
         LocalDate today = LocalDate.now();

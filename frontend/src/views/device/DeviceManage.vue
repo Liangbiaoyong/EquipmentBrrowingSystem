@@ -8,13 +8,13 @@
       </el-row>
     </el-card>
     <el-card style="margin-top:15px">
-      <el-table :data="list" v-loading="loading" stripe>
-        <el-table-column prop="id" label="设备ID" width="70"/>
-        <el-table-column prop="assetNo" label="资产编号" width="130"/>
-        <el-table-column prop="name" label="名称" min-width="160"/>
-        <el-table-column prop="location" label="存放地" min-width="120" show-overflow-tooltip/>
-        <el-table-column label="借还状态" width="90"><template #default="{row}"><el-tag :type="borrowStatusTag(row.borrowStatus)">{{ borrowStatusText(row.borrowStatus) }}</el-tag></template></el-table-column>
-        <el-table-column label="设备状态" width="90"><template #default="{row}"><el-tag :type="deviceStatusTag(row.deviceStatus)">{{ deviceStatusText(row.deviceStatus) }}</el-tag></template></el-table-column>
+      <el-table :data="list" v-loading="loading" stripe @sort-change="onSort">
+        <el-table-column prop="id" label="设备ID" width="75" sortable="custom"/>
+        <el-table-column prop="assetNo" label="资产编号" width="130" sortable="custom"/>
+        <el-table-column prop="name" label="名称" min-width="160" sortable="custom"/>
+        <el-table-column prop="location" label="存放地" min-width="120" show-overflow-tooltip sortable="custom"/>
+        <el-table-column prop="borrowStatus" label="借还状态" width="90" sortable="custom"><template #default="{row}"><el-tag :type="borrowStatusTag(row.borrowStatus)">{{ borrowStatusText(row.borrowStatus) }}</el-tag></template></el-table-column>
+        <el-table-column prop="deviceStatus" label="设备状态" width="90" sortable="custom"><template #default="{row}"><el-tag :type="deviceStatusTag(row.deviceStatus)">{{ deviceStatusText(row.deviceStatus) }}</el-tag></template></el-table-column>
         <el-table-column label="借用类型" width="100"><template #default="{row}"><el-tag :type="row.borrowType===1?'warning':''" effect="plain">{{ row.borrowType===1?'仅现场':'可借出' }}</el-tag></template></el-table-column>
         <el-table-column label="默认审批人" width="140"><template #default="{row}"><span style="font-size:13px">{{ getApproverName(row.defaultApproverId) }}</span><el-button size="small" style="margin-left:4px" @click="openApprover(row)">修改</el-button></template></el-table-column>
         <el-table-column label="操作" width="160" fixed="right"><template #default="{row}"><el-button size="small" @click="openEdit(row)">编辑</el-button><el-popconfirm title="确定删除?" @confirm="doDelete(row.id)"><template #reference><el-button size="small" type="danger">删除</el-button></template></el-popconfirm></template></el-table-column>
@@ -54,6 +54,7 @@ const editVisible=ref(false);const approverVisible=ref(false)
 const approverCurrentId=ref(null);const approverId=ref(null);const users=ref([])
 const q=reactive({page:1,size:20,keyword:'',location:''})
 const form=reactive({id:null,name:'',model:'',location:'',borrowStatus:1,deviceStatus:1,borrowType:2,description:''})
+const sortBy=ref('');const sortOrder=ref('desc');function onSort({prop,order}){sortBy.value=prop;sortOrder.value=order||'desc';load()}
 
 const borrowStatusMap={1:'success',2:'warning',3:'danger',4:'danger'}
 const borrowStatusTextMap={1:'可借用',2:'借用中',3:'不可借',4:'逾期'}
@@ -68,7 +69,7 @@ function deviceStatusText(v){return deviceStatusTextMap[v]||v}
 function roleName(t){return roleNameMap[t]||t}
 function getApproverName(id){if(!id)return'未设置';const u=users.value.find(x=>x.id===id);return u?u.realName||u.username:`ID:${id}`}
 
-async function load(){loading.value=true;try{const{data}=await deviceApi.list({page:q.page,size:q.size,keyword:q.keyword||undefined,location:q.location||undefined});list.value=data.records||[];total.value=data.total||0}catch(e){console.error(e)}finally{loading.value=false}}
+async function load(){loading.value=true;try{const{data}=await deviceApi.list({page:q.page,size:q.size,keyword:q.keyword||undefined,location:q.location||undefined,sort:sortBy.value||undefined,order:sortOrder.value});list.value=data.records||[];total.value=data.total||0}catch(e){console.error(e)}finally{loading.value=false}}
 async function loadUsers(){try{const{data}=await axios.get('/admin/users',{params:{page:1,size:500}});users.value=data.records||[]}catch{}}
 
 function openEdit(row){

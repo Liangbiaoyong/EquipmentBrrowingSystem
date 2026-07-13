@@ -28,14 +28,14 @@
 
     <!-- 逾期列表 -->
     <el-card shadow="never">
-      <el-table :data="list" stripe v-loading="loading" @selection-change="sel=>selectedIds=sel.map(r=>r.id)">
+      <el-table :data="list" stripe v-loading="loading" @selection-change="sel=>selectedIds=sel.map(r=>r.id)" @sort-change="onSort">
         <el-table-column type="selection" width="45"/>
-        <el-table-column prop="id" label="单号" width="75"/>
+        <el-table-column prop="id" label="单号" width="75" sortable="custom"/>
         <el-table-column label="设备" min-width="150"><template #default="{row}"><el-link type="primary" @click="$router.push('/devices/'+row.deviceId)">{{ getDN(row.deviceId) }}</el-link></template></el-table-column>
         <el-table-column label="借用人" width="100"><template #default="{row}">{{ getUN(row.userId) }}</template></el-table-column>
-        <el-table-column label="逾期天数" width="100"><template #default="{row}"><el-tag :type="row.overdueDays>7?'danger':'warning'" size="large">{{ row.overdueDays||'即将' }}天</el-tag></template></el-table-column>
-        <el-table-column label="开始时间" width="140"><template #default="{row}">{{ fmt(row.startTime) }}</template></el-table-column>
-        <el-table-column label="应归还" width="140"><template #default="{row}">{{ fmt(row.endTime) }}</template></el-table-column>
+        <el-table-column prop="overdueDays" label="逾期天数" width="100" sortable="custom"><template #default="{row}"><el-tag :type="row.overdueDays>7?'danger':'warning'" size="large">{{ row.overdueDays||'即将' }}天</el-tag></template></el-table-column>
+        <el-table-column prop="startTime" label="开始时间" width="140" sortable="custom"><template #default="{row}">{{ fmt(row.startTime) }}</template></el-table-column>
+        <el-table-column prop="endTime" label="应归还" width="140" sortable="custom"><template #default="{row}">{{ fmt(row.endTime) }}</template></el-table-column>
         <el-table-column label="操作" width="280" fixed="right"><template #default="{row}">
           <div class="action-btns">
             <el-button size="small" type="primary" @click="doNotify(row)">催还</el-button>
@@ -69,26 +69,33 @@ import { ElMessage } from 'element-plus'
 const list=ref([]);const loading=ref(false);const page=ref(1);const size=ref(20);const total=ref(0)
 const keyword=ref('');const selectedIds=ref([]);const refreshing=ref(false)
 const nameCache=ref({});const stats=reactive({overdueTotal:0,avgDays:0,notified:0,collected:0})
+const sortBy=ref('');const sortOrder=ref('desc')
 
 const dlg=reactive({show:false,force:false,row:null,damage:'',remark:'',loading:false})
 
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
 function getDN(id){return nameCache.value['d'+id]||'设备#'+id}
 function getUN(id){return nameCache.value['u'+id]||'用户#'+id}
+function onSort({prop,order}){sortBy.value=prop;sortOrder.value=order||'desc';load()}
 
 async function load(){
   loading.value=true
-  try{const{data}=await axios.get('/borrows/overdue',{params:{page:page.value,size:size.value}});list.value=data.records||[];total.value=data.total||0;loadNames(data.records)}catch(e){console.error(e)}finally{loading.value=false}
+  try{const{data}=await axios.get('/borrows/overdue',{params:{page:page.value,size:size.value,keyword:keyword.value||undefined,sort:sortBy.value||undefined,order:sortOrder.value}});list.value=data.records||[];total.value=data.total||0;await loadNames(data.records)}catch(e){console.error(e)}finally{loading.value=false}
 }
 
 async function loadNames(records){
-  for(const r of (records||[])){
-    if(r.deviceId&&!nameCache.value['d'+r.deviceId]){try{const{data}=await axios.get('/devices/'+r.deviceId);nameCache.value['d'+r.deviceId]=data?.name||data?.device?.name||('设备#'+r.deviceId)}catch{}}
-    if(r.userId&&!nameCache.value['u'+r.userId]){try{const{data}=await axios.get('/admin/users',{params:{page:1,size:200}});const u=(data?.records||[]).find(x=>x.id===r.userId);nameCache.value['u'+r.userId]=u?u.realName||u.username:('用户#'+r.userId)}catch{}}
-  }
+  if(!records||!records.length)return
+  // 批量收集需要查询的ID
+  const deviceIds=[...new Set(records.map(r=>r.deviceId).filter(id=>id&&!nameCache.value['d'+id]))]
+  const userIds=[...new Set(records.map(r=>r.userId).filter(id=>id&&!nameCache.value['u'+id]))]
+  // 并行查询
+  await Promise.all([
+    ...deviceIds.map(async id=>{try{const{data}=await axios.get('/devices/'+id);nameCache.value['d'+id]=data?.name||data?.device?.name||('设备#'+id)}catch{}}),
+    ...userIds.map(async id=>{try{const{data}=await axios.get('/admin/users/'+id);nameCache.value['u'+id]=data?.realName||data?.username||('用户#'+id)}catch{}})
+  ])
 }
 
-async function loadStats(){try{const{data}=await axios.get('/borrows/overdue/stats');Object.assign(stats,data)}catch{}}
+async function loadStats(){try{const{data}=await axios.get('/borrows/overdue/stats');stats.overdueTotal=data.overdueTotal||0;stats.avgDays=Math.round((data.avgDays||0)*10)/10;stats.notified=data.notified||0;stats.collected=data.collected||0}catch{}}}
 
 async function doRefresh(){refreshing.value=true;try{const{data}=await axios.post('/borrows/overdue/refresh');ElMessage.success(`检测完成: 发现${data}条逾期记录`);load();loadStats()}catch(e){ElMessage.error('检测失败')}finally{refreshing.value=false}}
 
