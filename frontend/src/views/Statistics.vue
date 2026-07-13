@@ -87,13 +87,15 @@
           </div>
         </div>
 
-        <!-- 借用趋势 / 分类利用率 — 柱状图 -->
+        <!-- 借用趋势 — 柱状图 -->
         <div v-else-if="activeTab==='trend'" class="chart-section">
           <h3 class="section-title"><span class="dot dot-blue"></span>本月每日借用趋势</h3>
-          <div v-if="chartData.length" class="bar-chart-vertical">
-            <div class="bar-col" v-for="(d,i) in chartData" :key="i"
-                 :style="{height:Math.max(d.pct,2)+'%'}" :title="d.label + ': ' + d.value">
-              <span class="bar-val">{{ d.value }}</span>
+          <div v-if="chartData.length" class="bar-chart-wrap">
+            <div class="bar-chart-vertical">
+              <div class="bar-col" v-for="(d,i) in chartData" :key="i"
+                   :style="{height:Math.max(d.pct,2)+'%'}" :title="d.label + ': ' + d.value">
+                <span class="bar-val">{{ d.value }}</span>
+              </div>
             </div>
             <div class="bar-labels"><span v-for="(d,i) in chartData" :key="i">{{ d.label.slice(-2) }}</span></div>
           </div>
@@ -117,7 +119,7 @@
           <el-empty v-else description="暂无数据"/>
         </div>
 
-        <!-- 目的分布 — 环形图 + 子分类 -->
+        <!-- 目的分布 — 环形图 + 子分类 + 设备排行 -->
         <div v-else-if="activeTab==='purposes'" class="chart-section">
           <div class="dual-chart">
             <div class="dc-left">
@@ -135,6 +137,18 @@
                 </div>
               </div>
               <el-empty v-else description="暂无详细数据"/>
+            </div>
+          </div>
+          <!-- 目的按设备分类排行 -->
+          <div v-if="purposeDeviceRank.length" style="margin-top:20px">
+            <h3 class="section-title"><span class="dot dot-green"></span>设备分类目的统计排行</h3>
+            <div class="h-bar-list">
+              <div class="h-bar-row" v-for="(d,i) in purposeDeviceRank" :key="i">
+                <span class="h-bar-rank" :class="'rank-'+(i+1)">{{ i+1 }}</span>
+                <span class="h-bar-label">{{ d.name }}</span>
+                <div class="h-bar-track"><div class="h-bar-fill" :style="{width:d.pct+'%',background:barColor(i)}"></div></div>
+                <span class="h-bar-value">{{ d.value }}</span>
+              </div>
             </div>
           </div>
         </div>
@@ -168,10 +182,12 @@
           <!-- 月度趋势 -->
           <div v-if="outcomeMonthTrend.length" style="margin-top:24px">
             <h3 class="section-title"><span class="dot dot-amber"></span>成果月度趋势</h3>
-            <div class="bar-chart-vertical">
-              <div class="bar-col" v-for="(d,i) in outcomeMonthTrend" :key="i"
-                   :style="{height:Math.max(monthBarPct(d.value),2)+'%'}" :title="d.name + ': ' + d.value">
-                <span class="bar-val">{{ d.value }}</span>
+            <div class="bar-chart-wrap">
+              <div class="bar-chart-vertical">
+                <div class="bar-col" v-for="(d,i) in outcomeMonthTrend" :key="i"
+                     :style="{height:Math.max(monthBarPct(d.value),2)+'%'}" :title="d.name + ': ' + d.value">
+                  <span class="bar-val">{{ d.value }}</span>
+                </div>
               </div>
               <div class="bar-labels"><span v-for="(d,i) in outcomeMonthTrend" :key="i">{{ d.name.slice(-2) }}月</span></div>
             </div>
@@ -229,7 +245,7 @@ const DonutChart = defineComponent({
         }
         offset += dashLen
       })
-      const legendItems = props.data.slice(0, 8).map((d, i) =>
+      const legendItems = props.data.map((d, i) =>
         h('div', { class: 'donut-legend-item', key: 'l' + i }, [
           h('span', { class: 'donut-legend-dot', style: { background: props.colors[i % props.colors.length] } }),
           h('span', { class: 'donut-legend-label' }, d.name),
@@ -262,6 +278,7 @@ const overview = reactive({
 // 目的分布详情
 const purposeDetail = ref([])
 const purposeDetailCat = ref('子分类分布')
+const purposeDeviceRank = ref([])
 
 // 成果统计
 const outcomeTotal = ref(0)
@@ -301,12 +318,26 @@ function getFilterParams() {
 function onFilterChange() { switchTab(activeTab.value) }
 
 // ==================== 数据加载 ====================
+/** 安全提取响应中的数组数据（兼容 {data:[]} 和直接返回数组） */
+function safeArray(res, fallback = []) {
+  if (!res) return fallback
+  // 响应格式: {code, msg, data: [...]}
+  if (res.data !== undefined && Array.isArray(res.data)) return res.data
+  if (res.data !== undefined && res.data.data !== undefined && Array.isArray(res.data.data)) return res.data.data
+  // 直接是数组
+  if (Array.isArray(res)) return res
+  // 嵌套在 data 中
+  if (res.data !== undefined && Array.isArray(res)) return res
+  return fallback
+}
+
 async function switchTab(tab) {
-  loading.value = true
+  loading.value = true; chartData.value = []
   try {
     if (tab === 'overview') {
-      const { data } = await statsApi.overview(scope.value)
-      const ds = data.deviceStats || {}, bs = data.borrowStats || {}
+      const res = await statsApi.overview(scope.value)
+      const body = res?.data || res || {}
+      const ds = body.deviceStats || {}, bs = body.borrowStats || {}
       Object.assign(overview, {
         deviceTotal: ds.total || 0, borrowAvailable: ds.borrowAvailable || 0,
         borrowBorrowing: ds.borrowBorrowing || 0, borrowUnavailable: ds.borrowUnavailable || 0,
@@ -317,54 +348,63 @@ async function switchTab(tab) {
         pendingApproval: bs.pendingApproval || 0, totalBorrows: bs.total || 0
       })
     } else if (tab === 'trend') {
-      const { data } = await statsApi.trend(scope.value)
-      const arr = Array.isArray(data) ? data : []
+      const res = await statsApi.trend(scope.value)
+      const arr = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : [])
       const max = Math.max(...arr.map(r => r.count || 0), 1)
       chartData.value = arr.map(r => ({ label: r.date || '', value: r.count || 0, pct: Math.round((r.count || 0) / max * 100) }))
     } else if (tab === 'topDevices') {
-      const { data } = await statsApi.topDevices(scope.value)
-      const arr = Array.isArray(data) ? data : []
+      const res = await statsApi.topDevices(scope.value)
+      const arr = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : [])
       const max = Math.max(...arr.map(r => r.borrowCount || 0), 1)
-      chartData.value = arr.slice(0, 10).map(r => ({ label: r.deviceName || '未知', value: r.borrowCount || 0, pct: Math.round((r.borrowCount || 0) / max * 100) }))
+      chartData.value = arr.slice(0, 10).map((r,i) => ({ label: r.deviceName || r.name || '设备#'+(i+1), value: r.borrowCount || r.value || 0, pct: Math.round((r.borrowCount || r.value || 0) / max * 100) }))
     } else if (tab === 'topUsers') {
-      const { data } = await statsApi.topUsers(scope.value)
-      const arr = Array.isArray(data) ? data : []
+      const res = await statsApi.topUsers(scope.value)
+      const arr = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : [])
       const max = Math.max(...arr.map(r => r.borrowCount || 0), 1)
-      chartData.value = arr.slice(0, 10).map(r => ({ label: r.userName || '未知', value: r.borrowCount || 0, pct: Math.round((r.borrowCount || 0) / max * 100) }))
+      chartData.value = arr.slice(0, 10).map((r,i) => ({ label: r.userName || r.name || '用户#'+(i+1), value: r.borrowCount || r.value || 0, pct: Math.round((r.borrowCount || r.value || 0) / max * 100) }))
     } else if (tab === 'utilization') {
-      const { data } = await statsApi.utilization(scope.value)
-      const arr = Array.isArray(data) ? data : []
-      const max = Math.max(...arr.map(r => r.borrowCount || 0), 1)
-      chartData.value = arr.slice(0, 10).map(r => ({ label: r.categoryName || '未知', value: r.borrowCount || 0, pct: Math.round((r.borrowCount || 0) / max * 100) }))
+      const res = await statsApi.utilization(scope.value)
+      const arr = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : [])
+      const max = Math.max(...arr.map(r => r.borrowCount || r.value || 0), 1)
+      chartData.value = arr.slice(0, 10).map((r,i) => ({ label: r.categoryName || r.name || '分类#'+(i+1), value: r.borrowCount || r.value || 0, pct: Math.round((r.borrowCount || r.value || 0) / max * 100) }))
     } else if (tab === 'purposes') {
       const p = getFilterParams()
-      const { data } = await statsApi.purposes(p.startDate, p.endDate, p.categoryId)
-      const arr = Array.isArray(data) ? data : []
+      const res = await statsApi.purposes(p.startDate, p.endDate, p.categoryId, scope.value)
+      const arr = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : [])
       const max = Math.max(...arr.map(r => r.value || 0), 1)
-      chartData.value = arr.slice(0, 10).map(r => ({ name: r.name, value: r.value || 0, pct: Math.round((r.value || 0) / max * 100) }))
-      // 加载详细子分类
+      chartData.value = arr.slice(0, 12).map(r => ({ name: r.name, value: r.value || 0, pct: Math.round((r.value || 0) / max * 100) }))
+      // 加载详细子分类 + 设备排行
+      purposeDetail.value = []; purposeDeviceRank.value = []
       try {
-        const detail = await statsApi.purposeDetail(p.startDate, p.endDate, p.categoryId)
-        const sub = (detail.data?.subcategories || []).map(r => ({ name: r.name, value: r.value || 0 }))
+        const detail = await statsApi.purposeDetail(p.startDate, p.endDate, p.categoryId, scope.value)
+        const body = detail?.data || detail || {}
+        const sub = (body.subcategories || []).map(r => ({ name: r.name, value: r.value || 0 }))
+        const catData = body.byDeviceCategory || []
         const maxSub = Math.max(...sub.map(r => r.value || 0), 1)
-        const catData = detail.data?.byDeviceCategory || []
-        if (catData.length > 0) {
-          purposeDetailCat.value = '按设备分类'
-          purposeDetail.value = catData.map(r => ({ name: r.name, value: r.value || 0, pct: Math.round((r.value || 0) / Math.max(...catData.map(x=>x.value||0), 1) * 100) }))
-        } else {
-          purposeDetailCat.value = '子分类分布'
+        // 子分类
+        if (sub.length > 0) {
+          purposeDetailCat.value = '目的子分类分布'
           purposeDetail.value = sub.map(r => ({ name: r.name, value: r.value || 0, pct: Math.round((r.value || 0) / maxSub * 100) }))
         }
-      } catch { purposeDetail.value = [] }
+        // 设备分类排行
+        if (catData.length > 0) {
+          const maxCat = Math.max(...catData.map(x => x.value || 0), 1)
+          purposeDeviceRank.value = catData.slice(0, 10).map((r, i) => ({
+            name: r.name, value: r.value || 0,
+            pct: Math.round((r.value || 0) / maxCat * 100)
+          }))
+        }
+      } catch { purposeDetail.value = []; purposeDeviceRank.value = [] }
     } else if (tab === 'outcomes') {
       const p = getFilterParams()
-      const { data } = await statsApi.outcomeStats(null, p.startDate, p.endDate)
-      outcomeTotal.value = data.outcomeTotal || 0
-      const dist = (data.distribution || []).map(r => ({ name: r.name, value: r.value || 0 }))
+      const res = await statsApi.outcomeStats(null, p.startDate, p.endDate, scope.value)
+      const body = res?.data || res || {}
+      outcomeTotal.value = body.outcomeTotal || 0
+      const dist = (body.distribution || []).map(r => ({ name: r.name, value: r.value || 0 }))
       const maxDist = Math.max(...dist.map(r => r.value || 0), 1)
       chartData.value = dist.map(r => ({ name: r.name, value: r.value || 0, pct: Math.round((r.value || 0) / maxDist * 100) }))
-      outcomeTopDevices.value = (data.deviceTop10 || []).slice(0, 10)
-      outcomeMonthTrend.value = data.monthTrend || []
+      outcomeTopDevices.value = (body.deviceTop10 || []).slice(0, 10)
+      outcomeMonthTrend.value = body.monthTrend || []
     }
   } catch (e) {
     console.error('加载统计数据失败', e)
@@ -451,11 +491,12 @@ onMounted(async () => {
 .bs-label { font-size: 13px; color: #909399; margin-top: 4px; }
 
 /* ===== 竖向柱状图 ===== */
-.bar-chart-vertical { display: flex; align-items: flex-end; gap: 6px; height: 200px; padding: 0 4px; position: relative; }
+.bar-chart-wrap { width: 100%; }
+.bar-chart-vertical { display: flex; align-items: flex-end; gap: 6px; height: 200px; padding: 0 4px; }
 .bar-col { flex: 1; background: linear-gradient(180deg, #409EFF, #66B1FF); border-radius: 4px 4px 0 0; min-width: 20px; position: relative; transition: height 0.5s ease; display: flex; justify-content: center; }
 .bar-col:nth-child(odd) { background: linear-gradient(180deg, #67C23A, #95D475); }
 .bar-val { position: absolute; top: -20px; font-size: 11px; color: #606266; font-weight: 600; }
-.bar-labels { display: flex; gap: 6px; margin-top: 8px; }
+.bar-labels { display: flex; gap: 6px; margin-top: 8px; padding: 0 4px; }
 .bar-labels span { flex: 1; text-align: center; font-size: 11px; color: #909399; min-width: 20px; }
 
 /* ===== 横向柱状图排行 ===== */

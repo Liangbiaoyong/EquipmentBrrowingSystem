@@ -7,14 +7,14 @@ export const statsApi = {
   topUsers(scope = 'auto') { return request.get('/statistics/top-users', { params: { scope } }) },
   utilization(scope = 'auto') { return request.get('/statistics/utilization', { params: { scope } }) },
   exportCsv(format = 'csv') { return request.get('/statistics/export', { params: { format }, responseType: 'blob' }) },
-  purposes(startDate, endDate, categoryId) {
-    return request.get('/statistics/purposes', { params: { startDate, endDate, categoryId } })
+  purposes(startDate, endDate, categoryId, scope = 'auto') {
+    return request.get('/statistics/purposes', { params: { startDate, endDate, categoryId, scope } })
   },
-  purposeDetail(startDate, endDate, categoryId) {
-    return request.get('/statistics/purposes/detail', { params: { startDate, endDate, categoryId } })
+  purposeDetail(startDate, endDate, categoryId, scope = 'auto') {
+    return request.get('/statistics/purposes/detail', { params: { startDate, endDate, categoryId, scope } })
   },
-  outcomeStats(deviceId, startDate, endDate) {
-    return request.get('/statistics/outcomes/stats', { params: { deviceId, startDate, endDate } })
+  outcomeStats(deviceId, startDate, endDate, scope = 'auto') {
+    return request.get('/statistics/outcomes/stats', { params: { deviceId, startDate, endDate, scope } })
   },
   deviceOutcomes(deviceId) {
     return request.get('/statistics/device-outcomes', { params: { deviceId } })
