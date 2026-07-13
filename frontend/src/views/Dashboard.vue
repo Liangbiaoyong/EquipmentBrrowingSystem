@@ -1,9 +1,15 @@
 <template>
   <div class="dashboard">
-    <h2 class="dash-title">仪表盘</h2>
-    <el-alert v-if="isTeacher" type="info" :closable="false" show-icon style="margin-bottom:12px">
-      <template #title>教师视图 — 仅显示您名下持有设备的统计数据</template>
-    </el-alert>
+    <div class="dash-header">
+      <h2 class="dash-title">仪表盘</h2>
+      <div class="dash-scope" v-if="showScopeToggle">
+        <span class="scope-label">数据范围：</span>
+        <el-radio-group v-model="scope" size="small" @change="onScopeChange">
+          <el-radio-button value="personal">个人</el-radio-button>
+          <el-radio-button value="global">全局</el-radio-button>
+        </el-radio-group>
+      </div>
+    </div>
 
     <!-- 借还状态 — 5卡片均匀分布 -->
     <div class="section-header">
@@ -88,13 +94,20 @@
 </template>
 
 <script setup>
-import {ref,reactive,onMounted,computed} from 'vue'
+import {ref,reactive,onMounted,computed,watch} from 'vue'
 import {useRouter} from 'vue-router'
+import {useUserStore} from '@/store/user'
 import {statsApi} from '@/api/statistics'
 import {Monitor,CircleCheck,Clock,WarningFilled,RemoveFilled,Cpu,Setting,CircleClose,DeleteFilled,Search,Plus,List} from '@element-plus/icons-vue'
 
-const router=useRouter();const loading=ref(true);const trendData=ref([]);const maxT=ref(1)
-const isTeacher=computed(()=>{try{return localStorage.getItem('userType')==='1'}catch{return false}})
+const router=useRouter();const userStore=useUserStore();const loading=ref(true);const trendData=ref([]);const maxT=ref(1)
+
+// 全局/个人切换 — 教师/实验室管理员/系统管理员可见
+const userType=computed(()=>userStore.userInfo?.userType)
+const showScopeToggle=computed(()=>[1,2,3].includes(userType.value))
+// 默认：教师→个人，管理员→全局；优先从localStorage恢复
+const scope=ref(localStorage.getItem('statsScope')||(userType.value===1?'personal':'global'))
+function onScopeChange(val){localStorage.setItem('statsScope',val);loadAll()}
 
 const borrowStatusCards=reactive([
   {label:'设备总数',value:'-',color:'#909399',icon:Monitor,status:null},
@@ -121,9 +134,10 @@ const borrowCards=reactive([
   {label:'总借用',value:'-',color:'#67C23A'}
 ])
 
-onMounted(async()=>{
+async function loadAll(){
+  loading.value=true
   try{
-    const{data:ov}=await statsApi.overview()
+    const{data:ov}=await statsApi.overview(scope.value)
     const ds=ov.deviceStats;const bs=ov.borrowStats
     borrowStatusCards[0].value=ds.total||0
     borrowStatusCards[1].value=ds.borrowAvailable||ds.available||0
@@ -140,13 +154,17 @@ onMounted(async()=>{
     borrowCards[2].value=bs.pendingApproval||0
     borrowCards[3].value=bs.total||0
   }catch{}finally{loading.value=false}
-  try{const{data:td}=await statsApi.trend();trendData.value=td||[];maxT.value=Math.max(1,...trendData.value.map(t=>t.count||0))}catch{}
-})
+  try{const{data:td}=await statsApi.trend(scope.value);trendData.value=td||[];maxT.value=Math.max(1,...trendData.value.map(t=>t.count||0))}catch{}
+}
+onMounted(loadAll)
 </script>
 
 <style scoped>
 .dashboard{padding:24px;max-width:1100px;margin:0 auto}
-.dash-title{font-size:22px;font-weight:600;color:#303133;margin:0 0 20px 0}
+.dash-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;flex-wrap:wrap;gap:12px}
+.dash-title{font-size:22px;font-weight:600;color:#303133;margin:0}
+.dash-scope{display:flex;align-items:center;gap:8px}
+.scope-label{font-size:13px;color:#606266;white-space:nowrap}
 
 /* 区域标题 */
 .section-header{display:flex;align-items:center;gap:8px;margin-bottom:12px}

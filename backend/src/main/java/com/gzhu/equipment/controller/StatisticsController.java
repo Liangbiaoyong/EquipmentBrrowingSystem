@@ -45,42 +45,52 @@ public class StatisticsController {
     private final SysUserMapper sysUserMapper;
     private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
-    /** 如果是教师角色，返回其姓名用于筛选持有设备；否则返回null */
-    private String getTeacherCustodian() {
+    /** 获取当前用户姓名，用于个人范围筛选。
+     *  scope=personal → 筛选当前用户的持有设备（适用于所有角色：教师/实验室管理员/系统管理员）
+     *  scope=global   → 不筛选，看全部
+     *  scope=auto     → 兼容旧逻辑：教师默认个人，其他默认全局
+     *  返回null表示不需要筛选 */
+    private String getCustodianForScope(String scope) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth != null && auth.getPrincipal() instanceof JwtUserPrincipal p) {
-            SysUser user = sysUserMapper.selectById(p.getUserId());
-            if (user != null && user.getUserType() != null && user.getUserType() == 1) {
-                return user.getRealName();
-            }
-        }
-        return null;
+        if (auth == null || !(auth.getPrincipal() instanceof JwtUserPrincipal p)) return null;
+        SysUser user = sysUserMapper.selectById(p.getUserId());
+        if (user == null) return null;
+        Integer userType = user.getUserType();
+        // student — never filters
+        if (userType == null || userType == 0) return null;
+        // personal: explicit request
+        if ("personal".equals(scope)) return user.getRealName();
+        // global: explicit request
+        if ("global".equals(scope)) return null;
+        // auto: backward compatible — teacher→personal, lab_admin/system_admin→global
+        if (userType == 1) return user.getRealName(); // teacher → personal
+        return null; // lab_admin(2) / system_admin(3) → global
     }
 
-    /** 构建设备查询条件（教师只看自己持有的设备） */
-    private LambdaQueryWrapper<Device> deviceWrapper() {
+    /** 构建设备查询条件（按scope决定是否限定当前用户持有设备） */
+    private LambdaQueryWrapper<Device> deviceWrapper(String scope) {
         LambdaQueryWrapper<Device> w = new LambdaQueryWrapper<>();
-        String custodian = getTeacherCustodian();
+        String custodian = getCustodianForScope(scope);
         if (custodian != null) w.eq(Device::getCustodian, custodian);
         return w;
     }
 
     @GetMapping("/overview")
-    @ApiOperation("仪表盘概览")
+    @ApiOperation("仪表盘概览（scope: auto|personal|global）")
     @PreAuthorize("hasAuthority('dashboard:view')")
-    public R<Map<String, Object>> overview() {
+    public R<Map<String, Object>> overview(@RequestParam(defaultValue = "auto") String scope) {
         Map<String, Object> data = new LinkedHashMap<>();
 
-        Long totalDevices = deviceMapper.selectCount(deviceWrapper());
-        Long availableCount = deviceMapper.selectCount(deviceWrapper().eq(Device::getBorrowStatus, 1));
-        Long deviceBorrowingCount = deviceMapper.selectCount(deviceWrapper().eq(Device::getBorrowStatus, 2));
-        Long unavailableCount = deviceMapper.selectCount(deviceWrapper().eq(Device::getBorrowStatus, 3));
-        Long overdueCount2 = deviceMapper.selectCount(deviceWrapper().eq(Device::getBorrowStatus, 4));
-        Long normalCount = deviceMapper.selectCount(deviceWrapper().eq(Device::getDeviceStatus, 1));
-        Long repairCount = deviceMapper.selectCount(deviceWrapper().eq(Device::getDeviceStatus, 3));
-        Long pendingRepair = deviceMapper.selectCount(deviceWrapper().eq(Device::getDeviceStatus, 2));
-        Long pendingScrap = deviceMapper.selectCount(deviceWrapper().eq(Device::getDeviceStatus, 4));
-        Long scrappedCount = deviceMapper.selectCount(deviceWrapper().eq(Device::getDeviceStatus, 5));
+        Long totalDevices = deviceMapper.selectCount(deviceWrapper(scope));
+        Long availableCount = deviceMapper.selectCount(deviceWrapper(scope).eq(Device::getBorrowStatus, 1));
+        Long deviceBorrowingCount = deviceMapper.selectCount(deviceWrapper(scope).eq(Device::getBorrowStatus, 2));
+        Long unavailableCount = deviceMapper.selectCount(deviceWrapper(scope).eq(Device::getBorrowStatus, 3));
+        Long overdueCount2 = deviceMapper.selectCount(deviceWrapper(scope).eq(Device::getBorrowStatus, 4));
+        Long normalCount = deviceMapper.selectCount(deviceWrapper(scope).eq(Device::getDeviceStatus, 1));
+        Long repairCount = deviceMapper.selectCount(deviceWrapper(scope).eq(Device::getDeviceStatus, 3));
+        Long pendingRepair = deviceMapper.selectCount(deviceWrapper(scope).eq(Device::getDeviceStatus, 2));
+        Long pendingScrap = deviceMapper.selectCount(deviceWrapper(scope).eq(Device::getDeviceStatus, 4));
+        Long scrappedCount = deviceMapper.selectCount(deviceWrapper(scope).eq(Device::getDeviceStatus, 5));
 
         Map<String, Long> deviceStats = new LinkedHashMap<>();
         deviceStats.put("total", totalDevices);
@@ -101,7 +111,7 @@ public class StatisticsController {
         data.put("deviceStats", deviceStats);
 
         // 借用概览：借出中/逾期 使用设备维度(与借还状态卡片一致)；待审批/总借用使用记录维度
-        String custodian = getTeacherCustodian();
+        String custodian = getCustodianForScope(scope);
         LambdaQueryWrapper<BorrowRecord> bwBase = new LambdaQueryWrapper<>();
         if (custodian != null) {
             bwBase.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", custodian);
@@ -119,18 +129,18 @@ public class StatisticsController {
         return R.ok(data);
     }
 
-    /** 教师角色限制借用查询条件 */
-    private void applyTeacherFilter(QueryWrapper<BorrowRecord> w) {
-        String custodian = getTeacherCustodian();
+    /** 按scope限制借用查询条件（个人范围时筛选当前用户持有设备） */
+    private void applyScopeFilter(QueryWrapper<BorrowRecord> w, String scope) {
+        String custodian = getCustodianForScope(scope);
         if (custodian != null) {
             w.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", custodian);
         }
     }
 
     @GetMapping("/trend")
-    @ApiOperation("本月借用趋势（按天）")
+    @ApiOperation("本月借用趋势（按天，scope: auto|personal|global）")
     @PreAuthorize("hasAuthority('statistics:view')")
-    public R<List<Map<String, Object>>> trend() {
+    public R<List<Map<String, Object>>> trend(@RequestParam(defaultValue = "auto") String scope) {
         LocalDate start = LocalDate.now().withDayOfMonth(1);
         LocalDate end = LocalDate.now();
 
@@ -140,16 +150,16 @@ public class StatisticsController {
                 .le("create_time", end.plusDays(1).atStartOfDay())
                 .groupBy("DATE(create_time)")
                 .orderByAsc("date");
-        applyTeacherFilter(w);
+        applyScopeFilter(w, scope);
         var rows = borrowMapper.selectMaps(w);
 
         return R.ok(rows);
     }
 
     @GetMapping("/top-devices")
-    @ApiOperation("热门设备 TOP10")
+    @ApiOperation("热门设备 TOP10（scope: auto|personal|global）")
     @PreAuthorize("hasAuthority('statistics:view')")
-    public R<List<Map<String, Object>>> topDevices() {
+    public R<List<Map<String, Object>>> topDevices(@RequestParam(defaultValue = "auto") String scope) {
         try {
             var w = new QueryWrapper<BorrowRecord>()
                     .select("d.name as deviceName", "COUNT(*) as borrowCount")
@@ -157,7 +167,7 @@ public class StatisticsController {
                     .groupBy("d.name")
                     .orderByDesc("borrowCount")
                     .last("LIMIT 10");
-            applyTeacherFilter(w);
+            applyScopeFilter(w, scope);
             var rows = borrowMapper.selectMaps(w);
             return R.ok(rows != null ? rows : java.util.Collections.emptyList());
         } catch (Exception e) {
@@ -167,9 +177,9 @@ public class StatisticsController {
     }
 
     @GetMapping("/top-users")
-    @ApiOperation("高频借用用户 TOP10")
+    @ApiOperation("高频借用用户 TOP10（scope: auto|personal|global）")
     @PreAuthorize("hasAuthority('statistics:view')")
-    public R<List<Map<String, Object>>> topUsers() {
+    public R<List<Map<String, Object>>> topUsers(@RequestParam(defaultValue = "auto") String scope) {
         try {
             var w = new QueryWrapper<BorrowRecord>()
                     .select("u.real_name as userName", "COUNT(*) as borrowCount")
@@ -177,7 +187,7 @@ public class StatisticsController {
                     .groupBy("u.real_name")
                     .orderByDesc("borrowCount")
                     .last("LIMIT 10");
-            applyTeacherFilter(w);
+            applyScopeFilter(w, scope);
             var rows = borrowMapper.selectMaps(w);
             return R.ok(rows != null ? rows : java.util.Collections.emptyList());
         } catch (Exception e) {
@@ -187,9 +197,9 @@ public class StatisticsController {
     }
 
     @GetMapping("/utilization")
-    @ApiOperation("设备利用率分析（按分类）")
+    @ApiOperation("设备利用率分析（按分类，scope: auto|personal|global）")
     @PreAuthorize("hasAuthority('statistics:view')")
-    public R<List<Map<String, Object>>> utilization() {
+    public R<List<Map<String, Object>>> utilization(@RequestParam(defaultValue = "auto") String scope) {
         var w = new QueryWrapper<BorrowRecord>()
                 .select("dc.name as categoryName", "COUNT(*) as borrowCount")
                 .apply("LEFT JOIN device d ON borrow_record.device_id = d.id")
@@ -197,7 +207,7 @@ public class StatisticsController {
                 .groupBy("dc.name")
                 .orderByDesc("borrowCount")
                 .last("LIMIT 10");
-        applyTeacherFilter(w);
+        applyScopeFilter(w, scope);
         var rows = borrowMapper.selectMaps(w);
         return R.ok(rows);
     }

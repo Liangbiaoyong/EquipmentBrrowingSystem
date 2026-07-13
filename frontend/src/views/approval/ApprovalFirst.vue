@@ -34,7 +34,24 @@
       </template>
     </el-drawer>
 
-    <el-dialog v-model="d.visible" :title="d.approved?'审批通过':'驳回申请'" width="400px"><el-input v-model="d.comment" type="textarea" :placeholder="d.approved?'审批意见(可选)':'驳回原因(必填)'"/><template #footer"><el-button @click="d.visible=false">取消</el-button><el-button type="primary" @click="confirmApprove">确认</el-button></template></el-dialog>
+    <!-- 审批意见对话框 -->
+    <el-dialog v-model="d.visible" :title="d.approved?'审批通过':'驳回申请'" width="420px" :close-on-click-modal="false" destroy-on-close>
+      <el-form @submit.prevent="confirmApprove">
+        <el-form-item>
+          <el-input v-model="d.comment" type="textarea" :rows="4"
+            :placeholder="d.approved?'审批意见（可选）':'驳回原因（必填）'"
+            @keyup.enter.ctrl="confirmApprove"/>
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button @click="d.visible = false">取 消</el-button>
+          <el-button type="primary" @click="confirmApprove" :loading="d.submitting">
+            {{ d.approved ? '确认通过' : '确认驳回' }}
+          </el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -42,7 +59,7 @@
 import { ref,reactive,onMounted } from 'vue';import { borrowApi } from '@/api/borrow';import { ElMessage } from 'element-plus';import axios from '@/api/request'
 const props=defineProps({isSecond:{type:Boolean,default:false}})
 const loading=ref(false);const list=ref([]);const page=ref(1);const size=ref(20);const total=ref(0)
-const d=reactive({visible:false,borrowId:null,approved:true,comment:''})
+const d=reactive({visible:false,borrowId:null,approved:true,comment:'',submitting:false})
 const detailVisible=ref(false);const detail=ref(null)
 const sm={PENDING_APPROVAL:'warning',APPROVED:'success',REJECTED:'danger',BORROWING:'',RETURNED:'info',OVERDUE:'danger',CANCELLED:'info'}
 const sx={PENDING_APPROVAL:'待审批',APPROVED:'已通过',REJECTED:'已驳回',BORROWING:'借用中',RETURNED:'已归还',OVERDUE:'逾期',CANCELLED:'已取消'}
@@ -59,11 +76,11 @@ async function openDetail(id){
   try{const{data}=await axios.get(`/borrows/${id}`);detail.value=data}catch(e){ElMessage.error('加载详情失败')}
 }
 
-function doApprove(borrowId,approved){d.borrowId=borrowId;d.approved=approved;d.comment='';d.visible=true}
+function doApprove(borrowId,approved){d.borrowId=borrowId;d.approved=approved;d.comment='';d.submitting=false;d.visible=true}
 async function confirmApprove(){
-  if(!d.approved&&!d.comment.trim()){ElMessage.warning('驳回时必须填写审批意见');return}
-  d.visible=false
-  try{await borrowApi.approve({borrowId:d.borrowId,approved:d.approved,comment:d.comment});ElMessage.success(d.approved?'已通过':'已驳回');load()}catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}
+  if(!d.approved&&!d.comment.trim()){ElMessage.warning('驳回时必须填写驳回原因');return}
+  d.submitting=true
+  try{await borrowApi.approve({borrowId:d.borrowId,approved:d.approved,comment:d.comment});d.visible=false;ElMessage.success(d.approved?'审批已通过':'已驳回');load()}catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}finally{d.submitting=false}
 }
 onMounted(load)
 </script>

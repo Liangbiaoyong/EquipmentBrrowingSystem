@@ -1,11 +1,11 @@
 import request from './request'
 
 export const statsApi = {
-  overview() { return request.get('/statistics/overview') },
-  trend() { return request.get('/statistics/trend') },
-  topDevices() { return request.get('/statistics/top-devices') },
-  topUsers() { return request.get('/statistics/top-users') },
-  utilization() { return request.get('/statistics/utilization') },
+  overview(scope = 'auto') { return request.get('/statistics/overview', { params: { scope } }) },
+  trend(scope = 'auto') { return request.get('/statistics/trend', { params: { scope } }) },
+  topDevices(scope = 'auto') { return request.get('/statistics/top-devices', { params: { scope } }) },
+  topUsers(scope = 'auto') { return request.get('/statistics/top-users', { params: { scope } }) },
+  utilization(scope = 'auto') { return request.get('/statistics/utilization', { params: { scope } }) },
   exportCsv(format = 'csv') { return request.get('/statistics/export', { params: { format }, responseType: 'blob' }) },
   purposes(startDate, endDate, categoryId) {
     return request.get('/statistics/purposes', { params: { startDate, endDate, categoryId } })

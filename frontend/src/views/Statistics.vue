@@ -1,14 +1,14 @@
 <template>
   <div class="stats-dashboard">
-    <!-- 教师提示（仅教师角色可见） -->
-    <el-alert v-if="isTeacher" type="info" :closable="false" show-icon style="margin-bottom:16px">
-      <template #title>您看到的是您所持有设备的数据统计</template>
-    </el-alert>
-
     <!-- 页面标题 + 筛选栏 -->
     <div class="stats-toolbar">
       <h2 class="stats-title">数据统计</h2>
       <div class="stats-filters">
+        <!-- 全局/个人切换 -->
+        <el-radio-group v-if="showScopeToggle" v-model="scope" size="small" @change="onScopeChange" style="margin-right:8px">
+          <el-radio-button value="personal">个人</el-radio-button>
+          <el-radio-button value="global">全局</el-radio-button>
+        </el-radio-group>
         <el-select v-model="filterCategory" placeholder="设备分类" clearable style="width:160px" @change="onFilterChange">
           <el-option v-for="c in categoryOptions" :key="c.id" :label="c.name" :value="c.id"/>
         </el-select>
@@ -190,7 +190,13 @@ import axios from '@/api/request'
 import { Download,Monitor,CircleCheck,Clock,Bell,ArrowDown } from '@element-plus/icons-vue'
 
 const userStore = useUserStore()
-const isTeacher = computed(() => userStore.userInfo?.userType === 1)
+
+// 全局/个人切换 — 教师/实验室管理员/系统管理员可见
+const userType = computed(() => userStore.userInfo?.userType)
+const showScopeToggle = computed(() => [1, 2, 3].includes(userType.value))
+// 默认：教师→个人，管理员→全局；优先从localStorage恢复
+const scope = ref(localStorage.getItem('statsScope') || (userType.value === 1 ? 'personal' : 'global'))
+function onScopeChange(val) { localStorage.setItem('statsScope', val); switchTab(activeTab.value) }
 
 // ==================== 环形图组件 ====================
 const DonutChart = defineComponent({
@@ -299,7 +305,7 @@ async function switchTab(tab) {
   loading.value = true
   try {
     if (tab === 'overview') {
-      const { data } = await statsApi.overview()
+      const { data } = await statsApi.overview(scope.value)
       const ds = data.deviceStats || {}, bs = data.borrowStats || {}
       Object.assign(overview, {
         deviceTotal: ds.total || 0, borrowAvailable: ds.borrowAvailable || 0,
@@ -311,22 +317,22 @@ async function switchTab(tab) {
         pendingApproval: bs.pendingApproval || 0, totalBorrows: bs.total || 0
       })
     } else if (tab === 'trend') {
-      const { data } = await statsApi.trend()
+      const { data } = await statsApi.trend(scope.value)
       const arr = Array.isArray(data) ? data : []
       const max = Math.max(...arr.map(r => r.count || 0), 1)
       chartData.value = arr.map(r => ({ label: r.date || '', value: r.count || 0, pct: Math.round((r.count || 0) / max * 100) }))
     } else if (tab === 'topDevices') {
-      const { data } = await statsApi.topDevices()
+      const { data } = await statsApi.topDevices(scope.value)
       const arr = Array.isArray(data) ? data : []
       const max = Math.max(...arr.map(r => r.borrowCount || 0), 1)
       chartData.value = arr.slice(0, 10).map(r => ({ label: r.deviceName || '未知', value: r.borrowCount || 0, pct: Math.round((r.borrowCount || 0) / max * 100) }))
     } else if (tab === 'topUsers') {
-      const { data } = await statsApi.topUsers()
+      const { data } = await statsApi.topUsers(scope.value)
       const arr = Array.isArray(data) ? data : []
       const max = Math.max(...arr.map(r => r.borrowCount || 0), 1)
       chartData.value = arr.slice(0, 10).map(r => ({ label: r.userName || '未知', value: r.borrowCount || 0, pct: Math.round((r.borrowCount || 0) / max * 100) }))
     } else if (tab === 'utilization') {
-      const { data } = await statsApi.utilization()
+      const { data } = await statsApi.utilization(scope.value)
       const arr = Array.isArray(data) ? data : []
       const max = Math.max(...arr.map(r => r.borrowCount || 0), 1)
       chartData.value = arr.slice(0, 10).map(r => ({ label: r.categoryName || '未知', value: r.borrowCount || 0, pct: Math.round((r.borrowCount || 0) / max * 100) }))
