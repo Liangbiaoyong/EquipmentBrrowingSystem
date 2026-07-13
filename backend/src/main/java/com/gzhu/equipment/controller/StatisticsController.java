@@ -307,7 +307,7 @@ public class StatisticsController {
 
             // 9. 成果统计 — 总览
             w.write("\n=== 成果统计 ===\n");
-            Long oc = borrowMapper.selectCount(new LambdaQueryWrapper<BorrowRecord>().isNotNull("outcome").ne("outcome",""));
+            Long oc = borrowMapper.selectCount(new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<BorrowRecord>().isNotNull("outcome").ne("outcome",""));
             w.write("成果总数,"+(oc!=null?oc:0)+"\n");
 
             // 10. 成果类型分布（从 borrow_outcome 表）
