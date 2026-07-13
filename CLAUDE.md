@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-广州大学建筑学院设备借用系统 — 集设备管理、在线预约、多级审批、归还核验、数据统计于一体的 Web 系统。
+广州大学仪器共享平台 — 集设备管理、在线预约、多级审批、归还核验、数据统计于一体的 Web 系统。
 
 - **后端**: Spring Boot 2.7.x + MyBatis-Plus + Spring Security + JWT + CAS Client
 - **前端**: Vue 3 + Vite + Pinia + Element Plus

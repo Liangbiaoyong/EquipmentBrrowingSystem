@@ -8,8 +8,8 @@
           <div class="lc-icon">
             <el-icon :size="28"><Monitor/></el-icon>
           </div>
-          <h1 class="lc-title">建筑学院设备借用系统</h1>
-          <p class="lc-subtitle">广州大学 · 建筑与城市规划学院</p>
+          <h1 class="lc-title">建筑学院仪器共享平台</h1>
+          <p class="lc-subtitle">广州大学仪器共享平台</p>
         </div>
 
         <!-- CAS 提示 -->

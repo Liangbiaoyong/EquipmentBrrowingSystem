@@ -29,8 +29,8 @@ public class Knife4jConfig {
 
     private ApiInfo apiInfo() {
         return new ApiInfoBuilder()
-                .title("建筑学院设备借用系统 API")
-                .description("广州大学建筑学院设备借用系统接口文档")
+                .title("建筑学院仪器共享平台 API")
+                .description("广州大学仪器共享平台接口文档")
                 .version("1.0.0")
                 .build();
     }

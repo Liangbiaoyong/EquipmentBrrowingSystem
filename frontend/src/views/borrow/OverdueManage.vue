@@ -95,7 +95,7 @@ async function loadNames(records){
   ])
 }
 
-async function loadStats(){try{const{data}=await axios.get('/borrows/overdue/stats');stats.overdueTotal=data.overdueTotal||0;stats.avgDays=Math.round((data.avgDays||0)*10)/10;stats.notified=data.notified||0;stats.collected=data.collected||0}catch{}}}
+async function loadStats(){try{const{data}=await axios.get('/borrows/overdue/stats');stats.overdueTotal=data.overdueTotal||0;stats.avgDays=Math.round((data.avgDays||0)*10)/10;stats.notified=data.notified||0;stats.collected=data.collected||0}catch{}}
 
 async function doRefresh(){refreshing.value=true;try{const{data}=await axios.post('/borrows/overdue/refresh');ElMessage.success(`检测完成: 发现${data}条逾期记录`);load();loadStats()}catch(e){ElMessage.error('检测失败')}finally{refreshing.value=false}}
 

@@ -15,7 +15,7 @@
     <artifactId>equipment-borrow</artifactId>
     <version>1.0.0</version>
     <name>equipment-borrow</name>
-    <description>广州大学建筑学院设备借用系统</description>
+    <description>广州大学仪器共享平台</description>
 
     <properties>
         <java.version>17</java.version>
