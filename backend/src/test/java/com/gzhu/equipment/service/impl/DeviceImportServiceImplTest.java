@@ -85,7 +85,7 @@ class DeviceImportServiceImplTest {
         String csv = csvWithHeader("ASSET001", "测试电脑");
         when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(null);
 
-        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L);
+        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L, null);
 
         assertThat(result.getTotalRows()).isEqualTo(1);
         assertThat(result.getSuccessCount()).isEqualTo(1);
@@ -103,7 +103,7 @@ class DeviceImportServiceImplTest {
         existing.setBorrowType(1);  // 之前手动设为"可现场借用"
         when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(existing);
 
-        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L);
+        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L, null);
 
         assertThat(result.getTotalRows()).isEqualTo(1);
         assertThat(result.getUpdateCount()).isEqualTo(1);
@@ -116,14 +116,14 @@ class DeviceImportServiceImplTest {
     @DisplayName("CSV导入（空资产编号）→ 跳过该行")
     void importCsv_emptyAssetNo_shouldSkip() throws Exception {
         String csv = csvWithHeader("", "无编号设备");
-        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L);
+        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L, null);
         assertThat(result.getTotalRows()).isEqualTo(0);
     }
 
     @Test
     @DisplayName("CSV导入（空文件）→ 报告失败")
     void importCsv_emptyFile_shouldReportFail() throws Exception {
-        ImportResultDTO result = importService.importFromStream(toStream(""), "devices.csv", 1L);
+        ImportResultDTO result = importService.importFromStream(toStream(""), "devices.csv", 1L, null);
         // 空文件 → 无有效数据行 → errors包含提示
         assertThat(result.getErrors()).isNotEmpty();
     }
@@ -131,7 +131,7 @@ class DeviceImportServiceImplTest {
     @Test
     @DisplayName("CSV导入（仅表头）→ 成功0条")
     void importCsv_headerOnly_shouldSucceedZero() throws Exception {
-        ImportResultDTO result = importService.importFromStream(toStream("h1,h2\n"), "devices.csv", 1L);
+        ImportResultDTO result = importService.importFromStream(toStream("h1,h2\n"), "devices.csv", 1L, null);
         assertThat(result.getTotalRows()).isEqualTo(0);
     }
 
@@ -145,7 +145,7 @@ class DeviceImportServiceImplTest {
         csv += String.join(",", cols);
         when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(null);
 
-        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L);
+        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L, null);
 
         assertThat(result.getSuccessCount()).isEqualTo(1);
     }
@@ -161,7 +161,7 @@ class DeviceImportServiceImplTest {
         csv += String.join(",", cols);
         when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(null);
 
-        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L);
+        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L, null);
 
         assertThat(result.getSuccessCount()).isEqualTo(1);
     }
@@ -182,7 +182,7 @@ class DeviceImportServiceImplTest {
         String csv = csvWithHeader("ASSET001", "新设备");
         when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(null);
 
-        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L);
+        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L, "replace");
 
         assertThat(result.getDeleteCount()).isEqualTo(1);
         verify(deviceMapper).deleteById(99L);
@@ -199,7 +199,7 @@ class DeviceImportServiceImplTest {
         existing.setCoverImage("cover.jpg"); // 有关联封面图
         when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(existing);
 
-        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L);
+        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L, null);
 
         assertThat(result.getUpdateCount()).isEqualTo(1);
         verify(deviceMapper).updateById(any(Device.class));
@@ -214,7 +214,7 @@ class DeviceImportServiceImplTest {
         when(categoryService.classifyByGbName(any())).thenReturn(null);
         when(deviceMapper.selectByAssetNo("ASSET001")).thenReturn(null);
 
-        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L);
+        ImportResultDTO result = importService.importFromStream(toStream(csv), "devices.csv", 1L, null);
 
         assertThat(result.getUncategorizedCount()).isEqualTo(1);
         assertThat(result.getAutoCategoryCount()).isEqualTo(0);
@@ -254,7 +254,7 @@ class DeviceImportServiceImplTest {
     @Test
     @DisplayName("不支持的格式 → 抛异常")
     void importFromStream_unsupported_shouldThrow() {
-        assertThatThrownBy(() -> importService.importFromStream(toStream(""), "test.txt", 1L))
+        assertThatThrownBy(() -> importService.importFromStream(toStream(""), "test.txt", 1L, null))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("不支持的文件格式");
     }

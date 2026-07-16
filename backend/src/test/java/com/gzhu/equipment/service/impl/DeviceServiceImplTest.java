@@ -13,6 +13,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import com.gzhu.equipment.dto.BatchInfoDTO;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -110,9 +111,9 @@ class DeviceServiceImplTest {
                 Collections.singletonMap("import_batch_id", "BATCH002")
         ));
 
-        List<String> batches = deviceService.listBatches();
+        List<BatchInfoDTO> batches = deviceService.listBatches();
 
-        assertThat(batches).containsExactly("BATCH001", "BATCH002");
+        assertThat(batches).extracting(BatchInfoDTO::getBatchId).containsExactly("BATCH001", "BATCH002");
     }
 
     @Test

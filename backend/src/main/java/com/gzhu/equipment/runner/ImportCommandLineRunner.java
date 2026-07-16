@@ -54,11 +54,13 @@ public class ImportCommandLineRunner implements CommandLineRunner {
     public void run(String... args) throws Exception {
         // 确定文件路径：命令行参数 > 环境变量 > 默认路径
         String filePath = null;
+        String mode = null;
 
         for (String arg : args) {
             if (arg.startsWith("--import.file=")) {
                 filePath = arg.substring("--import.file=".length());
-                break;
+            } else if (arg.startsWith("--import.mode=")) {
+                mode = arg.substring("--import.mode=".length());
             }
         }
         if (filePath == null) {
@@ -87,7 +89,7 @@ public class ImportCommandLineRunner implements CommandLineRunner {
         ImportResultDTO result;
 
         try (InputStream is = new FileInputStream(path.toFile())) {
-            result = deviceImportService.importFromStream(is, fileName, 1L);
+            result = deviceImportService.importFromStream(is, fileName, 1L, mode);
         }
 
         long duration = (System.currentTimeMillis() - start) / 1000;

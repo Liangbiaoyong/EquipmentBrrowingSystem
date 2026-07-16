@@ -12,6 +12,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.gzhu.equipment.entity.ApprovalLog;
 import com.gzhu.equipment.mapper.ApprovalLogMapper;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
+import com.gzhu.equipment.mapper.SysUserMapper;
 import com.gzhu.equipment.service.BorrowService;
 import com.gzhu.equipment.service.MinioFileService;
 import io.swagger.annotations.Api;
@@ -58,6 +59,7 @@ public class BorrowController {
     private final ApprovalLogMapper approvalLogMapper;
     private final BorrowRecordMapper borrowRecordMapper;
     private final com.gzhu.equipment.mapper.DeviceMapper deviceMapper;
+    private final SysUserMapper sysUserMapper;
 
     // ==================== 借用申请 ====================
 

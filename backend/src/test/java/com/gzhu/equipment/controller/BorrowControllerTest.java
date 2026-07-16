@@ -16,6 +16,7 @@ import com.gzhu.equipment.mapper.BorrowOutcomeMapper;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
 import com.gzhu.equipment.mapper.OverdueRecordMapper;
+import com.gzhu.equipment.mapper.SysUserMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -85,6 +86,9 @@ class BorrowControllerTest {
     @MockBean
     private OverdueRecordMapper overdueRecordMapper;
 
+    @MockBean
+    private SysUserMapper sysUserMapper;
+
     @BeforeEach
     void setUp() {
         JwtUserPrincipal principal = new JwtUserPrincipal(
@@ -141,7 +145,7 @@ class BorrowControllerTest {
     void myBorrows_shouldReturnPage() throws Exception {
         com.baomidou.mybatisplus.extension.plugins.pagination.Page<BorrowRecord> page =
                 new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>();
-        when(borrowService.myBorrows(anyLong(), anyInt(), anyInt(), any())).thenReturn(page);
+        when(borrowService.page(any(), any())).thenReturn(page);
 
         mockMvc.perform(get("/borrows/my"))
                 .andDo(print())

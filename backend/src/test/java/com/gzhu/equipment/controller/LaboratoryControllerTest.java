@@ -71,7 +71,7 @@ class LaboratoryControllerTest {
     @Test
     @DisplayName("GET /laboratories → 分页查询实验室")
     void list_shouldReturnPage() throws Exception {
-        when(laboratoryService.pageQuery(anyInt(), anyInt(), any())).thenReturn(new Page<>());
+        when(laboratoryService.pageQuery(anyInt(), anyInt(), any(), any(), any())).thenReturn(new Page<>());
         mockMvc.perform(get("/laboratories"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
@@ -80,7 +80,7 @@ class LaboratoryControllerTest {
     @Test
     @DisplayName("GET /laboratories?keyword=xx → 关键字搜索")
     void list_withKeyword_shouldFilter() throws Exception {
-        when(laboratoryService.pageQuery(anyInt(), anyInt(), eq("实验室A"))).thenReturn(new Page<>());
+        when(laboratoryService.pageQuery(anyInt(), anyInt(), eq("实验室A"), any(), any())).thenReturn(new Page<>());
         mockMvc.perform(get("/laboratories").param("keyword", "实验室A"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
@@ -158,7 +158,7 @@ class LaboratoryControllerTest {
     @Test
     @DisplayName("GET /laboratories/rooms → 分页查询地点映射")
     void listRooms_shouldReturnPage() throws Exception {
-        when(laboratoryService.pageRooms(anyInt(), anyInt(), any(), any())).thenReturn(new Page<>());
+        when(laboratoryService.pageRooms(anyInt(), anyInt(), any(), any(), any(), any())).thenReturn(new Page<>());
         mockMvc.perform(get("/laboratories/rooms"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
@@ -167,7 +167,7 @@ class LaboratoryControllerTest {
     @Test
     @DisplayName("GET /laboratories/rooms?laboratoryId=1 → 按实验室筛选")
     void listRooms_withLabFilter() throws Exception {
-        when(laboratoryService.pageRooms(anyInt(), anyInt(), eq(1L), isNull())).thenReturn(new Page<>());
+        when(laboratoryService.pageRooms(anyInt(), anyInt(), eq(1L), any(), any(), any())).thenReturn(new Page<>());
         mockMvc.perform(get("/laboratories/rooms").param("laboratoryId", "1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));

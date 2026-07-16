@@ -3,6 +3,7 @@ package com.gzhu.equipment.controller;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gzhu.equipment.dto.BatchInfoDTO;
 import com.gzhu.equipment.dto.ImportResultDTO;
 import com.gzhu.equipment.entity.Device;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
@@ -174,7 +175,7 @@ class DeviceControllerTest {
     void importDevices_shouldSucceed() throws Exception {
         ImportResultDTO result = ImportResultDTO.builder()
                 .totalRows(10).successCount(10).failCount(0).build();
-        when(deviceImportService.importFromStream(any(), anyString(), anyLong()))
+        when(deviceImportService.importFromStream(any(), anyString(), anyLong(), any()))
                 .thenReturn(result);
 
         MockMultipartFile file = new MockMultipartFile(
@@ -192,7 +193,7 @@ class DeviceControllerTest {
     void importDevices_withErrors_shouldReturnPartial() throws Exception {
         ImportResultDTO result = ImportResultDTO.builder()
                 .totalRows(10).successCount(8).failCount(2).build();
-        when(deviceImportService.importFromStream(any(), anyString(), anyLong()))
+        when(deviceImportService.importFromStream(any(), anyString(), anyLong(), any()))
                 .thenReturn(result);
 
         MockMultipartFile file = new MockMultipartFile(
@@ -234,12 +235,14 @@ class DeviceControllerTest {
     @Test
     @DisplayName("GET /devices/batches → 批次列表")
     void listBatches_shouldReturnList() throws Exception {
-        when(deviceService.listBatches()).thenReturn(List.of("BATCH001", "BATCH002"));
+        when(deviceService.listBatches()).thenReturn(List.of(
+                BatchInfoDTO.builder().batchId("BATCH001").build(),
+                BatchInfoDTO.builder().batchId("BATCH002").build()));
 
         mockMvc.perform(get("/devices/batches"))
                 .andDo(print())
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data[0]").value("BATCH001"));
+                .andExpect(jsonPath("$.data[0].batchId").value("BATCH001"));
     }
 
     @Test

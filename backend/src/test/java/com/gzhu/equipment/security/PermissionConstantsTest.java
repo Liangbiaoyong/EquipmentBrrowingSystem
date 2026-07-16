@@ -23,7 +23,7 @@ class PermissionConstantsTest {
     void teacher_shouldHaveExtraPerms() {
         List<String> perms = PermissionConstants.getPermissionsByUserType(1);
         assertThat(perms).contains("approval:first", "statistics:view");
-        assertThat(perms).hasSize(11);
+        assertThat(perms).hasSize(12);
     }
 
     @Test @DisplayName("实验室管理员 → 13+一级审批=14")

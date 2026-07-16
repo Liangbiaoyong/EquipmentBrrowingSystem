@@ -8,6 +8,7 @@ import com.gzhu.equipment.entity.Device;
 import com.gzhu.equipment.mapper.ApprovalLogMapper;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
+import com.gzhu.equipment.mapper.AttachmentMapper;
 import com.gzhu.equipment.mapper.OverdueRecordMapper;
 import com.gzhu.equipment.mapper.RepairRecordMapper;
 import com.gzhu.equipment.mapper.SysUserMapper;
@@ -51,6 +52,9 @@ class BorrowServiceImplTest {
     private NotificationService notificationService;
 
     @Mock
+    private AttachmentMapper attachmentMapper;
+
+    @Mock
     private SysUserMapper sysUserMapper;
 
     @Mock
@@ -63,7 +67,7 @@ class BorrowServiceImplTest {
 
     @BeforeEach
     void setUp() {
-        borrowService = new BorrowServiceImpl(borrowMapper, approvalMapper, deviceMapper, sysUserMapper, repairMapper, overdueMapper, configService, notificationService);
+        borrowService = new BorrowServiceImpl(borrowMapper, approvalMapper, attachmentMapper, deviceMapper, sysUserMapper, repairMapper, overdueMapper, configService, notificationService);
         // 默认借用时长限制宽松，各测试可覆盖
         lenient().when(configService.getIntValue(eq("borrow.max_days"), anyInt())).thenReturn(30);
         lenient().when(configService.getIntValue(eq("borrow.default_approval_steps"), anyInt())).thenReturn(2);
