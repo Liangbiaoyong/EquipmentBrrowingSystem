@@ -24,8 +24,17 @@ public interface BorrowService extends IService<BorrowRecord> {
     /** 审批操作（通过/驳回，自动流转） */
     BorrowRecord approve(ApprovalRequestDTO dto, Long approverId);
 
-    /** 归还登记 */
+    /** 归还登记（直接完成） */
     BorrowRecord returnDevice(Long borrowId, Long userId, String damageReport);
+
+    /** 归还申请（学生提交，含照片要求，状态→RETURN_PENDING） */
+    BorrowRecord requestReturn(Long borrowId, Long userId, String damageReport);
+
+    /** 审批归还申请（通过→RETURNED，由设备使用人/管理员操作） */
+    void approveReturn(Long borrowId, Long adminId, boolean approved, String comment);
+
+    /** 待审批归还列表（当前用户的设备相关的RETURN_PENDING记录） */
+    java.util.List<BorrowRecord> listPendingReturns(Long userId, int page, int size);
 
     /** 管理员核验归还（确认照片/设备状况） */
     void verifyReturn(Long borrowId, Long adminId);

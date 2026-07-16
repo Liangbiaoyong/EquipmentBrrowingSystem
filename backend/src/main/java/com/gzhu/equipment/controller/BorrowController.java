@@ -78,7 +78,7 @@ public class BorrowController {
     }
 
     @GetMapping("/my")
-    @ApiOperation("我的借用列表（支持排序）")
+    @ApiOperation("我的借用列表（支持排序，含设备名称/资产编号）")
     @PreAuthorize("hasAuthority('borrow:my')")
     public R<IPage<BorrowRecord>> myBorrows(
             @RequestParam(defaultValue = "1") int page,
@@ -96,15 +96,27 @@ public class BorrowController {
         else if ("endTime".equals(sort)) w.orderBy(true, asc, BorrowRecord::getEndTime);
         else if ("overdueDays".equals(sort)) w.orderBy(true, asc, BorrowRecord::getOverdueDays);
         else w.orderByDesc(BorrowRecord::getId);
-        return R.ok(borrowService.page(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), w));
+        IPage<BorrowRecord> result = borrowService.page(new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), w);
+        // 填充设备名称/资产编号
+        for (BorrowRecord r : result.getRecords()) {
+            var d = deviceMapper.selectById(r.getDeviceId());
+            if (d != null) { r.setDeviceName(d.getName()); r.setDeviceAssetNo(d.getAssetNo()); }
+        }
+        return R.ok(result);
     }
 
     @GetMapping("/{id}")
-    @ApiOperation("借用详情")
+    @ApiOperation("借用详情（含设备名称/资产编号）")
     @PreAuthorize("hasAuthority('borrow:view')")
     public R<BorrowRecord> getDetail(@PathVariable Long id) {
         BorrowRecord record = borrowService.getDetail(id);
         if (record == null) return R.fail(404, "借用单不存在");
+        // 填充设备名称/资产编号
+        var device = deviceMapper.selectById(record.getDeviceId());
+        if (device != null) { record.setDeviceName(device.getName()); record.setDeviceAssetNo(device.getAssetNo()); }
+        // 填充用户名
+        var user = sysUserMapper.selectById(record.getUserId());
+        if (user != null) record.setUserName(user.getRealName() != null ? user.getRealName() : user.getUsername());
         return R.ok(record);
     }
 
@@ -292,6 +304,47 @@ public class BorrowController {
         }
     }
 
+    // ==================== 归还申请+审批（学生→设备使用人确认） ====================
+
+    @PostMapping("/{id}/return-request")
+    @ApiOperation("学生提交归还申请（必须先上传归还照片，状态→RETURN_PENDING）")
+    @PreAuthorize("hasAuthority('borrow:my')")
+    public R<BorrowRecord> requestReturn(@PathVariable Long id,
+                                          @RequestParam(required = false) String damageReport) {
+        try {
+            BorrowRecord record = borrowService.requestReturn(id, getCurrentUserId(), damageReport);
+            return R.ok("归还申请已提交，等待设备使用人审批", record);
+        } catch (IllegalArgumentException e) {
+            return R.fail(e.getMessage());
+        }
+    }
+
+    @GetMapping("/return-pending")
+    @ApiOperation("待审批归还列表（设备使用人/管理员查看）")
+    @PreAuthorize("hasAnyAuthority('borrow:view','return:manage')")
+    public R<List<Map<String,Object>>> listPendingReturns(
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Long userId = getCurrentUserId();
+        List<BorrowRecord> records = borrowService.listPendingReturns(userId, page, size);
+        var enriched = enrichNames(records);
+        return R.ok(enriched);
+    }
+
+    @PostMapping("/{id}/approve-return")
+    @ApiOperation("审批归还（通过→RETURNED，驳回→BORROWING）")
+    @PreAuthorize("hasAnyAuthority('borrow:return','return:manage')")
+    public R<String> approveReturn(@PathVariable Long id,
+                                    @RequestParam boolean approved,
+                                    @RequestParam(required = false) String comment) {
+        try {
+            borrowService.approveReturn(id, getCurrentUserId(), approved, comment);
+            return R.ok(approved ? "归还已确认" : "归还申请已驳回");
+        } catch (IllegalArgumentException e) {
+            return R.fail(e.getMessage());
+        }
+    }
+
     // ==================== V6 借用浏览 ====================
 
     @GetMapping("/browse")
@@ -337,13 +390,13 @@ public class BorrowController {
             @RequestParam(required=false) String status,
             javax.servlet.http.HttpServletResponse response) throws Exception {
         var w = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<BorrowRecord>();
-        w.select("b.*, d.name AS deviceName, d.asset_no AS deviceAssetNo, u.real_name AS userName");
+        w.select("borrow_record.*, d.name AS deviceName, d.asset_no AS deviceAssetNo, u.real_name AS userName");
         w.apply("LEFT JOIN device d ON borrow_record.device_id = d.id");
         w.apply("LEFT JOIN sys_user u ON borrow_record.user_id = u.id");
-        if (status != null && !status.isEmpty()) w.eq("b.status", status);
+        if (status != null && !status.isEmpty()) w.eq("borrow_record.status", status);
         if (keyword != null && !keyword.isEmpty())
-            w.and(wp -> wp.like("d.name", keyword).or().like("u.real_name", keyword).or().like("b.purpose", keyword));
-        w.orderByDesc("b.id").last("LIMIT 5000");
+            w.and(wp -> wp.like("d.name", keyword).or().like("u.real_name", keyword).or().like("borrow_record.purpose", keyword));
+        w.orderByDesc("borrow_record.id").last("LIMIT 5000");
         var rows = borrowRecordMapper.selectMaps(w);
 
         if ("xlsx".equalsIgnoreCase(format)) {

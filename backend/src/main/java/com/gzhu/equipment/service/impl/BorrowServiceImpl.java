@@ -7,11 +7,13 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.gzhu.equipment.dto.ApprovalRequestDTO;
 import com.gzhu.equipment.dto.BorrowRequestDTO;
 import com.gzhu.equipment.entity.ApprovalLog;
+import com.gzhu.equipment.entity.Attachment;
 import com.gzhu.equipment.entity.BorrowRecord;
 import com.gzhu.equipment.entity.Device;
 import com.gzhu.equipment.entity.OverdueRecord;
 import com.gzhu.equipment.entity.SysUser;
 import com.gzhu.equipment.mapper.ApprovalLogMapper;
+import com.gzhu.equipment.mapper.AttachmentMapper;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
 import com.gzhu.equipment.mapper.OverdueRecordMapper;
@@ -52,6 +54,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
 
     private final BorrowRecordMapper borrowMapper;
     private final ApprovalLogMapper approvalMapper;
+    private final AttachmentMapper attachmentMapper;
     private final DeviceMapper deviceMapper;
     private final SysUserMapper userMapper;
     private final RepairRecordMapper repairMapper;
@@ -269,6 +272,149 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         }
 
         return record;
+    }
+
+    // ==================== 归还申请+审批（学生→设备使用人） ====================
+
+    @Override
+    @Transactional
+    public BorrowRecord requestReturn(Long borrowId, Long userId, String damageReport) {
+        BorrowRecord record = borrowMapper.selectById(borrowId);
+        if (record == null) throw new IllegalArgumentException("借用单不存在");
+        if (!Arrays.asList("BORROWING", "OVERDUE").contains(record.getStatus())) {
+            throw new IllegalArgumentException("该借用单当前状态不允许申请归还");
+        }
+        if (!record.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("只能申请归还自己的借用");
+        }
+
+        // 检查是否已上传归还照片
+        Long photoCount = attachmentMapper.selectCount(
+                new LambdaQueryWrapper<Attachment>()
+                        .eq(Attachment::getBizType, "RETURN_IMG")
+                        .eq(Attachment::getBizId, borrowId));
+        if (photoCount == null || photoCount == 0) {
+            throw new IllegalArgumentException("请先上传归还照片再提交归还申请");
+        }
+
+        record.setStatus("RETURN_PENDING");
+        record.setDamageReport(damageReport);
+
+        // 逾期判断
+        if (record.getEndTime() != null && LocalDateTime.now().isAfter(record.getEndTime())) {
+            long days = java.time.Duration.between(record.getEndTime(), LocalDateTime.now()).toDays();
+            record.setOverdueDays((int) days);
+        }
+        borrowMapper.updateById(record);
+
+        // 通知设备使用人/原审批人审批归还
+        Long notifyUserId = findReturnApproverId(record);
+        if (notifyUserId != null) {
+            String deviceName = getDeviceName(record.getDeviceId());
+            notificationService.send(notifyUserId, "归还审批提醒",
+                    "用户申请归还设备【" + deviceName + "】的借用单#" + borrowId + "，请审核确认。", "RETURN");
+        }
+        log.info("归还申请已提交: borrowId={} status=RETURN_PENDING", borrowId);
+        return record;
+    }
+
+    @Override
+    @Transactional
+    public void approveReturn(Long borrowId, Long adminId, boolean approved, String comment) {
+        BorrowRecord record = borrowMapper.selectById(borrowId);
+        if (record == null) throw new IllegalArgumentException("借用单不存在");
+        if (!"RETURN_PENDING".equals(record.getStatus())) {
+            throw new IllegalArgumentException("该借用单不在待审批归还状态");
+        }
+
+        if (approved) {
+            // 通过 → 执行归还逻辑
+            record.setStatus("RETURNED");
+            record.setRealReturnTime(LocalDateTime.now());
+            if (comment != null) record.setDamageReport(comment);
+            borrowMapper.updateById(record);
+
+            // 恢复设备库存和状态
+            Device device = deviceMapper.selectById(record.getDeviceId());
+            if (device != null) {
+                device.setAvailableQty(Math.min(device.getAvailableQty() + 1, device.getTotalQty()));
+                if (record.getDamageReport() != null && !record.getDamageReport().trim().isEmpty()) {
+                    device.setBorrowStatus(3);
+                    device.setDeviceStatus(2);
+                    com.gzhu.equipment.entity.RepairRecord repair = new com.gzhu.equipment.entity.RepairRecord();
+                    repair.setDeviceId(record.getDeviceId());
+                    repair.setBorrowId(record.getId());
+                    repair.setFaultDescription(record.getDamageReport());
+                    repair.setStatus("PENDING");
+                    repairMapper.insert(repair);
+                } else {
+                    device.setBorrowStatus(1);
+                    device.setDeviceStatus(1);
+                }
+                deviceMapper.updateById(device);
+            }
+            log.info("归还已审批通过: borrowId={} adminId={}", borrowId, adminId);
+        } else {
+            // 驳回 → 退回借用中
+            record.setStatus("BORROWING");
+            borrowMapper.updateById(record);
+            log.info("归还申请被驳回: borrowId={} adminId={}", borrowId, adminId);
+        }
+
+        // 通知申请人
+        String deviceName = getDeviceName(record.getDeviceId());
+        String msg = approved ? "您的归还申请已通过，设备【" + deviceName + "】已确认归还。"
+                : "您的归还申请未被通过，原因：" + (comment != null ? comment : "设备状况需确认") + "，请处理后重新申请。";
+        notificationService.send(record.getUserId(), "归还审批结果", msg, "RETURN");
+    }
+
+    @Override
+    public List<BorrowRecord> listPendingReturns(Long userId, int page, int size) {
+        SysUser user = userMapper.selectById(userId);
+        if (user == null) return List.of();
+
+        LambdaQueryWrapper<BorrowRecord> w = new LambdaQueryWrapper<BorrowRecord>()
+                .eq(BorrowRecord::getStatus, "RETURN_PENDING")
+                .orderByDesc(BorrowRecord::getCreateTime);
+
+        // 管理员看所有，教师/学生看自己的设备相关的
+        if (user.getUserType() != null && user.getUserType() >= 2) {
+            // 实验室管理员/系统管理员：全部
+        } else if (user.getUserType() != null && user.getUserType() == 1) {
+            // 教师：看custodian等于自己的设备
+            w.and(wp -> wp.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", user.getRealName()));
+        } else {
+            w.eq(BorrowRecord::getUserId, userId);
+            return List.of(); // 学生看不到待审批
+        }
+
+        Page<BorrowRecord> pg = new Page<>(page, size);
+        return borrowMapper.selectPage(pg, w).getRecords();
+    }
+
+    /**
+     * 查找归还审批人：取原一级审批通过的人，其次设备使用人
+     */
+    private Long findReturnApproverId(BorrowRecord record) {
+        // 优先找一级审批通过的人
+        ApprovalLog al = approvalMapper.selectOne(
+                new LambdaQueryWrapper<ApprovalLog>()
+                        .eq(ApprovalLog::getBorrowId, record.getId())
+                        .eq(ApprovalLog::getStep, 1)
+                        .eq(ApprovalLog::getResult, "APPROVED")
+                        .last("LIMIT 1"));
+        if (al != null && al.getApproverId() != null) return al.getApproverId();
+        // 其次找设备使用人
+        Device d = deviceMapper.selectById(record.getDeviceId());
+        if (d != null && d.getCustodian() != null) {
+            SysUser custodian = userMapper.selectOne(
+                    new LambdaQueryWrapper<SysUser>().eq(SysUser::getRealName, d.getCustodian()).last("LIMIT 1"));
+            if (custodian != null) return custodian.getId();
+        }
+        // 最后交给系统管理员
+        SysUser admin = userMapper.selectOne(
+                new LambdaQueryWrapper<SysUser>().eq(SysUser::getUserType, 3).eq(SysUser::getStatus, 1).last("LIMIT 1"));
+        return admin != null ? admin.getId() : 1L;
     }
 
     // ==================== 归还 ====================

@@ -80,7 +80,7 @@
               <el-button v-if="row.status==='APPROVED'||row.status==='BORROWING'" size="small" text type="success" @click="openPickup(row)">
                 {{ row.pickupTime ? '补传照片' : '取走登记' }}
               </el-button>
-              <el-button v-if="row.status==='BORROWING'||row.status==='OVERDUE'" size="small" text type="warning" @click="$router.push(`/borrows/${row.id}/return`)">归还</el-button>
+              <el-button v-if="row.status==='BORROWING'||row.status==='OVERDUE'" size="small" text type="warning" @click="openReturnDialog(row)">归还申请</el-button>
               <el-popconfirm v-if="row.status==='PENDING_APPROVAL'" title="确定取消?" @confirm="doCancel(row.id)">
                 <template #reference><el-button size="small" text type="danger">取消</el-button></template>
               </el-popconfirm>
@@ -110,7 +110,8 @@
         <!-- 基本信息 -->
         <el-descriptions :column="1" border size="small" class="dr-desc">
           <el-descriptions-item label="借用单号">{{ drawer.row.id }}</el-descriptions-item>
-          <el-descriptions-item label="设备">{{ getDevName(drawer.row.deviceId) }}</el-descriptions-item>
+          <el-descriptions-item label="设备名称">{{ drawer.row.deviceName || getDevName(drawer.row.deviceId) }}</el-descriptions-item>
+          <el-descriptions-item label="资产编号">{{ drawer.row.deviceAssetNo || devAssets[drawer.row.deviceId] || '-' }}</el-descriptions-item>
           <el-descriptions-item label="目的">{{ drawer.row.purpose || '-' }}</el-descriptions-item>
           <el-descriptions-item label="目的大类">{{ drawer.row.purposeCategory || '-' }}</el-descriptions-item>
           <el-descriptions-item label="事由">{{ drawer.row.reason || '-' }}</el-descriptions-item>
@@ -182,6 +183,27 @@
         <el-button type="primary" @click="confirmPickup" :loading="pickupDlg.loading">确认取走</el-button>
       </template>
     </el-dialog>
+
+    <!-- 归还申请对话框（含必传照片） -->
+    <el-dialog v-model="returnDlg.visible" title="归还申请" width="480px" :close-on-click-modal="false" destroy-on-close>
+      <el-alert title="请先上传归还照片，再提交归还申请。照片提交后将等待设备使用人审批确认。" type="info" :closable="false" show-icon style="margin-bottom:14px"/>
+      <el-form label-width="90px">
+        <el-form-item label="借用单号"><el-tag>{{ returnDlg.row?.id }}</el-tag></el-form-item>
+        <el-form-item label="设备名称">{{ returnDlg.row?.deviceName || getDevName(returnDlg.row?.deviceId) }}</el-form-item>
+        <el-form-item label="归还照片" required>
+          <el-upload :show-file-list="true" :http-request="(opt)=>doUploadReturnPhoto(opt)" :before-upload="checkFileSize" accept="image/*" list-type="picture-card" multiple>
+            <el-icon><Plus/></el-icon>
+          </el-upload>
+          <div v-if="!returnDlg.photos.length" style="color:#F56C6C;font-size:12px;margin-top:4px">* 必须至少上传一张归还照片</div>
+          <div v-else style="color:#67C23A;font-size:12px;margin-top:4px">✓ 已上传 {{ returnDlg.photos.length }} 张照片</div>
+        </el-form-item>
+        <el-form-item label="损坏情况"><el-input v-model="returnDlg.damageReport" type="textarea" :rows="2" placeholder="设备有无损坏？无损坏可不填"/></el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="returnDlg.visible=false">取消</el-button>
+        <el-button type="primary" @click="confirmReturnRequest" :loading="returnDlg.loading" :disabled="!returnDlg.photos.length">提交归还申请</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -207,6 +229,9 @@ const drawer=reactive({visible:false,row:null,returnImages:[],uploading:false,pi
 // 取走对话框
 const pickupDlg=reactive({visible:false,row:null,loading:false})
 const pickupFile=ref(null)
+
+// 归还申请对话框
+const returnDlg=reactive({visible:false,row:null,photos:[],damageReport:'',loading:false})
 
 // MinIO图片URL（通过后端代理或直接访问）
 function imgUrl(path){ return path ? `/api/v1/files/${encodeURIComponent(path)}` : '' }
@@ -241,7 +266,7 @@ async function loadDevNames(records){
   const ids=[...new Set((records||[]).map(r=>r.deviceId).filter(id=>id&&!devNames.value[id]))]
   if(!ids.length)return
   try{
-    const{data}=await axios.get('/devices',{params:{page:1,size:200}});
+    const{data}=await axios.get('/devices',{params:{page:1,size:9999}});
     (data.records||[]).forEach(d=>{devNames.value[d.id]=d.name;devAssets.value[d.id]=d.assetNo})
   }catch{}
 }
@@ -315,6 +340,28 @@ async function doUpload(opt, bizType, row){
 
 async function doCancel(id){
   try{await borrowApi.cancel(id);ElMessage.success('已取消');load();loadStats()}catch(e){ElMessage.error(e?.response?.data?.msg||'取消失败')}
+}
+
+// 归还申请
+function openReturnDialog(row){
+  returnDlg.row=row;returnDlg.photos=[];returnDlg.damageReport='';returnDlg.visible=true
+}
+async function doUploadReturnPhoto(opt){
+  try{
+    const fd=new FormData();fd.append('file',opt.file);fd.append('bizType','RETURN')
+    const{data}=await axios.post(`/borrows/${returnDlg.row.id}/upload-image`,fd,{headers:{'Content-Type':'multipart/form-data'}})
+    returnDlg.photos.push(data)
+    ElMessage.success('照片已上传')
+  }catch(e){ElMessage.error('上传失败')}
+}
+async function confirmReturnRequest(){
+  if(!returnDlg.photos.length){ElMessage.warning('请至少上传一张归还照片');return}
+  returnDlg.loading=true
+  try{
+    const{data}=await axios.post(`/borrows/${returnDlg.row.id}/return-request`,null,{params:{damageReport:returnDlg.damageReport||undefined}})
+    ElMessage.success('归还申请已提交，等待设备使用人审批')
+    returnDlg.visible=false;load();loadStats()
+  }catch(e){ElMessage.error(e?.response?.data?.msg||'提交失败')}finally{returnDlg.loading=false}
 }
 
 onMounted(()=>{load();loadStats()})

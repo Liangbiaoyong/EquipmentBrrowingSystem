@@ -47,6 +47,20 @@ public class BorrowRecord implements Serializable {
     /** V4: 成果录入时间 */
     private LocalDateTime outcomeRecordedTime;
 
+    // ==================== 非数据库字段（查询时动态填充） ====================
+
+    /** 设备名称（关联查询填充） */
+    @TableField(exist = false)
+    private String deviceName;
+
+    /** 资产编号（关联查询填充） */
+    @TableField(exist = false)
+    private String deviceAssetNo;
+
+    /** 用户名/借用人姓名（关联查询填充） */
+    @TableField(exist = false)
+    private String userName;
+
     @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
 
