@@ -16,7 +16,13 @@
         </el-radio-group>
         <span v-if="file" style="color:#909399;font-size:12px">{{ file.name }}</span>
         <el-button v-if="file" type="info" plain @click="resetFile" style="margin-left:auto">重置文件</el-button>
-        <el-button type="success" plain @click="downloadTemplate" :loading="tplLoading">📥 下载模板</el-button>
+        <el-dropdown @command="downloadTemplate" style="margin-left:auto">
+          <el-button type="success" plain :loading="tplLoading">📥 下载模板 <el-icon><ArrowDown/></el-icon></el-button>
+          <template #dropdown><el-dropdown-menu>
+            <el-dropdown-item command="csv">CSV 格式</el-dropdown-item>
+            <el-dropdown-item command="xlsx">Excel 格式 (XLSX)</el-dropdown-item>
+          </el-dropdown-menu></template>
+        </el-dropdown>
       </div>
       <el-alert v-if="importMode==='replace'&&file" title="替换模式会删除数据库中不在此文件中的设备记录，请谨慎操作！" type="warning" :closable="false" show-icon style="margin-top:10px"/>
       <el-alert v-if="result" style="margin-top:15px" :title="importResultText" :type="result.failCount > 0 ? 'warning' : 'success'" :closable="false" show-icon/>
@@ -62,7 +68,7 @@ import { ref, reactive, computed } from 'vue'
 import { deviceApi } from '@/api/device'
 import axios from '@/api/request'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { UploadFilled } from '@element-plus/icons-vue'
+import { UploadFilled, ArrowDown } from '@element-plus/icons-vue'
 
 const uploadRef = ref(null)
 const file = ref(null)
@@ -155,22 +161,18 @@ async function delBatch(row) {
   } catch { ElMessage.error('清除失败') }
 }
 
-async function downloadTemplate() {
+async function downloadTemplate(format = 'csv') {
   tplLoading.value = true
   try {
-    // 创建一个示例 CSV 模板
-    const headers = '资产编号,名称,型号,规格,数量,单价(元),总金额(元),购置日期(YYYY-MM-DD),使用单位,使用人,存放地,备注,国标分类名,国标分类码,厂家,供货商'
-    const sample = 'ZQ2024001,激光打印机-HP1020,HP LaserJet 1020,A4黑白激光,2,1200,2400,2024-01-15,建筑学院,张三,工程南501,办公用,激光打印机-A4,GB-123456,惠普(HP),广州办公设备有限公司\n'
-    const sample2 = 'ZQ2024002,台式计算机-联想,ThinkCentre M950t,i7/16G/512G,5,5800,29000,2024-02-20,建筑学院,李四,工程南502,教学用,台式计算机,GB-123457,联想(Lenovo),广州电脑城'
-
-    const bom = new Uint8Array([0xEF, 0xBB, 0xBF])
-    const content = new TextEncoder().encode(headers + '\n' + sample + sample2)
-    const blob = new Blob([bom, content], { type: 'text/csv;charset=UTF-8' })
+    const r = await axios.get('/devices/import/template', { params: { format }, responseType: 'blob' })
+    const ext = format === 'xlsx' ? 'xlsx' : 'csv'
+    const mime = ext === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv;charset=UTF-8'
+    const blob = new Blob([r.data], { type: mime })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = '设备导入模板.csv'
+    a.download = `设备导入模板.${ext}`
     a.click()
-    ElMessage.success('模板已下载')
+    ElMessage.success(`模板已下载 (${ext.toUpperCase()})`)
   } catch (e) {
     ElMessage.error('下载失败')
   } finally { tplLoading.value = false }

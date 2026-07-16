@@ -29,7 +29,8 @@ import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * 设备管理控制器 — CRUD + 批量导入 + 导出 + 批次管理
@@ -313,6 +314,70 @@ public class DeviceController {
             d.setContractNo(null); d.setDepartment(null);
         }
         return R.ok(result);
+    }
+
+    // ==================== 导入模板下载 ====================
+
+    @GetMapping("/import/template")
+    @ApiOperation("下载导入模板（CSV/XLSX）")
+    @PreAuthorize("hasAnyRole('LAB_ADMIN', 'SYSTEM_ADMIN') || hasAuthority('device:manage')")
+    public void downloadTemplate(
+            @RequestParam(defaultValue = "csv") String format,
+            javax.servlet.http.HttpServletResponse response) throws Exception {
+        if ("xlsx".equalsIgnoreCase(format)) {
+            LinkedHashMap<String, String> headers = new LinkedHashMap<>();
+            headers.put("assetNo", "资产编号");
+            headers.put("name", "名称");
+            headers.put("model", "型号");
+            headers.put("specs", "规格");
+            headers.put("totalQty", "数量");
+            headers.put("unitPrice", "单价(元)");
+            headers.put("totalAmount", "总金额(元)");
+            headers.put("purchaseDate", "购置日期(YYYY-MM-DD)");
+            headers.put("department", "使用单位");
+            headers.put("custodian", "使用人");
+            headers.put("location", "存放地");
+            headers.put("description", "备注");
+            headers.put("gbCategoryName", "国标分类名");
+            headers.put("gbCategoryCode", "国标分类码");
+            headers.put("manufacturer", "厂家");
+            headers.put("supplier", "供货商");
+
+            // 构造示例数据行
+            List<Map<String, Object>> sampleRows = new ArrayList<>();
+            Map<String, Object> row1 = new LinkedHashMap<>();
+            row1.put("assetNo", "ZQ2024001"); row1.put("name", "激光打印机-HP1020"); row1.put("model", "HP LaserJet 1020");
+            row1.put("specs", "A4黑白激光"); row1.put("totalQty", 2); row1.put("unitPrice", 1200); row1.put("totalAmount", 2400);
+            row1.put("purchaseDate", "2024-01-15"); row1.put("department", "建筑学院"); row1.put("custodian", "张三");
+            row1.put("location", "工程南501"); row1.put("description", "办公用"); row1.put("gbCategoryName", "激光打印机-A4");
+            row1.put("gbCategoryCode", "GB-123456"); row1.put("manufacturer", "惠普(HP)"); row1.put("supplier", "广州办公设备有限公司");
+            sampleRows.add(row1);
+
+            Map<String, Object> row2 = new LinkedHashMap<>();
+            row2.put("assetNo", "ZQ2024002"); row2.put("name", "台式计算机-联想"); row2.put("model", "ThinkCentre M950t");
+            row2.put("specs", "i7/16G/512G"); row2.put("totalQty", 5); row2.put("unitPrice", 5800); row2.put("totalAmount", 29000);
+            row2.put("purchaseDate", "2024-02-20"); row2.put("department", "建筑学院"); row2.put("custodian", "李四");
+            row2.put("location", "工程南502"); row2.put("description", "教学用"); row2.put("gbCategoryName", "台式计算机");
+            row2.put("gbCategoryCode", "GB-123457"); row2.put("manufacturer", "联想(Lenovo)"); row2.put("supplier", "广州电脑城");
+            sampleRows.add(row2);
+
+            byte[] xlsx = com.gzhu.equipment.common.ExcelExportUtil.exportToXlsx(sampleRows, headers);
+            response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+            response.setHeader("Content-Disposition", "attachment; filename=设备导入模板.xlsx");
+            response.setContentLength(xlsx.length);
+            response.getOutputStream().write(xlsx);
+            response.flushBuffer();
+        } else {
+            // CSV 模板
+            response.setContentType("text/csv;charset=UTF-8");
+            response.setHeader("Content-Disposition", "attachment; filename=设备导入模板.csv");
+            response.getOutputStream().write(new byte[]{(byte)0xEF,(byte)0xBB,(byte)0xBF});
+            java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(response.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8);
+            osw.write("资产编号,名称,型号,规格,数量,单价(元),总金额(元),购置日期(YYYY-MM-DD),使用单位,使用人,存放地,备注,国标分类名,国标分类码,厂家,供货商\n");
+            osw.write("ZQ2024001,激光打印机-HP1020,HP LaserJet 1020,A4黑白激光,2,1200,2400,2024-01-15,建筑学院,张三,工程南501,办公用,激光打印机-A4,GB-123456,惠普(HP),广州办公设备有限公司\n");
+            osw.write("ZQ2024002,台式计算机-联想,ThinkCentre M950t,i7/16G/512G,5,5800,29000,2024-02-20,建筑学院,李四,工程南502,教学用,台式计算机,GB-123457,联想(Lenovo),广州电脑城\n");
+            osw.flush(); osw.close();
+        }
     }
 
     // ==================== 导出 ====================

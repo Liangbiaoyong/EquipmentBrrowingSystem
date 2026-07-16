@@ -80,7 +80,9 @@ function doApprove(borrowId,approved){d.borrowId=borrowId;d.approved=approved;d.
 async function confirmApprove(){
   if(!d.approved&&!d.comment.trim()){ElMessage.warning('驳回时必须填写驳回原因');return}
   d.submitting=true
-  try{await borrowApi.approve({borrowId:d.borrowId,approved:d.approved,comment:d.comment});d.visible=false;ElMessage.success(d.approved?'审批已通过':'已驳回');load()}catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}finally{d.submitting=false}
+  try{await borrowApi.approve({borrowId:d.borrowId,approved:d.approved,comment:d.comment});d.visible=false;ElMessage.success(d.approved?'审批已通过':'已驳回')}catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败');d.submitting=false;return}
+  load()
+  d.submitting=false
 }
 onMounted(load)
 </script>
