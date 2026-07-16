@@ -7,6 +7,17 @@
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
   </head>
   <body>
+    <!-- HTTPS检测：若非HTTP协议则提示用户切换 -->
+    <script>
+      if (location.protocol === 'https:') {
+        document.write('<div style="display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;background:#f5f7fa">' +
+          '<div style="text-align:center;padding:40px;background:#fff;border-radius:12px;box-shadow:0 2px 12px rgba(0,0,0,0.08);max-width:440px">' +
+          '<h2 style="color:#303133;margin:0 0 12px">⚠️ 访问方式提示</h2>' +
+          '<p style="color:#606266;margin:0 0 20px;line-height:1.6">当前通过 HTTPS 访问，系统仅支持 HTTP 协议。<br/>请使用以下地址重新访问：</p>' +
+          '<a href="http://' + location.hostname + '" style="display:inline-block;padding:10px 28px;background:#409EFF;color:#fff;border-radius:6px;text-decoration:none;font-size:15px">👉 点击切换到 HTTP</a>' +
+          '<p style="color:#909399;font-size:12px;margin-top:16px">如已使用 HTTP 仍看到此提示，请清除浏览器缓存后重试</p></div></div>');
+      }
+    </script>
     <div id="app"></div>
     <script type="module" src="/src/main.js"></script>
   </body>

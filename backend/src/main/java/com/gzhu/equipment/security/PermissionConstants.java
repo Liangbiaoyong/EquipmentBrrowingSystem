@@ -60,7 +60,7 @@ public final class PermissionConstants {
             DEVICE_VIEW, DEVICE_MANAGE,
             LAB_VIEW, LAB_MANAGE,
             BORROW_VIEW, BORROW_RETURN,
-            APPROVAL_SECOND,
+            APPROVAL_FIRST, APPROVAL_SECOND,  // 管理员可处理初审和终审
             RETURN_MANAGE, REPAIR_MANAGE,
             STATISTICS_VIEW
     ));
@@ -76,9 +76,6 @@ public final class PermissionConstants {
             STATISTICS_VIEW,
             ADMIN_USER, ADMIN_CONFIG, ADMIN_LOG, ADMIN_BACKUP
     ));
-
-    /** 实验室管理员也可能处理一级审批（补充到运行时） */
-    private static final List<String> LAB_ADMIN_EXTRA = Collections.singletonList(APPROVAL_FIRST);
 
     private static List<String> buildTeacherPerms() {
         List<String> perms = new ArrayList<>(STUDENT_PERMS);
@@ -96,10 +93,8 @@ public final class PermissionConstants {
             case 0: return STUDENT_PERMS;
             case 1: return TEACHER_PERMS;
             case 2: {
-                // 实验室管理员 = 基础权限 + 一级审批（可处理1级）
-                List<String> perms = new ArrayList<>(LAB_ADMIN_PERMS);
-                perms.addAll(LAB_ADMIN_EXTRA);
-                return Collections.unmodifiableList(perms);
+                // 实验室管理员 = 基础权限（含初审+终审）
+                return LAB_ADMIN_PERMS;
             }
             case 3: return SYSTEM_ADMIN_PERMS;
             default: return Collections.emptyList();

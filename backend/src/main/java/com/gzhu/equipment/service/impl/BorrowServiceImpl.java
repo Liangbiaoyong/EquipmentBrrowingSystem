@@ -170,7 +170,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
                 .orderByDesc(BorrowRecord::getCreateTime);
 
         if (isLabOrSysAdmin) {
-            // 管理员：显示所有待审批记录（不限审批人）
+            // 管理员：显示所有待审批记录（不限审批人、不限设备使用人）
             w.apply("id IN (SELECT borrow_id FROM approval_log WHERE step = {0} AND result = 'PENDING')", level);
         } else if (isTeacher) {
             // 教师：按设备使用人(custodian)姓名匹配，不限approver_id
@@ -209,24 +209,33 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         boolean isTeacher = approverUser != null && approverUser.getUserType() != null && approverUser.getUserType() == 1;
 
         // 查找审批记录
-        ApprovalLog approvalLog = approvalMapper.selectOne(
-                new LambdaQueryWrapper<ApprovalLog>()
-                        .eq(ApprovalLog::getBorrowId, dto.getBorrowId())
-                        .eq(ApprovalLog::getStep, currentStep)
-                        .eq(ApprovalLog::getResult, "PENDING")
-                        .and(w -> w.eq(ApprovalLog::getApproverId, approverId)
-                                .or(isAdmin, w2 -> w2.isNull(ApprovalLog::getApproverId))));
-        // 教师按设备使用人姓名匹配
-        if (approvalLog == null && isTeacher) {
-            Device device = deviceMapper.selectById(record.getDeviceId());
-            if (device != null && approverUser.getRealName() != null
-                    && approverUser.getRealName().equals(device.getCustodian())) {
-                // 教师是该设备的使用人，允许审批
-                approvalLog = approvalMapper.selectOne(
-                        new LambdaQueryWrapper<ApprovalLog>()
-                                .eq(ApprovalLog::getBorrowId, dto.getBorrowId())
-                                .eq(ApprovalLog::getStep, currentStep)
-                                .eq(ApprovalLog::getResult, "PENDING"));
+        ApprovalLog approvalLog = null;
+        if (isAdmin) {
+            // 管理员可以审批当前步的任何待审批记录（不限approver_id）
+            approvalLog = approvalMapper.selectOne(
+                    new LambdaQueryWrapper<ApprovalLog>()
+                            .eq(ApprovalLog::getBorrowId, dto.getBorrowId())
+                            .eq(ApprovalLog::getStep, currentStep)
+                            .eq(ApprovalLog::getResult, "PENDING"));
+        } else {
+            // 非管理员只能审批分配给自己的
+            approvalLog = approvalMapper.selectOne(
+                    new LambdaQueryWrapper<ApprovalLog>()
+                            .eq(ApprovalLog::getBorrowId, dto.getBorrowId())
+                            .eq(ApprovalLog::getStep, currentStep)
+                            .eq(ApprovalLog::getResult, "PENDING")
+                            .eq(ApprovalLog::getApproverId, approverId));
+            // 教师按设备使用人姓名匹配回退
+            if (approvalLog == null && isTeacher) {
+                Device device = deviceMapper.selectById(record.getDeviceId());
+                if (device != null && approverUser.getRealName() != null
+                        && approverUser.getRealName().equals(device.getCustodian())) {
+                    approvalLog = approvalMapper.selectOne(
+                            new LambdaQueryWrapper<ApprovalLog>()
+                                    .eq(ApprovalLog::getBorrowId, dto.getBorrowId())
+                                    .eq(ApprovalLog::getStep, currentStep)
+                                    .eq(ApprovalLog::getResult, "PENDING"));
+                }
             }
         }
         if (approvalLog == null) {
@@ -529,7 +538,20 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
     public void adminForceReturn(Long borrowId, Long adminId, String damageReport, String remark) {
         BorrowRecord record = borrowMapper.selectById(borrowId);
         if (record == null) throw new IllegalArgumentException("借用单不存在");
-        if (!"OVERDUE".equals(record.getStatus())) throw new IllegalArgumentException("只有逾期状态的借用单可以强制归还");
+        // 允许强制归还在 BORROWING（已过期） 或 OVERDUE 状态
+        if (!"OVERDUE".equals(record.getStatus()) && !"BORROWING".equals(record.getStatus())) {
+            throw new IllegalArgumentException("仅 BORROWING（已过期）或 OVERDUE 状态的借用单可以强制归还");
+        }
+        // 自动标记逾期
+        if ("BORROWING".equals(record.getStatus())) {
+            record.setStatus("OVERDUE");
+            if (record.getEndTime() != null) {
+                long days = java.time.Duration.between(record.getEndTime(), LocalDateTime.now()).toDays();
+                record.setOverdueDays(Math.max(1, (int) days));
+            } else {
+                record.setOverdueDays(1);
+            }
+        }
 
         // 执行归还逻辑
         record.setStatus("RETURNED");
