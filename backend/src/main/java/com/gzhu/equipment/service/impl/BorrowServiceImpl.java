@@ -216,7 +216,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
                     new LambdaQueryWrapper<ApprovalLog>()
                             .eq(ApprovalLog::getBorrowId, dto.getBorrowId())
                             .eq(ApprovalLog::getStep, currentStep)
-                            .eq(ApprovalLog::getResult, "PENDING"));
+                            .eq(ApprovalLog::getResult, "PENDING").last("LIMIT 1"));
         } else {
             // 非管理员只能审批分配给自己的
             approvalLog = approvalMapper.selectOne(
@@ -224,7 +224,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
                             .eq(ApprovalLog::getBorrowId, dto.getBorrowId())
                             .eq(ApprovalLog::getStep, currentStep)
                             .eq(ApprovalLog::getResult, "PENDING")
-                            .eq(ApprovalLog::getApproverId, approverId));
+                            .eq(ApprovalLog::getApproverId, approverId).last("LIMIT 1"));
             // 教师按设备使用人姓名匹配回退
             if (approvalLog == null && isTeacher) {
                 Device device = deviceMapper.selectById(record.getDeviceId());
@@ -234,7 +234,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
                             new LambdaQueryWrapper<ApprovalLog>()
                                     .eq(ApprovalLog::getBorrowId, dto.getBorrowId())
                                     .eq(ApprovalLog::getStep, currentStep)
-                                    .eq(ApprovalLog::getResult, "PENDING"));
+                                    .eq(ApprovalLog::getResult, "PENDING").last("LIMIT 1"));
                 }
             }
         }
