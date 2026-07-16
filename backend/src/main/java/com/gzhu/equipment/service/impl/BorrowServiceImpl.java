@@ -273,10 +273,9 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
                     getDeviceName(record.getDeviceId()), record.getId(), true, null);
             log.info("借用申请全部审批通过: borrowId={} deviceId={}", record.getId(), record.getDeviceId());
         } else {
-            // 流转到下一级
+            // 流转到下一级（审批日志已在提交时创建）
             record.setCurrentStep(currentStep + 1);
             borrowMapper.updateById(record);
-            createApprovalLog(record.getId(), currentStep + 1, null);
             log.info("审批流转: borrowId={} step={}→{}", record.getId(), currentStep, currentStep + 1);
         }
 

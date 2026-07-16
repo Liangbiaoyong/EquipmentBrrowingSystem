@@ -28,8 +28,10 @@ request.interceptors.response.use(
     }
     const res = response.data
     if (res.code !== 200) {
-      // 不弹窗，由业务层处理 ('请求失败')
-      return Promise.reject(new Error(res.msg))
+      // 保留 response.data.msg 结构，兼容业务层 e?.response?.data?.msg 取值
+      const err = new Error(res.msg || '请求失败')
+      err.response = { data: { msg: res.msg }, status: res.code }
+      return Promise.reject(err)
     }
     return res
   },
