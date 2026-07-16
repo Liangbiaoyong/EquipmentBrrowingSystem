@@ -7,6 +7,7 @@ import com.gzhu.equipment.service.CategoryService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,6 +25,7 @@ import java.util.List;
  * PUT    /categories/mappings/{id}/toggle → 启用/禁用
  * GET    /categories/classify?gbName=xxx → 测试自动分类
  */
+@Slf4j
 @RestController
 @RequestMapping("/categories")
 @RequiredArgsConstructor
@@ -44,6 +46,48 @@ public class CategoryController {
     @ApiOperation("获取一级分类列表")
     public R<List<DeviceCategory>> listTopLevel() {
         return R.ok(categoryService.listTopLevel());
+    }
+
+    // ==================== 业务分类CRUD ====================
+
+    @PostMapping
+    @ApiOperation("新增业务分类")
+    @PreAuthorize("hasAnyRole('LAB_ADMIN', 'SYSTEM_ADMIN')")
+    public R<DeviceCategory> addCategory(@Valid @RequestBody DeviceCategory category) {
+        categoryService.save(category);
+        log.info("新增业务分类: id={} name={}", category.getId(), category.getName());
+        return R.ok(category);
+    }
+
+    @PutMapping("/{id}")
+    @ApiOperation("更新业务分类（名称/编码/排序/状态等）")
+    @PreAuthorize("hasAnyRole('LAB_ADMIN', 'SYSTEM_ADMIN')")
+    public R<DeviceCategory> updateCategory(@PathVariable Long id, @RequestBody DeviceCategory category) {
+        category.setId(id);
+        categoryService.updateById(category);
+        log.info("更新业务分类: id={}", id);
+        return R.ok(category);
+    }
+
+    @PutMapping("/{id}/toggle")
+    @ApiOperation("启用/禁用业务分类")
+    @PreAuthorize("hasAnyRole('LAB_ADMIN', 'SYSTEM_ADMIN')")
+    public R<Void> toggleCategory(@PathVariable Long id) {
+        DeviceCategory cat = categoryService.getById(id);
+        if (cat == null) return R.fail(404, "分类不存在");
+        cat.setStatus(cat.getStatus() == 1 ? 0 : 1);
+        categoryService.updateById(cat);
+        log.info("切换业务分类状态: id={} status={}", id, cat.getStatus());
+        return R.ok();
+    }
+
+    @DeleteMapping("/{id}")
+    @ApiOperation("删除业务分类（仅系统管理员）")
+    @PreAuthorize("hasRole('SYSTEM_ADMIN')")
+    public R<Void> deleteCategory(@PathVariable Long id) {
+        categoryService.removeById(id);
+        log.warn("删除业务分类: id={}", id);
+        return R.ok();
     }
 
     // ==================== 自动分类测试 ====================

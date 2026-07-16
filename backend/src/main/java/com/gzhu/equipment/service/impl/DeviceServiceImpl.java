@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.gzhu.equipment.dto.BatchInfoDTO;
 import com.gzhu.equipment.entity.Device;
 import com.gzhu.equipment.mapper.DeviceMapper;
 import com.gzhu.equipment.service.DeviceService;
@@ -109,16 +110,26 @@ public class DeviceServiceImpl extends ServiceImpl<DeviceMapper, Device> impleme
     }
 
     @Override
-    public List<String> listBatches() {
-        // 查询所有不同的导入批次 — 使用字符串列名避免LambdaQueryWrapper在无Spring上下文中报错
+    public List<BatchInfoDTO> listBatches() {
+        // 查询批次聚合信息：批次号、最早创建时间、成功/更新/失败/删除行数
         QueryWrapper<Device> wrapper = new QueryWrapper<>();
-        wrapper.select("DISTINCT import_batch_id")
+        wrapper.select("import_batch_id, COUNT(*) AS total_count, " +
+                        "MIN(create_time) AS create_time, " +
+                        "SUM(CASE WHEN import_batch_id IS NOT NULL THEN 1 ELSE 0 END) AS device_count")
                 .isNotNull("import_batch_id")
-                .orderByDesc("import_batch_id");
-        return deviceMapper.selectMaps(wrapper).stream()
-                .map(m -> (String) m.get("import_batch_id"))
-                .filter(java.util.Objects::nonNull)
-                .collect(Collectors.toList());
+                .groupBy("import_batch_id")
+                .orderByDesc("MIN(create_time)");
+        List<Map<String, Object>> maps = deviceMapper.selectMaps(wrapper);
+        List<BatchInfoDTO> result = new java.util.ArrayList<>();
+        for (Map<String, Object> m : maps) {
+            BatchInfoDTO dto = BatchInfoDTO.builder()
+                    .batchId((String) m.get("import_batch_id"))
+                    .createTime(m.get("create_time") != null ? m.get("create_time").toString() : "")
+                    .successCount(((Number) m.getOrDefault("device_count", 0)).intValue())
+                    .build();
+            result.add(dto);
+        }
+        return result;
     }
 
     @Override

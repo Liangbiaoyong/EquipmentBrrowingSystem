@@ -5,6 +5,7 @@
         <el-col :span="5"><el-input v-model="q.keyword" placeholder="搜索ID/名称/资产编号" clearable @keyup.enter="load"/></el-col>
         <el-col :span="5"><el-input v-model="q.location" placeholder="搜索存放地" clearable @keyup.enter="load"/></el-col>
         <el-col :span="3"><el-button type="primary" @click="load">搜索</el-button></el-col>
+        <el-col :span="2"><el-button type="success" @click="doExport" :loading="exportLoading">导出CSV</el-button></el-col>
       </el-row>
     </el-card>
     <el-card style="margin-top:15px">
@@ -49,12 +50,20 @@
 <script setup>
 import { ref,reactive,onMounted } from 'vue';import { deviceApi } from '@/api/device';import { ElMessage } from 'element-plus';import axios from '@/api/request'
 
-const loading=ref(false);const list=ref([]);const total=ref(0)
+const loading=ref(false);const list=ref([]);const total=ref(0);const exportLoading=ref(false)
 const editVisible=ref(false);const approverVisible=ref(false)
 const approverCurrentId=ref(null);const approverId=ref(null);const users=ref([])
 const q=reactive({page:1,size:20,keyword:'',location:''})
 const form=reactive({id:null,name:'',model:'',location:'',borrowStatus:1,deviceStatus:1,borrowType:2,description:''})
 const sortBy=ref('');const sortOrder=ref('');function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';load()}
+async function doExport(){
+  exportLoading.value=true
+  try{
+    const r=await axios.get('/devices/export/csv',{params:{keyword:q.keyword||undefined,location:q.location||undefined},responseType:'blob'})
+    const blob=new Blob([r.data],{type:'text/csv;charset=UTF-8'})
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`设备管理导出_${new Date().toISOString().slice(0,10)}.csv`;a.click()
+  }catch(e){ElMessage.error('导出失败: '+(e?.response?.data?.msg||e.message))}finally{exportLoading.value=false}
+}
 
 const borrowStatusMap={1:'success',2:'warning',3:'danger',4:'danger'}
 const borrowStatusTextMap={1:'可借用',2:'借用中',3:'不可借',4:'逾期'}

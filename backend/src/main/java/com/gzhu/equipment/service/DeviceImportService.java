@@ -11,8 +11,9 @@ public interface DeviceImportService {
 
     /**
      * 从输入流导入设备数据（实际写入数据库）
+     * @param mode append: 仅追加/更新，不删除旧数据; replace: 清除旧数据中不在新文件的记录（默认append）
      */
-    ImportResultDTO importFromStream(InputStream inputStream, String fileName, Long userId);
+    ImportResultDTO importFromStream(InputStream inputStream, String fileName, Long userId, String mode);
 
     /**
      * 从输入流预览导入（dry-run：解析+分类，不写入数据库）

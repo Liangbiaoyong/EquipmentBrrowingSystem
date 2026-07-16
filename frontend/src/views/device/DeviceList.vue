@@ -19,6 +19,7 @@
       </el-select></el-col>
       <el-col :span="2"><el-button type="primary" @click="search">搜索</el-button></el-col>
       <el-col :span="2"><el-button @click="resetSearch">重置</el-button></el-col>
+      <el-col :span="2"><el-button type="success" @click="doExport" :loading="exportLoading">导出CSV</el-button></el-col>
     </el-row></el-card>
     <el-card style="margin-top:15px">
       <el-table :data="list" v-loading="loading" stripe @row-click="toDetail" style="cursor:pointer" @sort-change="onSort">
@@ -41,8 +42,16 @@
 import { ref,reactive,onMounted,watch } from 'vue';import { useRouter,useRoute } from 'vue-router';import axios from '@/api/request';import { categoryApi } from '@/api/category'
 const router=useRouter();const route=useRoute();const loading=ref(false);const list=ref([]);const total=ref(0);const categories=ref([]);const laboratories=ref([])
 const q=reactive({page:1,size:20,assetNo:'',name:'',model:'',categoryId:null,gbCategoryName:'',location:'',borrowStatus:null,deviceStatus:null,borrowType:null,laboratoryId:null})
-const sortBy=ref('');const sortOrder=ref('')
+const sortBy=ref('');const sortOrder=ref('');const exportLoading=ref(false)
 function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';search()}
+async function doExport(){
+  exportLoading.value=true
+  try{
+    const r=await axios.get('/devices/export/csv',{params:{keyword:q.keyword||undefined,name:q.name||undefined,model:q.model||undefined,assetNo:q.assetNo||undefined,categoryId:q.categoryId,borrowStatus:q.borrowStatus,deviceStatus:q.deviceStatus,location:q.location||undefined,gbCategoryName:q.gbCategoryName||undefined,borrowType:q.borrowType,laboratoryId:q.laboratoryId},responseType:'blob'})
+    const blob=new Blob([r.data],{type:'text/csv;charset=UTF-8'})
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`设备导出_${new Date().toISOString().slice(0,10)}.csv`;a.click()
+  }catch(e){ElMessage.error('导出失败: '+(e?.response?.data?.msg||e.message))}finally{exportLoading.value=false}
+}
 
 // 从URL恢复搜索状态
 function restoreFromQuery(){

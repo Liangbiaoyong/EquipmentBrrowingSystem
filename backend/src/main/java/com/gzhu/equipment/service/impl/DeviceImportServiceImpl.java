@@ -63,17 +63,18 @@ public class DeviceImportServiceImpl implements DeviceImportService {
 
     @Override
     @Transactional
-    public ImportResultDTO importFromStream(InputStream inputStream, String fileName, Long userId) {
+    public ImportResultDTO importFromStream(InputStream inputStream, String fileName, Long userId, String mode) {
         String batchId = UUID.randomUUID().toString().substring(0, 8);
         String lowerName = fileName != null ? fileName.toLowerCase() : "";
+        boolean replaceMode = "replace".equals(mode);
 
-        log.info("开始批量导入: fileName={} batchId={} userId={}", fileName, batchId, userId);
+        log.info("开始批量导入: fileName={} batchId={} userId={} mode={}", fileName, batchId, userId, mode);
 
         ImportResultDTO result;
         if (lowerName.endsWith(".csv")) {
-            result = importCsv(inputStream, userId, batchId);
+            result = importCsv(inputStream, userId, batchId, replaceMode);
         } else if (lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls")) {
-            result = importExcel(inputStream, userId, batchId, lowerName);
+            result = importExcel(inputStream, userId, batchId, lowerName, replaceMode);
         } else {
             throw new IllegalArgumentException("不支持的文件格式，仅支持 .csv / .xlsx / .xls");
         }
@@ -139,7 +140,7 @@ public class DeviceImportServiceImpl implements DeviceImportService {
     /**
      * 读取 CSV 所有行（自动检测编码），构建 newAssetNoSet，删除旧数据中不存在的记录，再逐行 upsert
      */
-    private ImportResultDTO importCsv(InputStream inputStream, Long userId, String batchId) {
+    private ImportResultDTO importCsv(InputStream inputStream, Long userId, String batchId, boolean replaceMode) {
         ImportResultDTO result = ImportResultDTO.builder()
                 .batchId(batchId)
                 .errors(new ArrayList<>())
@@ -154,7 +155,7 @@ public class DeviceImportServiceImpl implements DeviceImportService {
             return result;
         }
 
-        log.info("CSV解析完成: 共 {} 行", allRows.size());
+        log.info("CSV解析完成: 共 {} 行, replaceMode={}", allRows.size(), replaceMode);
 
         // 2. 收集新文件中的 asset_no 集合
         Set<String> newAssetNos = new HashSet<>();
@@ -165,10 +166,15 @@ public class DeviceImportServiceImpl implements DeviceImportService {
             }
         }
 
-        // 3. 删除旧数据中不在新文件中的记录
-        int deleted = deleteDevicesNotInSet(newAssetNos);
-        result.setDeleteCount(deleted);
-        log.info("已删除 {} 条旧数据中不存在的设备记录", deleted);
+        // 3. replace模式：删除旧数据中不在新文件中的记录；append模式：不删除
+        if (replaceMode) {
+            int deleted = deleteDevicesNotInSet(newAssetNos);
+            result.setDeleteCount(deleted);
+            log.info("replace模式：已删除 {} 条旧数据中不存在的设备记录", deleted);
+        } else {
+            result.setDeleteCount(0);
+            log.info("append模式：保留所有旧数据，仅追加/更新");
+        }
 
         // 4. 逐行 upsert
         List<Device> batch = new ArrayList<>(BATCH_SIZE);
@@ -210,7 +216,7 @@ public class DeviceImportServiceImpl implements DeviceImportService {
 
     // ==================== Excel 智能导入 ====================
 
-    private ImportResultDTO importExcel(InputStream inputStream, Long userId, String batchId, String lowerName) {
+    private ImportResultDTO importExcel(InputStream inputStream, Long userId, String batchId, String lowerName, boolean replaceMode) {
         ImportResultDTO result = ImportResultDTO.builder()
                 .batchId(batchId)
                 .errors(new ArrayList<>())
@@ -224,7 +230,7 @@ public class DeviceImportServiceImpl implements DeviceImportService {
             return result;
         }
 
-        log.info("Excel解析完成: 共 {} 行", allRows.size());
+        log.info("Excel解析完成: 共 {} 行, replaceMode={}", allRows.size(), replaceMode);
 
         // 收集 asset_no 集合
         Set<String> newAssetNos = new HashSet<>();
@@ -235,10 +241,15 @@ public class DeviceImportServiceImpl implements DeviceImportService {
             }
         }
 
-        // 删除旧数据
-        int deleted = deleteDevicesNotInSet(newAssetNos);
-        result.setDeleteCount(deleted);
-        log.info("已删除 {} 条旧数据中不存在的设备记录", deleted);
+        // replace模式：删除旧数据；append模式：不删除
+        if (replaceMode) {
+            int deleted = deleteDevicesNotInSet(newAssetNos);
+            result.setDeleteCount(deleted);
+            log.info("replace模式：已删除 {} 条旧数据中不存在的设备记录", deleted);
+        } else {
+            result.setDeleteCount(0);
+            log.info("append模式：保留所有旧数据，仅追加/更新");
+        }
 
         // 逐行 upsert
         List<Device> batch = new ArrayList<>(BATCH_SIZE);

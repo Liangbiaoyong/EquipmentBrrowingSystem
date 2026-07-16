@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.gzhu.equipment.entity.Device;
 
+import com.gzhu.equipment.dto.BatchInfoDTO;
 import java.util.List;
 
 /**
@@ -31,8 +32,8 @@ public interface DeviceService extends IService<Device> {
     /** 按导入批次清除设备 */
     int deleteByBatchId(String batchId);
 
-    /** 获取所有导入批次列表 */
-    List<String> listBatches();
+    /** 获取所有导入批次列表（含元数据） */
+    List<BatchInfoDTO> listBatches();
 
     /** 按批次查询设备（用于预览/导出） */
     List<Device> listByBatchId(String batchId);

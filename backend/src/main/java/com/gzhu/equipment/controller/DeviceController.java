@@ -2,6 +2,7 @@ package com.gzhu.equipment.controller;
 
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.gzhu.equipment.common.R;
+import com.gzhu.equipment.dto.BatchInfoDTO;
 import com.gzhu.equipment.dto.ImportResultDTO;
 import com.gzhu.equipment.entity.*;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
@@ -227,17 +228,22 @@ public class DeviceController {
     // ==================== 批量导入 ====================
 
     @PostMapping("/import")
-    @ApiOperation("批量导入设备资产（CSV/XLSX）")
+    @ApiOperation("批量导入设备资产（CSV/XLSX），mode=append追加 replace替换")
     @PreAuthorize("hasAnyRole('LAB_ADMIN', 'SYSTEM_ADMIN')")
-    public R<ImportResultDTO> importDevices(@RequestParam("file") MultipartFile file) {
+    public R<ImportResultDTO> importDevices(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam(defaultValue = "append") String mode) {
         if (file.isEmpty()) return R.fail(400, "请选择文件");
         String fileName = file.getOriginalFilename();
         if (fileName == null || !(fileName.toLowerCase().endsWith(".csv") || fileName.toLowerCase().endsWith(".xlsx") || fileName.toLowerCase().endsWith(".xls"))) {
             return R.fail(400, "仅支持 .csv / .xlsx / .xls 格式");
         }
+        if (!"append".equals(mode) && !"replace".equals(mode)) {
+            return R.fail(400, "mode 参数必须为 append 或 replace");
+        }
         try {
             Long userId = getUserId();
-            ImportResultDTO result = deviceImportService.importFromStream(file.getInputStream(), fileName, userId);
+            ImportResultDTO result = deviceImportService.importFromStream(file.getInputStream(), fileName, userId, mode);
             return result.getFailCount() > 0 ? R.ok("导入完成（含错误）", result) : R.ok("导入成功", result);
         } catch (IOException e) {
             return R.fail("文件读取失败: " + e.getMessage());
@@ -263,9 +269,9 @@ public class DeviceController {
     // ==================== 批次管理 ====================
 
     @GetMapping("/batches")
-    @ApiOperation("获取所有导入批次列表")
+    @ApiOperation("获取所有导入批次列表（含时间、行数等元数据）")
     @PreAuthorize("hasAnyRole('LAB_ADMIN', 'SYSTEM_ADMIN')")
-    public R<List<String>> listBatches() {
+    public R<List<BatchInfoDTO>> listBatches() {
         return R.ok(deviceService.listBatches());
     }
 
@@ -310,18 +316,29 @@ public class DeviceController {
     // ==================== 导出 ====================
 
     @GetMapping("/export/csv")
-    @ApiOperation("导出设备为CSV")
+    @ApiOperation("导出设备为CSV（支持筛选条件）")
     @PreAuthorize("hasAnyRole('LAB_ADMIN', 'SYSTEM_ADMIN')")
     public ResponseEntity<byte[]> exportCsv(
             @RequestParam(required = false) Long categoryId,
-            @RequestParam(required = false) String batchId) throws IOException {
+            @RequestParam(required = false) String batchId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String assetNo,
+            @RequestParam(required = false) String name,
+            @RequestParam(required = false) String model,
+            @RequestParam(required = false) Integer borrowStatus,
+            @RequestParam(required = false) Integer deviceStatus,
+            @RequestParam(required = false) String location,
+            @RequestParam(required = false) String gbCategoryName,
+            @RequestParam(required = false) Integer borrowType,
+            @RequestParam(required = false) Long laboratoryId) throws IOException {
 
         List<Device> devices;
         if (batchId != null) {
             devices = deviceService.listByBatchId(batchId);
         } else {
-            IPage<Device> page = deviceService.pageQuery(1, 10000, null, null, null, null, categoryId, null, null, null, null, null, null);
-            devices = page.getRecords();
+            devices = deviceService.pageQuery(1, 10000, keyword, assetNo, name, model,
+                    categoryId, borrowStatus, deviceStatus, location, gbCategoryName,
+                    borrowType, laboratoryId).getRecords();
         }
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();
