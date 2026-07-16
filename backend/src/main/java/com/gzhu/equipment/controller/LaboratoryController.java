@@ -32,13 +32,15 @@ public class LaboratoryController {
     // ==================== 实验室 CRUD ====================
 
     @GetMapping
-    @ApiOperation("分页查询实验室列表")
+    @ApiOperation("分页查询实验室列表（支持排序）")
     @PreAuthorize("hasAuthority('laboratory:view')")
     public R<IPage<Laboratory>> list(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
-            @RequestParam(required = false) String keyword) {
-        return R.ok(laboratoryService.pageQuery(page, size, keyword));
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false, defaultValue = "asc") String order) {
+        return R.ok(laboratoryService.pageQuery(page, size, keyword, sortBy, order));
     }
 
     @GetMapping("/list")
@@ -90,14 +92,16 @@ public class LaboratoryController {
     // ==================== 地点映射管理 ====================
 
     @GetMapping("/rooms")
-    @ApiOperation("分页查询地点映射")
+    @ApiOperation("分页查询地点映射（支持排序）")
     @PreAuthorize("hasAuthority('laboratory:view')")
     public R<IPage<LaboratoryRoom>> listRooms(
             @RequestParam(defaultValue = "1") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) Long laboratoryId,
-            @RequestParam(required = false) String roomName) {
-        return R.ok(laboratoryService.pageRooms(page, size, laboratoryId, roomName));
+            @RequestParam(required = false) String roomName,
+            @RequestParam(required = false) String sortBy,
+            @RequestParam(required = false, defaultValue = "asc") String order) {
+        return R.ok(laboratoryService.pageRooms(page, size, laboratoryId, roomName, sortBy, order));
     }
 
     @PostMapping("/rooms")

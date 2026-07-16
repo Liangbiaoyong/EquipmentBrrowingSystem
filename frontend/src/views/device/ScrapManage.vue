@@ -46,7 +46,8 @@
             <el-button type="primary" @click="ruleForm={gbKeyword:'',minYears:6,priority:100,remark:''};ruleVisible=true">+ 新增规则</el-button>
             <el-button @click="showBatch=true">批量录入</el-button>
             <el-button type="warning" @click="initDefaultRules">初始化默认规则</el-button>
-            <span style="color:#909399;font-size:12px;margin-left:8px">规则按优先级排序，关键词与国标分类名包含匹配即生效</span>
+            <el-button type="danger" plain @click="doDeduplicate" :loading="dedupLoading">去重</el-button>
+            <span style="color:#909399;font-size:12px;margin-left:8px">{{ rules.length }}条规则，按优先级排序，关键词与国标分类名包含匹配即生效</span>
           </div>
           <el-table :data="rules" stripe>
             <el-table-column prop="id" label="ID" width="60"/>
@@ -95,6 +96,7 @@ const categories = ref([]); const sortBy = ref(''); const sortOrder = ref('')
 const rules = ref([])
 const ruleForm = ref({}); const ruleVisible = ref(false)
 const showBatch = ref(false); const batchText = ref(''); const batchLoading = ref(false)
+const dedupLoading = ref(false)
 
 const defaultRules = `台式计算机,6,10,计算机设备
 便携式计算机,6,10,计算机设备
@@ -272,6 +274,10 @@ async function doBatchImport(){
   ElMessage.success(`导入完成: 成功${ok}个, 失败${fail}个`);batchLoading.value=false;showBatch.value=false;loadRules()
 }
 
+async function doDeduplicate(){
+  dedupLoading.value=true
+  try{const{data}=await axios.post('/scrap/rules/deduplicate');ElMessage.success(`去重完成：${data.beforeCount}条→${data.afterCount}条，合并${data.deletedCount}条`);loadRules()}catch(e){ElMessage.error('去重失败')}finally{dedupLoading.value=false}
+}
 function editRule(row){ruleForm.value={...row};ruleVisible.value=true}
 async function saveRule(){try{if(ruleForm.value.id){await axios.put('/scrap/rules/'+ruleForm.value.id,ruleForm.value)}else{await axios.post('/scrap/rules',ruleForm.value)};ElMessage.success('已保存');ruleVisible.value=false;loadRules()}catch(e){ElMessage.error(e?.response?.data?.msg||'保存失败')}}
 async function deleteRule(id){try{await ElMessageBox.confirm('确认删除？');await axios.delete('/scrap/rules/'+id);ElMessage.success('已删除');loadRules()}catch{}}

@@ -12,8 +12,8 @@ import java.util.List;
  */
 public interface LaboratoryService extends IService<Laboratory> {
 
-    /** 分页查询实验室 */
-    IPage<Laboratory> pageQuery(int page, int size, String keyword);
+    /** 分页查询实验室（支持排序） */
+    IPage<Laboratory> pageQuery(int page, int size, String keyword, String sortBy, String order);
 
     /** 获取所有启用实验室（下拉用） */
     List<Laboratory> listEnabled();
@@ -21,8 +21,8 @@ public interface LaboratoryService extends IService<Laboratory> {
     /** 获取实验室详情 */
     Laboratory getDetail(Long id);
 
-    /** 分页查询地点映射 */
-    IPage<LaboratoryRoom> pageRooms(int page, int size, Long laboratoryId, String roomName);
+    /** 分页查询地点映射（支持排序） */
+    IPage<LaboratoryRoom> pageRooms(int page, int size, Long laboratoryId, String roomName, String sortBy, String order);
 
     /** 新增地点映射 */
     void addRoom(LaboratoryRoom room);

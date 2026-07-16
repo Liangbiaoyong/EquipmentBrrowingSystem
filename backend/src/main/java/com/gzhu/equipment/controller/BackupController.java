@@ -16,6 +16,8 @@ import org.springframework.web.bind.annotation.*;
 import java.io.*;
 import java.nio.file.*;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -39,7 +41,7 @@ public class BackupController {
         if (dbName == null) return R.fail("无法解析数据库名");
         String dbHost = extractDbHost(dbUrl);
         int dbPort = extractDbPort(dbUrl);
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String timestamp = ZonedDateTime.now(ZoneId.of("Asia/Shanghai")).format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String fileName = "backup_" + dbName + "_" + timestamp + ".sql";
         File dir = new File(backupDir);
         if (!dir.exists()) dir.mkdirs();
@@ -109,7 +111,9 @@ public class BackupController {
                     m.put("fileName", f.getName());
                     m.put("fileSize", formatSize(f.length()));
                     m.put("fileSizeBytes", f.length());
-                    m.put("lastModified", new java.util.Date(f.lastModified()).toString());
+                    m.put("lastModified", java.time.Instant.ofEpochMilli(f.lastModified())
+                            .atZone(ZoneId.of("Asia/Shanghai"))
+                            .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")));
                     return m;
                 }).collect(Collectors.toList());
         return R.ok(list);

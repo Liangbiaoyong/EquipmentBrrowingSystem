@@ -30,13 +30,18 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
     private final DeviceMapper deviceMapper;
 
     @Override
-    public IPage<Laboratory> pageQuery(int page, int size, String keyword) {
+    public IPage<Laboratory> pageQuery(int page, int size, String keyword, String sortBy, String order) {
         LambdaQueryWrapper<Laboratory> wrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(keyword)) {
             wrapper.like(Laboratory::getName, keyword)
                     .or().like(Laboratory::getCode, keyword);
         }
-        wrapper.orderByAsc(Laboratory::getName);
+        boolean asc = !"desc".equalsIgnoreCase(order);
+        if ("id".equals(sortBy)) wrapper.orderBy(true, asc, Laboratory::getId);
+        else if ("name".equals(sortBy)) wrapper.orderBy(true, asc, Laboratory::getName);
+        else if ("code".equals(sortBy)) wrapper.orderBy(true, asc, Laboratory::getCode);
+        else if ("status".equals(sortBy)) wrapper.orderBy(true, asc, Laboratory::getStatus);
+        else wrapper.orderByAsc(Laboratory::getName);
         return laboratoryMapper.selectPage(new Page<>(page, size), wrapper);
     }
 
@@ -54,7 +59,7 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
     }
 
     @Override
-    public IPage<LaboratoryRoom> pageRooms(int page, int size, Long laboratoryId, String roomName) {
+    public IPage<LaboratoryRoom> pageRooms(int page, int size, Long laboratoryId, String roomName, String sortBy, String order) {
         LambdaQueryWrapper<LaboratoryRoom> wrapper = new LambdaQueryWrapper<>();
         if (laboratoryId != null) {
             wrapper.eq(LaboratoryRoom::getLaboratoryId, laboratoryId);
@@ -62,7 +67,12 @@ public class LaboratoryServiceImpl extends ServiceImpl<LaboratoryMapper, Laborat
         if (StringUtils.hasText(roomName)) {
             wrapper.like(LaboratoryRoom::getRoomName, roomName);
         }
-        wrapper.orderByAsc(LaboratoryRoom::getRoomName);
+        boolean asc = !"desc".equalsIgnoreCase(order);
+        if ("id".equals(sortBy)) wrapper.orderBy(true, asc, LaboratoryRoom::getId);
+        else if ("roomName".equals(sortBy)) wrapper.orderBy(true, asc, LaboratoryRoom::getRoomName);
+        else if ("laboratoryId".equals(sortBy)) wrapper.orderBy(true, asc, LaboratoryRoom::getLaboratoryId);
+        else if ("fullLocation".equals(sortBy)) wrapper.orderBy(true, asc, LaboratoryRoom::getFullLocation);
+        else wrapper.orderByAsc(LaboratoryRoom::getRoomName);
         return roomMapper.selectPage(new Page<>(page, size), wrapper);
     }
 

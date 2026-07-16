@@ -146,7 +146,7 @@ public class ScrapController {
     // ==================== 报废规则 CRUD ====================
 
     @GetMapping("/rules")
-    @ApiOperation("获取所有报废规则")
+    @ApiOperation("获取所有报废规则，按优先级升序")
     @PreAuthorize("hasAnyAuthority('repair:manage','laboratory:manage','device:manage')")
     public R<List<ScrapRule>> listRules() {
         return R.ok(ruleMapper.selectList(
@@ -154,10 +154,62 @@ public class ScrapController {
     }
 
     @PostMapping("/rules")
-    @ApiOperation("新增报废规则")
+    @ApiOperation("新增报废规则（相同gbKeyword自动合并为更低minYears）")
     @PreAuthorize("hasAnyAuthority('admin:user','laboratory:manage','device:manage','repair:manage')")
     public R<ScrapRule> addRule(@RequestBody ScrapRule rule) {
-        ruleMapper.insert(rule); return R.ok(rule);
+        // 检查相同gbKeyword的已有规则，取更小的minYears合并
+        List<ScrapRule> existing = ruleMapper.selectList(
+                new LambdaQueryWrapper<ScrapRule>()
+                        .eq(ScrapRule::getGbKeyword, rule.getGbKeyword())
+                        .last("LIMIT 1"));
+        if (!existing.isEmpty()) {
+            ScrapRule old = existing.get(0);
+            if (old.getMinYears() > rule.getMinYears()) {
+                old.setMinYears(rule.getMinYears());
+                ruleMapper.updateById(old);
+                log.info("更新规则(更严格年限): gbKeyword={} minYears={}→{}", rule.getGbKeyword(), old.getMinYears(), rule.getMinYears());
+            }
+            return R.ok(old);
+        }
+        ruleMapper.insert(rule);
+        log.info("新增报废规则: id={} keyword={} minYears={}", rule.getId(), rule.getGbKeyword(), rule.getMinYears());
+        return R.ok(rule);
+    }
+
+    @PostMapping("/rules/deduplicate")
+    @ApiOperation("去重：合并相同gbKeyword的规则，保留最低minYears")
+    @PreAuthorize("hasAnyAuthority('admin:user','laboratory:manage','device:manage','repair:manage')")
+    public R<Map<String,Object>> deduplicateRules() {
+        // 1. 查出所有规则
+        List<ScrapRule> all = ruleMapper.selectList(
+                new LambdaQueryWrapper<ScrapRule>().orderByAsc(ScrapRule::getPriority));
+        // 2. 按gbKeyword分组，保留minYears最小的那条，其余删除
+        Map<String, ScrapRule> best = new LinkedHashMap<>();
+        List<Long> toDelete = new ArrayList<>();
+        for (ScrapRule r : all) {
+            if (r.getGbKeyword() == null) continue;
+            ScrapRule existing = best.get(r.getGbKeyword());
+            if (existing == null) {
+                best.put(r.getGbKeyword(), r);
+            } else {
+                toDelete.add(r.getId());
+                // 如果新规则的年限更低，更新保留的规则
+                if (r.getMinYears() < existing.getMinYears()) {
+                    existing.setMinYears(r.getMinYears());
+                    ruleMapper.updateById(existing);
+                }
+            }
+        }
+        // 3. 删除多余的规则
+        if (!toDelete.isEmpty()) {
+            ruleMapper.deleteBatchIds(toDelete);
+        }
+        Map<String,Object> result = new LinkedHashMap<>();
+        result.put("beforeCount", all.size());
+        result.put("afterCount", best.size());
+        result.put("deletedCount", toDelete.size());
+        log.info("报废规则去重完成: {} → {} (删除{})", all.size(), best.size(), toDelete.size());
+        return R.ok(result);
     }
 
     @PutMapping("/rules/{id}")
