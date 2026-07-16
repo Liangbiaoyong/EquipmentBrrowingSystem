@@ -80,6 +80,7 @@ public final class PermissionConstants {
     private static List<String> buildTeacherPerms() {
         List<String> perms = new ArrayList<>(STUDENT_PERMS);
         perms.add(APPROVAL_FIRST);
+        perms.add(DEVICE_MANAGE);   // 教师可管理个人名下设备
         perms.add(STATISTICS_VIEW);
         return perms;
     }

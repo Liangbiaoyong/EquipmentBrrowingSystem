@@ -109,6 +109,14 @@ const showScopeToggle=computed(()=>[1,2,3].includes(userType.value))
 const scope=ref(localStorage.getItem('statsScope')||(userType.value===1?'personal':'global'))
 function onScopeChange(val){localStorage.setItem('statsScope',val);loadAll()}
 
+// 个人模式跳转设备列表时附带custodian筛选
+function goDevices(params){
+  if(scope.value==='personal'&&userStore.userInfo?.realName){
+    params.custodian=userStore.userInfo.realName
+  }
+  router.push({path:'/devices',query:params})
+}
+
 const borrowStatusCards=reactive([
   {label:'设备总数',value:'-',color:'#909399',icon:Monitor,status:null},
   {label:'可借用',value:'-',color:'#67C23A',icon:CircleCheck,status:1},
@@ -124,8 +132,6 @@ const deviceStatusCards=reactive([
   {label:'待报废',value:'-',color:'#909399',status:4},
   {label:'已报废',value:'-',color:'#C0C4CC',status:5}
 ])
-
-function goDevices(params){router.push({path:'/devices',query:params})}
 
 const borrowCards=reactive([
   {label:'借出中',value:'-',color:'#409EFF'},

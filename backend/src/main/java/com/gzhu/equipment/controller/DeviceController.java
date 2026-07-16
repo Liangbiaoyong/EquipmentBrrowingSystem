@@ -68,6 +68,7 @@ public class DeviceController {
             @RequestParam(required = false) Long laboratoryId,
             @RequestParam(required = false) String location,
             @RequestParam(required = false) String gbCategoryName,
+            @RequestParam(required = false) String custodian,
             @RequestParam(required = false) String sort,
             @RequestParam(required = false, defaultValue = "desc") String order) {
         // 构建查询（复用service，然后覆盖排序）
@@ -76,6 +77,7 @@ public class DeviceController {
         if (org.springframework.util.StringUtils.hasText(assetNo)) wrapper.like(Device::getAssetNo, assetNo);
         if (org.springframework.util.StringUtils.hasText(name)) wrapper.like(Device::getName, name);
         if (org.springframework.util.StringUtils.hasText(model)) wrapper.like(Device::getModel, model);
+        if (org.springframework.util.StringUtils.hasText(custodian)) wrapper.like(Device::getCustodian, custodian);
         if (org.springframework.util.StringUtils.hasText(keyword)) {
             wrapper.and(w -> { w.like(Device::getName, keyword).or().like(Device::getAssetNo, keyword)
                 .or().like(Device::getModel, keyword).or().like(Device::getLocation, keyword)
@@ -209,8 +211,8 @@ public class DeviceController {
     // ==================== 增删改 ====================
 
     @PutMapping("/{id}")
-    @ApiOperation("更新设备信息")
-    @PreAuthorize("hasAnyRole('LAB_ADMIN', 'SYSTEM_ADMIN')")
+    @ApiOperation("更新设备信息（管理员/设备使用人可操作）")
+    @PreAuthorize("hasAnyAuthority('ROLE_LAB_ADMIN', 'ROLE_SYSTEM_ADMIN', 'device:manage')")
     public R<Device> updateDevice(@PathVariable Long id, @RequestBody Device device) {
         device.setId(id);
         deviceService.updateById(device);
@@ -330,7 +332,8 @@ public class DeviceController {
             @RequestParam(required = false) String location,
             @RequestParam(required = false) String gbCategoryName,
             @RequestParam(required = false) Integer borrowType,
-            @RequestParam(required = false) Long laboratoryId) throws IOException {
+            @RequestParam(required = false) Long laboratoryId,
+            @RequestParam(required = false) String custodian) throws IOException {
 
         List<Device> devices;
         if (batchId != null) {
@@ -339,6 +342,10 @@ public class DeviceController {
             devices = deviceService.pageQuery(1, 10000, keyword, assetNo, name, model,
                     categoryId, borrowStatus, deviceStatus, location, gbCategoryName,
                     borrowType, laboratoryId).getRecords();
+            // 后过滤使用人（pageQuery 不支持 custodian 参数）
+            if (custodian != null && !custodian.isEmpty()) {
+                devices = devices.stream().filter(d -> custodian.equals(d.getCustodian())).collect(java.util.stream.Collectors.toList());
+            }
         }
 
         ByteArrayOutputStream bos = new ByteArrayOutputStream();

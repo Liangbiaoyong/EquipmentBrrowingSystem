@@ -41,7 +41,7 @@
 <script setup>
 import { ref,reactive,onMounted,watch } from 'vue';import { useRouter,useRoute } from 'vue-router';import axios from '@/api/request';import { categoryApi } from '@/api/category'
 const router=useRouter();const route=useRoute();const loading=ref(false);const list=ref([]);const total=ref(0);const categories=ref([]);const laboratories=ref([])
-const q=reactive({page:1,size:20,assetNo:'',name:'',model:'',categoryId:null,gbCategoryName:'',location:'',borrowStatus:null,deviceStatus:null,borrowType:null,laboratoryId:null})
+const q=reactive({page:1,size:20,assetNo:'',name:'',model:'',categoryId:null,gbCategoryName:'',location:'',borrowStatus:null,deviceStatus:null,borrowType:null,laboratoryId:null,custodian:''})
 const sortBy=ref('');const sortOrder=ref('');const exportLoading=ref(false)
 function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';search()}
 async function doExport(){
@@ -61,6 +61,7 @@ function restoreFromQuery(){
   if(r.deviceStatus)q.deviceStatus=Number(r.deviceStatus); if(r.borrowType)q.borrowType=Number(r.borrowType)
   if(r.laboratoryId)q.laboratoryId=Number(r.laboratoryId); if(r.gbCategoryName)q.gbCategoryName=r.gbCategoryName
   if(r.location)q.location=r.location; if(r.page)q.page=Number(r.page)
+  if(r.custodian)q.custodian=r.custodian
 }
 
 // 搜索时同步到URL
@@ -69,7 +70,7 @@ function syncToQuery(){
   if(q.categoryId)p.categoryId=q.categoryId; if(q.borrowStatus)p.borrowStatus=q.borrowStatus
   if(q.deviceStatus)p.deviceStatus=q.deviceStatus; if(q.borrowType)p.borrowType=q.borrowType
   if(q.laboratoryId)p.laboratoryId=q.laboratoryId; if(q.gbCategoryName)p.gbCategoryName=q.gbCategoryName
-  if(q.location)p.location=q.location; if(q.page>1)p.page=q.page
+  if(q.location)p.location=q.location; if(q.custodian)p.custodian=q.custodian; if(q.page>1)p.page=q.page
   router.replace({query:p})
 }
 
@@ -85,8 +86,8 @@ function deviceStatusText(v){return deviceStatusTextMap[v]||'未知'}
 function catName(id){const c=categories.value.find(x=>x.id===id);return c?c.name:''}
 function labName(id){if(!id)return'';const l=laboratories.value.find(x=>x.id===id);return l?l.name:''}
 function toDetail(row){router.push(`/devices/${row.id}`)}
-async function search(){loading.value=true;syncToQuery();try{const{data}=await axios.get('/devices',{params:{page:q.page,size:q.size,assetNo:q.assetNo||undefined,name:q.name||undefined,model:q.model||undefined,categoryId:q.categoryId,gbCategoryName:q.gbCategoryName||undefined,location:q.location||undefined,borrowStatus:q.borrowStatus,deviceStatus:q.deviceStatus,borrowType:q.borrowType,laboratoryId:q.laboratoryId,sort:sortBy.value||undefined,order:sortOrder.value||undefined}});list.value=data.records||[];total.value=data.total||0}catch(e){console.error('搜索设备失败',e)}finally{loading.value=false}}
-function resetSearch(){q.assetNo='';q.name='';q.model='';q.categoryId=null;q.gbCategoryName='';q.location='';q.borrowStatus=null;q.deviceStatus=null;q.borrowType=null;q.laboratoryId=null;search()}
+async function search(){loading.value=true;syncToQuery();try{const{data}=await axios.get('/devices',{params:{page:q.page,size:q.size,assetNo:q.assetNo||undefined,name:q.name||undefined,model:q.model||undefined,categoryId:q.categoryId,gbCategoryName:q.gbCategoryName||undefined,location:q.location||undefined,borrowStatus:q.borrowStatus,deviceStatus:q.deviceStatus,borrowType:q.borrowType,laboratoryId:q.laboratoryId,custodian:q.custodian||undefined,sort:sortBy.value||undefined,order:sortOrder.value||undefined}});list.value=data.records||[];total.value=data.total||0}catch(e){console.error('搜索设备失败',e)}finally{loading.value=false}}
+function resetSearch(){q.assetNo='';q.name='';q.model='';q.categoryId=null;q.gbCategoryName='';q.location='';q.borrowStatus=null;q.deviceStatus=null;q.borrowType=null;q.laboratoryId=null;q.custodian='';search()}
 onMounted(async()=>{try{const{data}=await categoryApi.topLevel();categories.value=data}catch{};try{const{data}=await axios.get('/laboratories/list');laboratories.value=data||[]}catch{};restoreFromQuery();search()})
 </script>
 <style scoped>.device-list{padding:20px}</style>
