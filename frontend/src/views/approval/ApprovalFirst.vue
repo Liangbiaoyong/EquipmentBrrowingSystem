@@ -13,7 +13,7 @@
       <el-table-column label="结束" width="130"><template #default="{row}">{{ fmt(row.endTime) }}</template></el-table-column>
       <el-table-column label="操作" width="180" fixed="right"><template #default="{row}"><el-button size="small" type="success" @click="doApprove(row.id,true)">通过</el-button><el-button size="small" type="danger" @click="doApprove(row.id,false)">驳回</el-button></template></el-table-column>
     </el-table>
-    <div style="margin-top:15px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total,prev,pager,next" @current-change="load"/></div></el-card>
+    <div style="margin-top:15px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="page" v-model:page-size="size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="load" @size-change="s=>{size=s;page=1;load()}"/></div></el-card>
 
     <!-- 借用详情抽屉 -->
     <el-drawer v-model="detailVisible" title="借用详情" size="480px">

@@ -41,7 +41,7 @@
         <el-table-column label="状态" width="70"><template #default="{row}"><el-tag size="small" :type="row.status===1?'success':'danger'">{{ row.status===1?'正常':'禁用' }}</el-tag></template></el-table-column>
       </el-table>
       <div style="margin-top:12px;display:flex;justify-content:flex-end">
-        <el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total,prev,pager,next" @current-change="loadUsers"/>
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="loadUsers" @size-change="s=>{size=s;page=1;loadUsers()}"/>
       </div>
     </el-card>
 

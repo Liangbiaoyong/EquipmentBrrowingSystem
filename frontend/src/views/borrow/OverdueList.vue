@@ -1,7 +1,7 @@
 <template>
   <div class="overdue"><h2>逾期管理</h2>
     <el-card><el-table :data="list" v-loading="loading"><el-table-column label="借用单ID" prop="id" width="80"/><el-table-column label="设备ID" prop="deviceId" width="80"/><el-table-column label="借用人ID" prop="userId" width="90"/><el-table-column label="逾期天数" prop="overdueDays" width="100"><template #default="{row}"><el-tag type="danger">{{ row.overdueDays }}天</el-tag></template></el-table-column><el-table-column label="应归还时间" width="170"><template #default="{row}">{{ fmt(row.endTime) }}</template></el-table-column></el-table>
-      <div style="margin-top:15px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total,prev,pager,next" @current-change="load"/></div></el-card>
+      <div style="margin-top:15px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="page" v-model:page-size="size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="load" @size-change="s=>{size=s;page=1;load()}"/></div></el-card>
   </div>
 </template>
 <script setup>

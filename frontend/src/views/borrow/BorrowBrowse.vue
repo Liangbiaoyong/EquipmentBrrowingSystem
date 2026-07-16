@@ -82,7 +82,7 @@
         </el-table-column>
       </el-table>
       <div class="pagination-wrap">
-        <el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total,prev,pager,next" @current-change="load"/>
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="load" @size-change="s=>{size=s;page=1;load()}"/>
       </div>
     </el-card>
 
@@ -116,7 +116,7 @@ import { Search,ArrowDown } from '@element-plus/icons-vue'
 const list=ref([]);const loading=ref(false)
 const page=ref(1);const size=ref(20);const total=ref(0)
 const keyword=ref('');const statusFilter=ref(null);const dates=ref([])
-const sortBy=ref('');const sortOrder=ref('desc')
+const sortBy=ref('');const sortOrder=ref('')
 const stats=reactive({total:0,borrowing:0,overdue:0,pending:0})
 
 const statusOptions=[
@@ -129,7 +129,7 @@ const statusLabelMap={PENDING_APPROVAL:'待审批',APPROVED:'已通过',REJECTED
 function statusTag(s){return statusTagMap[s]||'info'}
 function statusLabel(s){return statusLabelMap[s]||s}
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
-function onSort({prop,order}){sortBy.value=prop;sortOrder.value=order||'desc';load()}
+function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';load()}
 
 const returnDlg=reactive({show:false,id:null,damage:'',loading:false})
 const forceDlg=reactive({show:false,id:null,remark:'',loading:false})
@@ -157,7 +157,7 @@ async function cancelBorrow(id){
 async function load(){
   loading.value=true
   try{
-    const p={page:page.value,size:size.value,keyword:keyword.value||undefined,status:statusFilter.value,sort:sortBy.value||undefined,order:sortOrder.value}
+    const p={page:page.value,size:size.value,keyword:keyword.value||undefined,status:statusFilter.value,sort:sortBy.value||undefined,order:sortOrder.value||undefined}
     if(dates.value?.length===2){p.startDate=dates.value[0];p.endDate=dates.value[1]}
     const{data}=await axios.get('/borrows/browse',{params:p})
     list.value=data.records||[];total.value=data.total||0

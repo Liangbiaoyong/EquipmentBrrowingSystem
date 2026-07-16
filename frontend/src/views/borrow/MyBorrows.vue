@@ -94,7 +94,7 @@
         </el-empty>
       </div>
       <div class="mb-pagination" v-if="total>size">
-        <el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total,prev,pager,next" @current-change="load"/>
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="load" @size-change="s=>{size=s;page=1;load()}"/>
       </div>
     </el-card>
 
@@ -195,7 +195,7 @@ import { Plus,Clock,Loading,CircleCheck,WarningFilled } from '@element-plus/icon
 // 状态
 const loading=ref(false);const list=ref([]);const page=ref(1);const size=ref(20);const total=ref(0)
 const activeTab=ref('')
-const sortBy=ref('');const sortOrder=ref('desc')
+const sortBy=ref('');const sortOrder=ref('')
 const devNames=ref({});const devAssets=ref({})
 
 // 统计
@@ -219,7 +219,7 @@ function statusText(s){return stTexts[s]||s}
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
 function getDevName(id){return devNames.value[id]||'设备#'+id}
 function canPickup(row){return row&&(row.status==='APPROVED'||row.status==='BORROWING')}
-function onSort({prop,order}){sortBy.value=prop;sortOrder.value=order||'desc';load()}
+function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';load()}
 
 function checkFileSize(file){
   const maxSize=10*1024*1024 // 10MB before compression
@@ -231,7 +231,7 @@ function checkFileSize(file){
 async function load(){
   loading.value=true
   try{
-    const{data}=await borrowApi.getMyBorrows({page:page.value,size:size.value,status:activeTab.value||undefined,sort:sortBy.value||undefined,order:sortOrder.value})
+    const{data}=await borrowApi.getMyBorrows({page:page.value,size:size.value,status:activeTab.value||undefined,sort:sortBy.value||undefined,order:sortOrder.value||undefined})
     list.value=data.records||[];total.value=data.total||0
     await loadDevNames(data.records||[])
   }catch(e){console.error('加载失败',e)}finally{loading.value=false}

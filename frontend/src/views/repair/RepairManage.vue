@@ -22,7 +22,7 @@
         <el-button v-if="row.deviceStatus===2" size="small" type="danger" @click="quickUnrepairable(row.id)">无法维修</el-button>
       </template></el-table-column>
     </el-table>
-    <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="devPage" :page-size="devSize" :total="devTotal" layout="prev,pager,next" @current-change="loadDevices"/></div></el-card>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="devPage" v-model:page-size="devSize" :page-sizes="[20,100,500]" :total="devTotal" layout="total,sizes,prev,pager,next,jumper" @current-change="loadDevices" @size-change="s=>{devSize=s;devPage=1;loadDevices()}"/></div></el-card>
 
     <el-card style="margin-top:15px" header="维修记录"><el-table :data="records" stripe v-loading="recLoading">
       <el-table-column prop="id" label="ID" width="70"/>
@@ -31,7 +31,7 @@
       <el-table-column label="状态" width="90"><template #default="{row}"><el-tag :type="row.status==='PENDING'?'warning':row.status==='REPAIRING'?'danger':row.status==='FIXED'?'success':'info'">{{ {PENDING:'待维修',REPAIRING:'维修中',FIXED:'已修复',UNREPAIRABLE:'无法维修'}[row.status]||row.status }}</el-tag></template></el-table-column>
       <el-table-column prop="repairComment" label="备注" min-width="140"/><el-table-column prop="fixedTime" label="完成时间" width="150"/>
     </el-table>
-    <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="recPage" :page-size="recSize" :total="recTotal" layout="prev,pager,next" @current-change="loadRecords"/></div></el-card>
+    <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="recPage" v-model:page-size="recSize" :page-sizes="[20,100,500]" :total="recTotal" layout="total,sizes,prev,pager,next,jumper" @current-change="loadRecords" @size-change="s=>{recSize=s;recPage=1;loadRecords()}"/></div></el-card>
 
     <el-dialog v-model="createVisible" title="创建维修记录" width="500px"><el-form :model="cf" label-width="100px">
       <el-form-item label="设备ID" required><el-input-number v-model="cf.deviceId" :min="1"/></el-form-item>

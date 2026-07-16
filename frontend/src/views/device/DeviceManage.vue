@@ -19,7 +19,7 @@
         <el-table-column label="默认审批人" width="140"><template #default="{row}"><span style="font-size:13px">{{ getApproverName(row.defaultApproverId) }}</span><el-button size="small" style="margin-left:4px" @click="openApprover(row)">修改</el-button></template></el-table-column>
         <el-table-column label="操作" width="160" fixed="right"><template #default="{row}"><el-button size="small" @click="openEdit(row)">编辑</el-button><el-popconfirm title="确定删除?" @confirm="doDelete(row.id)"><template #reference><el-button size="small" type="danger">删除</el-button></template></el-popconfirm></template></el-table-column>
       </el-table>
-      <div style="margin-top:15px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="q.page" :page-size="q.size" :total="total" layout="total,prev,pager,next" @current-change="load"/></div>
+      <div style="margin-top:15px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="q.page" v-model:page-size="q.size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="load" @size-change="s=>{q.size=s;q.page=1;load()}"/></div>
     </el-card>
 
     <!-- 编辑设备对话框 -->
@@ -54,7 +54,7 @@ const editVisible=ref(false);const approverVisible=ref(false)
 const approverCurrentId=ref(null);const approverId=ref(null);const users=ref([])
 const q=reactive({page:1,size:20,keyword:'',location:''})
 const form=reactive({id:null,name:'',model:'',location:'',borrowStatus:1,deviceStatus:1,borrowType:2,description:''})
-const sortBy=ref('');const sortOrder=ref('desc');function onSort({prop,order}){sortBy.value=prop;sortOrder.value=order||'desc';load()}
+const sortBy=ref('');const sortOrder=ref('');function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';load()}
 
 const borrowStatusMap={1:'success',2:'warning',3:'danger',4:'danger'}
 const borrowStatusTextMap={1:'可借用',2:'借用中',3:'不可借',4:'逾期'}
@@ -69,7 +69,7 @@ function deviceStatusText(v){return deviceStatusTextMap[v]||v}
 function roleName(t){return roleNameMap[t]||t}
 function getApproverName(id){if(!id)return'未设置';const u=users.value.find(x=>x.id===id);return u?u.realName||u.username:`ID:${id}`}
 
-async function load(){loading.value=true;try{const{data}=await deviceApi.list({page:q.page,size:q.size,keyword:q.keyword||undefined,location:q.location||undefined,sort:sortBy.value||undefined,order:sortOrder.value});list.value=data.records||[];total.value=data.total||0}catch(e){console.error(e)}finally{loading.value=false}}
+async function load(){loading.value=true;try{const{data}=await deviceApi.list({page:q.page,size:q.size,keyword:q.keyword||undefined,location:q.location||undefined,sort:sortBy.value||undefined,order:sortOrder.value||undefined});list.value=data.records||[];total.value=data.total||0}catch(e){console.error(e)}finally{loading.value=false}}
 async function loadUsers(){try{const{data}=await axios.get('/admin/users',{params:{page:1,size:500}});users.value=data.records||[]}catch{}}
 
 function openEdit(row){

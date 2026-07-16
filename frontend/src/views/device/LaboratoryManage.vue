@@ -18,7 +18,7 @@
             <el-table-column label="状态" width="80"><template #default="{row}"><el-tag :type="row.status===1?'success':'info'">{{ row.status===1?'启用':'禁用' }}</el-tag></template></el-table-column>
             <el-table-column label="操作" width="140"><template #default="{row}"><el-button size="small" @click="editLab(row)">编辑</el-button><el-button size="small" type="danger" @click="deleteLab(row.id)">删除</el-button></template></el-table-column>
           </el-table>
-          <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="labPage" :page-size="labSize" :total="labTotal" layout="prev,pager,next" @current-change="loadLabs"/></div>
+          <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="labPage" v-model:page-size="labSize" :page-sizes="[20,100,500]" :total="labTotal" layout="total,sizes,prev,pager,next,jumper" @current-change="loadLabs" @size-change="s=>{labSize=s;labPage=1;loadLabs()}"/></div>
         </el-card>
       </el-tab-pane>
 
@@ -38,7 +38,7 @@
             <el-table-column prop="fullLocation" label="完整位置" min-width="280" show-overflow-tooltip/>
             <el-table-column label="操作" width="140"><template #default="{row}"><el-button size="small" @click="editRoom(row)">编辑</el-button><el-button size="small" type="danger" @click="deleteRoom(row.id)">删除</el-button></template></el-table-column>
           </el-table>
-          <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="roomPage" :page-size="roomSize" :total="roomTotal" layout="prev,pager,next" @current-change="loadRooms"/></div>
+          <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="roomPage" v-model:page-size="roomSize" :page-sizes="[20,100,500]" :total="roomTotal" layout="total,sizes,prev,pager,next,jumper" @current-change="loadRooms" @size-change="s=>{roomSize=s;roomPage=1;loadRooms()}"/></div>
         </el-card>
       </el-tab-pane>
     </el-tabs>

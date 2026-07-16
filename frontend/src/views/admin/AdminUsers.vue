@@ -33,7 +33,7 @@
         <el-table-column label="状态" width="70"><template #default="{row}"><el-tag :type="row.status===1?'success':'danger'" size="small">{{ row.status===1?'正常':'禁用' }}</el-tag></template></el-table-column>
         <el-table-column label="操作" width="220" fixed="right"><template #default="{row}"><div style="white-space:nowrap"><el-button size="small" :type="row.status===1?'warning':'success'" @click="toggle(row)">{{ row.status===1?'禁用':'启用' }}</el-button><el-button size="small" @click="openResetPwd(row)">改密</el-button><el-popconfirm title="确定删除?" @confirm="doDelete(row.id)"><template #reference><el-button size="small" type="danger" :disabled="row.username==='admin'">删除</el-button></template></el-popconfirm></div></template></el-table-column>
       </el-table>
-      <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total,prev,pager,next" @current-change="load"/></div>
+      <div style="margin-top:12px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="page" v-model:page-size="size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="load" @size-change="s=>{size=s;page=1;load()}"/></div>
     </el-card>
 
     <!-- 新建用户对话框 -->

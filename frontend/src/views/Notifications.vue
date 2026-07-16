@@ -3,7 +3,7 @@
     <el-card>
       <div style="margin-bottom:10px;display:flex;justify-content:space-between"><span>共 {{ total }} 条</span><el-button size="small" @click="markAll">全部已读</el-button></div>
       <el-timeline v-loading="loading"><el-timeline-item v-for="n in list" :key="n.id" :timestamp="fmt(n.createTime)" :color="n.isRead?'#909399':'#409EFF'" placement="top"><el-card :class="{unread:!n.isRead}" @click="readOne(n)" style="cursor:pointer"><strong>{{ n.title }}</strong><p style="margin-top:5px;color:#606266;font-size:13px">{{ n.content }}</p></el-card></el-timeline-item></el-timeline>
-      <div style="margin-top:15px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="prev,pager,next" @current-change="load"/></div>
+      <div style="margin-top:15px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="page" v-model:page-size="size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="load" @size-change="s=>{size=s;page=1;load()}"/></div>
     </el-card>
   </div>
 </template>

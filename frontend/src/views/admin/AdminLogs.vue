@@ -20,7 +20,7 @@
         <el-table-column prop="createTime" label="时间" width="170"/>
       </el-table>
       <div style="margin-top:15px;display:flex;justify-content:flex-end">
-        <el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total,prev,pager,next" @current-change="load"/>
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="load" @size-change="s=>{size=s;page=1;load()}"/>
       </div>
     </el-card>
   </div>

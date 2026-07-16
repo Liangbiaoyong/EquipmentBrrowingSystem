@@ -48,6 +48,10 @@ onUnmounted(()=>{if(ws)ws.close();window.removeEventListener('resize',onResize)}
 .layout-container{height:100vh}
 .sidebar{background-color:#304156;transition:width 0.3s;overflow-y:auto;overflow-x:hidden}
 .sidebar.mobile{position:fixed;z-index:100;height:100vh}
+/* 二级菜单右缩进，与一级菜单父级形成层级区分 */
+.sidebar :deep(.el-sub-menu .el-menu-item){padding-left:56px!important}
+/* 折叠状态下子菜单popup也保持合理缩进 */
+.sidebar :deep(.el-menu--popup .el-menu-item){padding-left:48px!important}
 .logo{height:60px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:bold;border-bottom:1px solid rgba(255,255,255,0.1)}
 .header{background:#fff;border-bottom:1px solid #e6e6e6;display:flex;align-items:center;justify-content:space-between;padding:0 20px;height:60px}
 .header-right{display:flex;align-items:center;gap:20px}

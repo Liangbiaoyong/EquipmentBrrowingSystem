@@ -46,7 +46,7 @@
       </el-table>
       <div v-if="!list.length&&!loading" style="text-align:center;padding:40px;color:#909399">暂无逾期记录，点击「检测逾期」扫描到期未还的借用</div>
       <div style="margin-top:12px;display:flex;justify-content:flex-end">
-        <el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total,prev,pager,next" @current-change="load"/>
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="load" @size-change="s=>{size=s;page=1;load()}"/>
       </div>
     </el-card>
 
@@ -69,18 +69,18 @@ import { ElMessage } from 'element-plus'
 const list=ref([]);const loading=ref(false);const page=ref(1);const size=ref(20);const total=ref(0)
 const keyword=ref('');const selectedIds=ref([]);const refreshing=ref(false)
 const nameCache=ref({});const stats=reactive({overdueTotal:0,avgDays:0,notified:0,collected:0})
-const sortBy=ref('');const sortOrder=ref('desc')
+const sortBy=ref('');const sortOrder=ref('')
 
 const dlg=reactive({show:false,force:false,row:null,damage:'',remark:'',loading:false})
 
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
 function getDN(id){return nameCache.value['d'+id]||'设备#'+id}
 function getUN(id){return nameCache.value['u'+id]||'用户#'+id}
-function onSort({prop,order}){sortBy.value=prop;sortOrder.value=order||'desc';load()}
+function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';load()}
 
 async function load(){
   loading.value=true
-  try{const{data}=await axios.get('/borrows/overdue',{params:{page:page.value,size:size.value,keyword:keyword.value||undefined,sort:sortBy.value||undefined,order:sortOrder.value}});list.value=data.records||[];total.value=data.total||0;await loadNames(data.records)}catch(e){console.error(e)}finally{loading.value=false}
+  try{const{data}=await axios.get('/borrows/overdue',{params:{page:page.value,size:size.value,keyword:keyword.value||undefined,sort:sortBy.value||undefined,order:sortOrder.value||undefined}});list.value=data.records||[];total.value=data.total||0;await loadNames(data.records)}catch(e){console.error(e)}finally{loading.value=false}
 }
 
 async function loadNames(records){

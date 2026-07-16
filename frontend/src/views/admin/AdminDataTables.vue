@@ -51,7 +51,7 @@
           <el-table-column type="selection" width="45" prop="_sel" v-if="isAdmin&&!readOnly"/>
           <el-table-column v-for="c in columns" :key="c.COLUMN_NAME" :prop="c.COLUMN_NAME" :label="c.COLUMN_COMMENT||c.COLUMN_NAME"
             :width="c.COLUMN_NAME==='id'?60:c.DATA_TYPE&&c.DATA_TYPE.includes('text')?280:140"
-            :sortable="isAdmin?'custom':false" @sort-change="({prop,order})=>{sort=prop;sortOrder=order||'asc';loadData()}">
+            :sortable="isAdmin?'custom':false" @sort-change="({prop,order})=>{sort=order?prop:null;sortOrder=order==='ascending'?'asc':order==='descending'?'desc':'';loadData()}">
             <template #default="{row}">
               <div v-if="isAdmin&&!readOnly&&editingCell&&editingCell.row===row.id&&editingCell.col===c.COLUMN_NAME" style="display:flex;gap:4px">
                 <el-input v-model="editingCell.val" size="small" @keyup.enter="saveCell(row.id,c.COLUMN_NAME,editingCell.val)"/>
@@ -67,7 +67,7 @@
         </el-table>
       </div>
       <div style="margin-top:12px;display:flex;justify-content:flex-end">
-        <el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total,prev,pager,next" @current-change="loadData"/>
+        <el-pagination v-model:current-page="page" v-model:page-size="size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="loadData" @size-change="s=>{size=s;page=1;loadData()}"/>
       </div>
     </el-card>
 
@@ -98,7 +98,7 @@ async function loadTables(){try{const{data}=await axios.get('/admin/data-tables/
 async function openTable(row){currentTable.value=row.TABLE_NAME;page.value=1;keyword.value='';await loadData()}
 async function loadData(){
   if(!currentTable.value)return
-  try{const{data}=await axios.get(`/admin/data-tables/${currentTable.value}`,{params:{page:page.value,size:size.value,keyword:keyword.value||undefined,sort:sort.value,order:sortOrder.value}})
+  try{const{data}=await axios.get(`/admin/data-tables/${currentTable.value}`,{params:{page:page.value,size:size.value,keyword:keyword.value||undefined,sort:sort.value||undefined,order:sortOrder.value||undefined}})
     columns.value=data.columns||[];rows.value=data.rows||[];total.value=data.total||0;readOnly.value=!!data.readOnly
   }catch(e){ElMessage.error('查询失败: '+(e?.response?.data?.msg||e.message))}
 }

@@ -34,7 +34,7 @@
             </template></el-table-column>
           </el-table>
           <div style="margin-top:12px;display:flex;justify-content:flex-end">
-            <el-pagination v-model:current-page="page" :page-size="size" :total="total" layout="total,prev,pager,next" @current-change="loadDevices"/>
+            <el-pagination v-model:current-page="page" v-model:page-size="size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="loadDevices" @size-change="s=>{size=s;page=1;loadDevices()}"/>
           </div>
         </el-card>
       </el-tab-pane>
@@ -90,7 +90,7 @@ const tab = ref('devices')
 const devices = ref([]); const loading = ref(false)
 const page = ref(1); const size = ref(20); const total = ref(0)
 const keyword = ref(''); const catFilter = ref(null); const eligibleFilter = ref(null)
-const categories = ref([]); const sortBy = ref(''); const sortOrder = ref('desc')
+const categories = ref([]); const sortBy = ref(''); const sortOrder = ref('')
 
 const rules = ref([])
 const ruleForm = ref({}); const ruleVisible = ref(false)
@@ -239,12 +239,12 @@ A3黑白打印机,6,20,办公设备
 地面舰船无线电导航设备,10,130,雷达导航
 交通管理设备,5,140,电气设备`
 
-function onSort({prop,order}){sortBy.value=prop;sortOrder.value=order||'desc';loadDevices()}
+function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';loadDevices()}
 
 async function loadDevices(){
   loading.value=true
   try{
-    const{data}=await axios.get('/scrap/devices',{params:{page:page.value,size:size.value,keyword:keyword.value||undefined,categoryId:catFilter.value,sortBy:sortBy.value||undefined,order:sortOrder.value}})
+    const{data}=await axios.get('/scrap/devices',{params:{page:page.value,size:size.value,keyword:keyword.value||undefined,categoryId:catFilter.value,sortBy:sortBy.value||undefined,order:sortOrder.value||undefined}})
     const records = data.records || []; total.value = data.total || 0
     devices.value = eligibleFilter.value === null ? records : eligibleFilter.value ? records.filter(r=>r.scrapEligible) : records.filter(r=>!r.scrapEligible)
   }catch(e){console.error(e)}finally{loading.value=false}
