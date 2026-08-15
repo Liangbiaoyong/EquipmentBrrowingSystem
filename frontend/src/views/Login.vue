@@ -9,7 +9,7 @@
             <el-icon :size="28"><Monitor/></el-icon>
           </div>
           <h1 class="lc-title">建筑学院仪器共享平台</h1>
-          <p class="lc-subtitle">广州大学仪器共享平台</p>
+          <p class="lc-subtitle">广州大学建筑学院仪器共享平台</p>
         </div>
 
         <!-- CAS 提示 -->
