@@ -2,7 +2,7 @@ import request from './request'
 
 export const statsApi = {
   overview(scope = 'auto') { return request.get('/statistics/overview', { params: { scope } }) },
-  trend(scope = 'auto') { return request.get('/statistics/trend', { params: { scope } }) },
+  trend(scope = 'auto', startDate, endDate) { return request.get('/statistics/trend', { params: { scope, startDate, endDate } }) },
   topDevices(scope = 'auto') { return request.get('/statistics/top-devices', { params: { scope } }) },
   topUsers(scope = 'auto') { return request.get('/statistics/top-users', { params: { scope } }) },
   utilization(scope = 'auto') { return request.get('/statistics/utilization', { params: { scope } }) },

@@ -144,11 +144,13 @@ public class StatisticsController {
     }
 
     @GetMapping("/trend")
-    @ApiOperation("本月借用趋势（按天，scope: auto|personal|global）")
+    @ApiOperation("借用趋势（按天，支持日期范围，scope: auto|personal|global）")
     @PreAuthorize("hasAuthority('statistics:view')")
-    public R<List<Map<String, Object>>> trend(@RequestParam(defaultValue = "auto") String scope) {
-        LocalDate start = LocalDate.now().withDayOfMonth(1);
-        LocalDate end = LocalDate.now();
+    public R<List<Map<String, Object>>> trend(@RequestParam(defaultValue = "auto") String scope,
+                                              @RequestParam(required = false) String startDate,
+                                              @RequestParam(required = false) String endDate) {
+        LocalDate start = startDate != null && !startDate.isEmpty() ? LocalDate.parse(startDate) : LocalDate.now().withDayOfMonth(1);
+        LocalDate end = endDate != null && !endDate.isEmpty() ? LocalDate.parse(endDate) : LocalDate.now();
 
         var w = new QueryWrapper<BorrowRecord>()
                 .select("DATE(create_time) as date", "COUNT(*) as count")

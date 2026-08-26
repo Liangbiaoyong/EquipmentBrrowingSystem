@@ -348,7 +348,7 @@ async function switchTab(tab) {
         pendingApproval: bs.pendingApproval || 0, totalBorrows: bs.total || 0
       })
     } else if (tab === 'trend') {
-      const res = await statsApi.trend(scope.value)
+      const res = await statsApi.trend(scope.value, filterDates.value?.[0], filterDates.value?.[1])
       const arr = Array.isArray(res?.data) ? res.data : (Array.isArray(res) ? res : [])
       const max = Math.max(...arr.map(r => r.count || 0), 1)
       chartData.value = arr.map(r => ({ label: r.date || '', value: r.count || 0, pct: Math.round((r.count || 0) / max * 100) }))
