@@ -5,7 +5,7 @@
         <el-col :span="5"><el-input v-model="q.keyword" placeholder="搜索ID/名称/资产编号" clearable @keyup.enter="load"/></el-col>
         <el-col :span="5"><el-input v-model="q.location" placeholder="搜索存放地" clearable @keyup.enter="load"/></el-col>
         <el-col :span="3"><el-button type="primary" @click="load">搜索</el-button></el-col>
-        <el-col :span="2"><el-button type="success" @click="doExport" :loading="exportLoading">导出CSV</el-button></el-col>
+        <el-col :span="2"><el-dropdown @command="doExport"><el-button type="success" :loading="exportLoading">导出</el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="csv">CSV 格式</el-dropdown-item><el-dropdown-item command="xlsx">Excel 格式</el-dropdown-item></el-dropdown-menu></template></el-dropdown></el-col>
       </el-row>
     </el-card>
     <el-card style="margin-top:15px">
@@ -58,12 +58,14 @@ const userStore=useUserStore()
 const isTeacher=computed(()=>userStore.userInfo?.userType===1)
 const form=reactive({id:null,name:'',model:'',location:'',borrowStatus:1,deviceStatus:1,borrowType:2,description:''})
 const sortBy=ref('');const sortOrder=ref('');function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';load()}
-async function doExport(){
+async function doExport(format='csv'){
   exportLoading.value=true
   try{
-    const r=await axios.get('/devices/export/csv',{params:{keyword:q.keyword||undefined,location:q.location||undefined,custodian:isTeacher.value?userStore.userInfo?.realName:undefined},responseType:'blob'})
-    const blob=new Blob([r.data],{type:'text/csv;charset=UTF-8'})
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`设备管理导出_${new Date().toISOString().slice(0,10)}.csv`;a.click()
+    const r=await axios.get('/devices/export/csv',{params:{format,keyword:q.keyword||undefined,location:q.location||undefined,custodian:isTeacher.value?userStore.userInfo?.realName:undefined},responseType:'blob'})
+    const ext=format==='xlsx'?'xlsx':'csv'
+    const mime=ext==='xlsx'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'text/csv;charset=UTF-8'
+    const blob=new Blob([r.data],{type:mime})
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`设备管理导出_${new Date().toISOString().slice(0,10)}.${ext}`;a.click()
   }catch(e){ElMessage.error('导出失败: '+(e?.response?.data?.msg||e.message))}finally{exportLoading.value=false}
 }
 

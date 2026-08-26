@@ -19,7 +19,7 @@
       </el-select></el-col>
       <el-col :span="2"><el-button type="primary" @click="search">搜索</el-button></el-col>
       <el-col :span="2"><el-button @click="resetSearch">重置</el-button></el-col>
-      <el-col :span="2" v-if="canExport"><el-button type="success" @click="doExport" :loading="exportLoading">导出CSV</el-button></el-col>
+      <el-col :span="2" v-if="canExport"><el-dropdown @command="doExport"><el-button type="success" :loading="exportLoading">导出</el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="csv">CSV 格式</el-dropdown-item><el-dropdown-item command="xlsx">Excel 格式</el-dropdown-item></el-dropdown-menu></template></el-dropdown></el-col>
     </el-row></el-card>
     <el-card style="margin-top:15px">
       <el-table :data="list" v-loading="loading" stripe @row-click="toDetail" style="cursor:pointer" @sort-change="onSort">
@@ -45,12 +45,14 @@ const router=useRouter();const route=useRoute();const loading=ref(false);const l
 const q=reactive({page:1,size:20,assetNo:'',name:'',model:'',categoryId:null,gbCategoryName:'',location:'',borrowStatus:null,deviceStatus:null,borrowType:null,laboratoryId:null,custodian:''})
 const sortBy=ref('');const sortOrder=ref('');const exportLoading=ref(false)
 function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';search()}
-async function doExport(){
+async function doExport(format='csv'){
   exportLoading.value=true
   try{
-    const r=await axios.get('/devices/export/csv',{params:{keyword:q.keyword||undefined,name:q.name||undefined,model:q.model||undefined,assetNo:q.assetNo||undefined,categoryId:q.categoryId,borrowStatus:q.borrowStatus,deviceStatus:q.deviceStatus,location:q.location||undefined,gbCategoryName:q.gbCategoryName||undefined,borrowType:q.borrowType,laboratoryId:q.laboratoryId},responseType:'blob'})
-    const blob=new Blob([r.data],{type:'text/csv;charset=UTF-8'})
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`设备导出_${new Date().toISOString().slice(0,10)}.csv`;a.click()
+    const r=await axios.get('/devices/export/csv',{params:{format,keyword:q.keyword||undefined,name:q.name||undefined,model:q.model||undefined,assetNo:q.assetNo||undefined,categoryId:q.categoryId,borrowStatus:q.borrowStatus,deviceStatus:q.deviceStatus,location:q.location||undefined,gbCategoryName:q.gbCategoryName||undefined,borrowType:q.borrowType,laboratoryId:q.laboratoryId},responseType:'blob'})
+    const ext=format==='xlsx'?'xlsx':'csv'
+    const mime=ext==='xlsx'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'text/csv;charset=UTF-8'
+    const blob=new Blob([r.data],{type:mime})
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`设备导出_${new Date().toISOString().slice(0,10)}.${ext}`;a.click()
   }catch(e){ElMessage.error('导出失败: '+(e?.response?.data?.msg||e.message))}finally{exportLoading.value=false}
 }
 

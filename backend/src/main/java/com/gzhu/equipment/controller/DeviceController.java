@@ -422,9 +422,10 @@ public class DeviceController {
     // ==================== 导出 ====================
 
     @GetMapping("/export/csv")
-    @ApiOperation("导出设备为CSV（支持筛选条件）")
+    @ApiOperation("导出设备（支持CSV/XLSX）")
     @PreAuthorize("hasAnyRole('LAB_ADMIN', 'SYSTEM_ADMIN') || hasAuthority('device:manage')")
     public ResponseEntity<byte[]> exportCsv(
+            @RequestParam(defaultValue = "csv") String format,
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String batchId,
             @RequestParam(required = false) String keyword,
@@ -452,34 +453,68 @@ public class DeviceController {
             }
         }
 
-        ByteArrayOutputStream bos = new ByteArrayOutputStream();
-        // BOM for Excel UTF-8 识别
-        bos.write(0xEF);
-        bos.write(0xBB);
-        bos.write(0xBF);
+        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
+        java.util.List<java.util.Map<String, Object>> rows = new java.util.ArrayList<>();
+        for (Device d : devices) {
+            java.util.Map<String, Object> row = new java.util.LinkedHashMap<>();
+            row.put("id", d.getId());
+            row.put("assetNo", d.getAssetNo());
+            row.put("name", d.getName());
+            row.put("model", d.getModel());
+            row.put("specs", d.getSpecs());
+            row.put("categoryId", d.getCategoryId());
+            row.put("gbCategoryName", d.getGbCategoryName());
+            row.put("borrowStatus", deviceBorrowStatusText(d.getBorrowStatus()));
+            row.put("deviceStatus", deviceStatusText(d.getDeviceStatus()));
+            row.put("borrowType", deviceBorrowTypeText(d.getBorrowType()));
+            row.put("laboratoryId", d.getLaboratoryId());
+            row.put("location", d.getLocation());
+            row.put("department", d.getDepartment());
+            row.put("custodian", d.getCustodian());
+            row.put("totalQty", d.getTotalQty());
+            row.put("availableQty", d.getAvailableQty());
+            row.put("unitPrice", d.getUnitPrice());
+            row.put("totalAmount", d.getTotalAmount());
+            row.put("purchaseDate", d.getPurchaseDate() != null ? d.getPurchaseDate().format(dtf) : "");
+            row.put("manufacturer", d.getManufacturer());
+            row.put("supplier", d.getSupplier());
+            rows.add(row);
+        }
 
+        HttpHeaders headers = new HttpHeaders();
+        if ("xlsx".equalsIgnoreCase(format)) {
+            LinkedHashMap<String, String> hdrs = new LinkedHashMap<>();
+            hdrs.put("id","设备ID");hdrs.put("assetNo","资产编号");hdrs.put("name","名称");hdrs.put("model","型号");
+            hdrs.put("specs","规格");hdrs.put("categoryId","分类ID");hdrs.put("gbCategoryName","国标分类名");
+            hdrs.put("borrowStatus","借还状态");hdrs.put("deviceStatus","设备状态");hdrs.put("borrowType","借用类型");
+            hdrs.put("laboratoryId","所属实验室ID");hdrs.put("location","存放地");hdrs.put("department","使用单位");
+            hdrs.put("custodian","使用人");hdrs.put("totalQty","数量");hdrs.put("availableQty","可借数量");
+            hdrs.put("unitPrice","单价");hdrs.put("totalAmount","金额");hdrs.put("purchaseDate","购置日期");
+            hdrs.put("manufacturer","厂家");hdrs.put("supplier","供货商");
+            byte[] xlsx = com.gzhu.equipment.common.ExcelExportUtil.exportToXlsx(rows, hdrs);
+            headers.setContentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
+            headers.set(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=devices_export_" + System.currentTimeMillis() + ".xlsx");
+            return ResponseEntity.ok().headers(headers).body(xlsx);
+        }
+
+        ByteArrayOutputStream bos = new ByteArrayOutputStream();
+        bos.write(0xEF); bos.write(0xBB); bos.write(0xBF);
         try (OutputStreamWriter writer = new OutputStreamWriter(bos, StandardCharsets.UTF_8)) {
             writer.write("设备ID,资产编号,名称,型号,规格,分类ID,国标分类名,借还状态,设备状态,借用类型,所属实验室ID,存放地,使用单位,使用人,数量,可借数量,单价,金额,购置日期,厂家,供货商\n");
-            DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            for (Device d : devices) {
-                writer.write(String.format("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s,%s,%s,%s\n",
-                        d.getId(), csv(d.getAssetNo()), csv(d.getName()), csv(d.getModel()), csv(d.getSpecs()),
-                        d.getCategoryId(), csv(d.getGbCategoryName()),
-                        deviceBorrowStatusText(d.getBorrowStatus()),
-                        deviceStatusText(d.getDeviceStatus()),
-                        deviceBorrowTypeText(d.getBorrowType()),
-                        d.getLaboratoryId(), csv(d.getLocation()),
-                        csv(d.getDepartment()), csv(d.getCustodian()),
-                        d.getTotalQty() != null ? d.getTotalQty() : 0,
-                        d.getAvailableQty() != null ? d.getAvailableQty() : 0,
-                        d.getUnitPrice(), d.getTotalAmount(),
-                        d.getPurchaseDate() != null ? d.getPurchaseDate().format(dtf) : "",
-                        csv(d.getManufacturer()), csv(d.getSupplier())));
+            for (java.util.Map<String, Object> row : rows) {
+                writer.write(String.format("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
+                        row.get("id"), csv((String)row.get("assetNo")), csv((String)row.get("name")), csv((String)row.get("model")),
+                        csv((String)row.get("specs")), row.get("categoryId"), csv((String)row.get("gbCategoryName")),
+                        csv((String)row.get("borrowStatus")), csv((String)row.get("deviceStatus")), csv((String)row.get("borrowType")),
+                        row.get("laboratoryId"), csv((String)row.get("location")), csv((String)row.get("department")),
+                        csv((String)row.get("custodian")), row.get("totalQty"), row.get("availableQty"),
+                        row.get("unitPrice"), row.get("totalAmount"), row.get("purchaseDate"),
+                        csv((String)row.get("manufacturer")), csv((String)row.get("supplier"))));
             }
         }
 
         byte[] bytes = bos.toByteArray();
-        HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.parseMediaType("text/csv;charset=UTF-8"));
         headers.set(HttpHeaders.CONTENT_DISPOSITION,
                 "attachment; filename=devices_export_" + System.currentTimeMillis() + ".csv");
