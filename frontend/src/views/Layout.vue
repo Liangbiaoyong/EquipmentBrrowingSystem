@@ -1,7 +1,7 @@
 <template>
   <el-container class="layout-container">
     <el-aside :width="isCollapse?'64px':'220px'" class="sidebar" :class="{mobile:isMobile}">
-      <div class="logo"><span v-if="!isCollapse">设备借用系统</span><span v-else>设备</span></div>
+      <div class="logo"><span v-if="!isCollapse">仪器共享平台</span><span v-else>仪器</span></div>
       <el-menu :default-active="route.path" :collapse="isCollapse" :collapse-transition="false" router background-color="#304156" text-color="#bfcbd9" active-text-color="#409EFF">
         <template v-for="item in menuItems" :key="item.index">
           <el-sub-menu v-if="item.children" :index="item.index"><template #title><el-icon><component:is="item.icon"/></el-icon><span>{{item.title}}</span></template><el-menu-item v-for="sub in item.children" :key="sub.index" :index="sub.index">{{sub.title}}</el-menu-item></el-sub-menu>

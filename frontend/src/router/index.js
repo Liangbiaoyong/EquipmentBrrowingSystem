@@ -52,7 +52,7 @@ const routes = [
 const router = createRouter({ history: createWebHistory(), routes })
 
 router.beforeEach((to, from, next) => {
-  document.title = to.meta.title ? `${to.meta.title} - 设备借用系统` : '设备借用系统'
+  document.title = to.meta.title ? `${to.meta.title} - 仪器共享平台` : '仪器共享平台'
   const token = localStorage.getItem('token')
   if (!to.meta.noAuth && !token) return next({ name: 'Login' })
   if (token) {
