@@ -396,7 +396,16 @@ public class BorrowController {
             @RequestParam(required=false) String status,
             javax.servlet.http.HttpServletResponse response) throws Exception {
         var w = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<BorrowRecord>();
-        w.select("borrow_record.*, d.name AS deviceName, d.asset_no AS deviceAssetNo, u.real_name AS userName");
+        String select = "borrow_record.*, d.name AS deviceName, d.asset_no AS deviceAssetNo, u.real_name AS userName, d.custodian AS custodian, "
+                + "borrow_record.pickup_time AS pickupTime, borrow_record.real_return_time AS realReturnTime, borrow_record.return_request_time AS returnRequestTime, "
+                + "borrow_record.damage_report AS damageReport, borrow_record.reason AS reason, "
+                + "(SELECT u2.real_name FROM approval_log al LEFT JOIN sys_user u2 ON al.approver_id=u2.id "
+                + " WHERE al.borrow_id=borrow_record.id AND al.step=1 AND al.result IN ('APPROVED','REJECTED') ORDER BY al.operate_time DESC LIMIT 1) AS approver1Name, "
+                + "(SELECT al.operate_time FROM approval_log al WHERE al.borrow_id=borrow_record.id AND al.step=1 AND al.result IN ('APPROVED','REJECTED') ORDER BY al.operate_time DESC LIMIT 1) AS approver1Time, "
+                + "(SELECT u2.real_name FROM approval_log al LEFT JOIN sys_user u2 ON al.approver_id=u2.id "
+                + " WHERE al.borrow_id=borrow_record.id AND al.step=2 AND al.result IN ('APPROVED','REJECTED') ORDER BY al.operate_time DESC LIMIT 1) AS approver2Name, "
+                + "(SELECT al.operate_time FROM approval_log al WHERE al.borrow_id=borrow_record.id AND al.step=2 AND al.result IN ('APPROVED','REJECTED') ORDER BY al.operate_time DESC LIMIT 1) AS approver2Time";
+        w.select(select);
         w.apply("LEFT JOIN device d ON borrow_record.device_id = d.id");
         w.apply("LEFT JOIN sys_user u ON borrow_record.user_id = u.id");
         com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(getCurrentUserId());
@@ -412,9 +421,11 @@ public class BorrowController {
 
         if ("xlsx".equalsIgnoreCase(format)) {
             LinkedHashMap<String,String> hdrs = new LinkedHashMap<>();
-            hdrs.put("id","单号");hdrs.put("deviceName","设备");hdrs.put("userName","借用人");hdrs.put("purpose","目的");
-            hdrs.put("purposeCategory","目的分类");hdrs.put("startTime","开始时间");hdrs.put("endTime","结束时间");
-            hdrs.put("status","状态");hdrs.put("overdueDays","逾期天数");hdrs.put("createTime","创建时间");
+            hdrs.put("id","单号");hdrs.put("deviceName","设备");hdrs.put("deviceAssetNo","资产编号");hdrs.put("custodian","使用人");hdrs.put("userName","借用人");
+            hdrs.put("purpose","目的");hdrs.put("reason","事由");hdrs.put("purposeCategory","目的分类");
+            hdrs.put("startTime","计划开始");hdrs.put("endTime","计划归还");hdrs.put("pickupTime","实际借出");hdrs.put("realReturnTime","实际归还");hdrs.put("returnRequestTime","提交归还申请");
+            hdrs.put("status","状态");hdrs.put("overdueDays","逾期天数");hdrs.put("approver1Name","初审人");hdrs.put("approver1Time","初审时间");
+            hdrs.put("approver2Name","终审人");hdrs.put("approver2Time","终审时间");hdrs.put("damageReport","损坏报告");hdrs.put("createTime","创建时间");
             byte[] xlsx = com.gzhu.equipment.common.ExcelExportUtil.exportToXlsx(rows, hdrs);
             response.setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
             response.setHeader("Content-Disposition", "attachment; filename=borrow_browse_" + System.currentTimeMillis() + ".xlsx");
@@ -425,15 +436,23 @@ public class BorrowController {
         response.setHeader("Content-Disposition", "attachment; filename=borrow_browse_" + System.currentTimeMillis() + ".csv");
         response.getOutputStream().write(new byte[]{(byte)0xEF,(byte)0xBB,(byte)0xBF});
         java.io.OutputStreamWriter osw = new java.io.OutputStreamWriter(response.getOutputStream(), java.nio.charset.StandardCharsets.UTF_8);
-        osw.write("单号,设备,借用人,目的,目的分类,开始时间,结束时间,状态,逾期天数,创建时间\n");
+        osw.write("单号,设备,资产编号,使用人,借用人,目的,事由,目的分类,计划开始,计划归还,实际借出,实际归还,提交归还申请,状态,逾期天数,初审人,初审时间,终审人,终审时间,损坏报告,创建时间\n");
         for (var r : rows) {
             osw.write((r.get("id")!=null?String.valueOf(r.get("id")):"")+",");
-            osw.write(esc((String)r.get("deviceName"))+",");osw.write(esc((String)r.get("userName"))+",");
-            osw.write(esc((String)r.get("purpose"))+",");osw.write(esc((String)r.get("purposeCategory"))+",");
+            osw.write(esc((String)r.get("deviceName"))+",");osw.write(esc((String)r.get("deviceAssetNo"))+",");
+            osw.write(esc((String)r.get("custodian"))+",");osw.write(esc((String)r.get("userName"))+",");
+            osw.write(esc((String)r.get("purpose"))+",");osw.write(esc((String)r.get("reason"))+",");
+            osw.write(esc((String)r.get("purposeCategory"))+",");
             osw.write((r.get("startTime")!=null?String.valueOf(r.get("startTime")):"")+",");
             osw.write((r.get("endTime")!=null?String.valueOf(r.get("endTime")):"")+",");
+            osw.write((r.get("pickupTime")!=null?String.valueOf(r.get("pickupTime")):"")+",");
+            osw.write((r.get("realReturnTime")!=null?String.valueOf(r.get("realReturnTime")):"")+",");
+            osw.write((r.get("returnRequestTime")!=null?String.valueOf(r.get("returnRequestTime")):"")+",");
             osw.write(esc((String)r.get("status"))+",");
             osw.write((r.get("overdueDays")!=null?String.valueOf(r.get("overdueDays")):"")+",");
+            osw.write(esc((String)r.get("approver1Name"))+",");osw.write((r.get("approver1Time")!=null?String.valueOf(r.get("approver1Time")):"")+",");
+            osw.write(esc((String)r.get("approver2Name"))+",");osw.write((r.get("approver2Time")!=null?String.valueOf(r.get("approver2Time")):"")+",");
+            osw.write(esc((String)r.get("damageReport"))+",");
             osw.write((r.get("createTime")!=null?String.valueOf(r.get("createTime")):"")+"\n");
         }
         osw.flush();osw.close();
