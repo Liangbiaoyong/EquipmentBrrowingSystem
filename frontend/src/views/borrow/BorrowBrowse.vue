@@ -76,7 +76,6 @@
             <div class="action-btns" @click.stop>
               <el-button v-if="row.status==='PENDING_APPROVAL'" size="small" type="danger" plain @click="cancelBorrow(row.id)">取消</el-button>
               <el-button v-if="row.status==='BORROWING'||row.status==='OVERDUE'" size="small" type="warning" plain @click="openReturn(row)">归还</el-button>
-              <el-button v-if="row.status==='OVERDUE'" size="small" type="danger" plain @click="openForce(row)">强制归还</el-button>
             </div>
           </template>
         </el-table-column>
