@@ -1,21 +1,45 @@
 <template>
   <div class="login-page">
-    <div class="login-bg"></div>
+    <!-- 左侧品牌区 -->
+    <div class="brand-panel">
+      <div class="brand-inner">
+        <div class="brand-logo">仪</div>
+        <h1 class="brand-title">仪器共享平台</h1>
+        <p class="brand-subtitle">高效管理学院仪器与借用流程</p>
 
-    <div class="login-wrapper">
-      <div class="login-card">
-        <div class="lc-header">
-          <div class="lc-icon">仪</div>
-          <h1 class="lc-title">仪器共享平台</h1>
-          <p class="lc-subtitle">广州大学建筑学院 · 仪器共享平台</p>
+        <ul class="brand-features">
+          <li>
+            <span class="feature-icon"><el-icon><Monitor /></el-icon></span>
+            <span>设备资产管理</span>
+          </li>
+          <li>
+            <span class="feature-icon"><el-icon><Calendar /></el-icon></span>
+            <span>在线预约与审批</span>
+          </li>
+          <li>
+            <span class="feature-icon"><el-icon><TrendCharts /></el-icon></span>
+            <span>多维度数据统计</span>
+          </li>
+        </ul>
+
+        <div class="brand-deco"></div>
+      </div>
+    </div>
+
+    <!-- 右侧登录区 -->
+    <div class="form-panel">
+      <div class="form-card">
+        <div class="form-header">
+          <h2 class="form-title">欢迎回来</h2>
+          <p class="form-subtitle">请使用广州大学统一认证账号登录</p>
         </div>
 
-        <el-alert type="info" :closable="false" show-icon class="lc-alert">
+        <el-alert type="info" :closable="false" show-icon class="login-alert">
           <template #title>首次使用？</template>
-          输入您的<strong>广州大学CAS统一认证</strong>账号密码即可登录，系统将自动创建账户。
+          输入广州大学CAS统一认证账号密码即可登录，系统将自动创建账户。
         </el-alert>
 
-        <el-form ref="formRef" :model="form" :rules="rules" label-width="0" class="lc-form">
+        <el-form ref="formRef" :model="form" :rules="rules" label-width="0" class="login-form">
           <el-form-item prop="username">
             <el-input v-model="form.username" placeholder="学工号 / 用户名" :prefix-icon="User" size="large" clearable/>
           </el-form-item>
@@ -23,17 +47,19 @@
             <el-input v-model="form.password" type="password" placeholder="密码" :prefix-icon="Lock" size="large" show-password @keyup.enter="handleLogin"/>
           </el-form-item>
           <el-form-item>
-            <el-button type="primary" size="large" class="lc-btn-primary" :loading="logging" @click="handleLogin">登 录</el-button>
+            <el-button type="primary" size="large" class="login-btn" :loading="logging" @click="handleLogin">
+              登 录
+            </el-button>
           </el-form-item>
         </el-form>
 
-        <div class="lc-divider"><span>或</span></div>
+        <div class="divider"><span>或</span></div>
 
-        <el-button size="large" class="lc-btn-cas" :loading="logging" @click="handleCasLogin">
+        <el-button size="large" class="cas-btn" :loading="logging" @click="handleCasLogin">
           广州大学 CAS 统一认证登录
         </el-button>
 
-        <div class="lc-forgot">
+        <div class="forgot-link">
           <el-popover placement="top" :width="280" trigger="click">
             <template #reference>
               <el-link type="info" :underline="false">忘记密码？</el-link>
@@ -53,7 +79,7 @@
 <script setup>
 import { reactive, ref, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import { User, Lock } from '@element-plus/icons-vue'
+import { User, Lock, Monitor, Calendar, TrendCharts } from '@element-plus/icons-vue'
 import { useUserStore } from '@/store/user'
 import { authApi } from '@/api/auth'
 import { ElMessage } from 'element-plus'
@@ -126,91 +152,151 @@ async function handleCasLogin() {
 .login-page {
   min-height: 100vh;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  position: relative;
-  overflow: hidden;
   background: #f6f8fb;
-  background-image: radial-gradient(rgba(37, 99, 235, 0.08) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(37, 99, 235, 0.07) 1px, transparent 1px);
   background-size: 26px 26px;
 }
 
-.login-bg {
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(circle at 15% 20%, rgba(37, 99, 235, 0.10), transparent 42%),
-    radial-gradient(circle at 85% 75%, rgba(250, 204, 21, 0.16), transparent 42%),
-    linear-gradient(160deg, #eef4ff 0%, #f8fafc 50%, #f1f5f9 100%);
-}
-
-.login-wrapper {
+/* ===== 左侧品牌区 ===== */
+.brand-panel {
+  flex: 1.1;
   position: relative;
-  z-index: 1;
-  width: 100%;
-  max-width: 420px;
-  padding: 24px;
-}
-
-.login-card {
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(16px);
-  border-radius: 22px;
-  padding: 40px 34px 30px;
-  box-shadow: 0 24px 70px rgba(31, 45, 61, 0.14), 0 0 0 1px rgba(255, 255, 255, 0.7) inset;
-  transform: translateY(0);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-}
-
-.login-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 30px 80px rgba(31, 45, 61, 0.18);
-}
-
-.lc-header {
-  text-align: center;
-  margin-bottom: 26px;
-}
-
-.lc-icon {
-  width: 54px;
-  height: 54px;
-  border-radius: 16px;
-  background: linear-gradient(135deg, #2563eb, #3b82f6);
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
+  padding: 48px;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 20% 20%, rgba(255,255,255,0.14), transparent 40%),
+    linear-gradient(150deg, #1e3a8a 0%, #2563eb 55%, #3b82f6 100%);
   color: #fff;
-  font-size: 26px;
-  font-weight: 800;
-  margin-bottom: 16px;
-  box-shadow: 0 12px 28px rgba(37, 99, 235, 0.28);
 }
 
-.lc-title {
-  font-size: 22px;
+.brand-inner {
+  position: relative;
+  z-index: 2;
+  max-width: 420px;
+  width: 100%;
+}
+
+.brand-logo {
+  width: 60px;
+  height: 60px;
+  border-radius: 18px;
+  background: rgba(255,255,255,0.16);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.25);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 28px;
+  box-shadow: 0 16px 40px rgba(0,0,0,0.18);
+}
+
+.brand-title {
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  margin: 0 0 10px;
+}
+
+.brand-subtitle {
+  font-size: 15px;
+  opacity: 0.85;
+  margin: 0 0 36px;
+}
+
+.brand-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.brand-features li {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 14px;
+  font-weight: 500;
+  background: rgba(255,255,255,0.1);
+  padding: 14px 18px;
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255,255,255,0.12);
+}
+
+.feature-icon {
+  width: 36px;
+  height: 36px;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.brand-deco {
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  border-radius: 50%;
+  right: -80px;
+  bottom: -80px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: radial-gradient(circle, rgba(255,255,255,0.08), transparent 70%);
+}
+
+/* ===== 右侧登录区 ===== */
+.form-panel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+}
+
+.form-card {
+  width: 100%;
+  max-width: 420px;
+  background: rgba(255,255,255,0.92);
+  backdrop-filter: blur(16px);
+  border-radius: 24px;
+  padding: 40px 36px 30px;
+  box-shadow: 0 24px 70px rgba(31, 45, 61, 0.12), 0 0 0 1px rgba(255,255,255,0.7) inset;
+}
+
+.form-header {
+  margin-bottom: 24px;
+}
+
+.form-title {
+  font-size: 24px;
   font-weight: 800;
   color: #111827;
-  margin: 0;
-  letter-spacing: 0.5px;
+  margin: 0 0 6px;
 }
 
-.lc-subtitle {
+.form-subtitle {
   font-size: 13px;
   color: #6b7280;
-  margin: 8px 0 0;
+  margin: 0;
 }
 
-.lc-alert {
-  margin-bottom: 22px;
+.login-alert {
   border-radius: 12px;
+  margin-bottom: 22px;
 }
 
-.lc-form {
-  margin-top: 4px;
+.login-form {
+  margin-top: 2px;
 }
 
-.lc-btn-primary {
+.login-btn {
   width: 100%;
   font-weight: 600;
   letter-spacing: 2px;
@@ -218,7 +304,7 @@ async function handleCasLogin() {
   box-shadow: 0 8px 20px rgba(37, 99, 235, 0.24);
 }
 
-.lc-divider {
+.divider {
   display: flex;
   align-items: center;
   margin: 20px 0;
@@ -226,19 +312,19 @@ async function handleCasLogin() {
   font-size: 13px;
 }
 
-.lc-divider::before,
-.lc-divider::after {
+.divider::before,
+.divider::after {
   content: '';
   flex: 1;
   height: 1px;
   background: #eef2f7;
 }
 
-.lc-divider span {
+.divider span {
   padding: 0 14px;
 }
 
-.lc-btn-cas {
+.cas-btn {
   width: 100%;
   background: #eff6ff;
   border: 1px solid #dbeafe;
@@ -247,23 +333,46 @@ async function handleCasLogin() {
   border-radius: 12px;
 }
 
-.lc-btn-cas:hover {
+.cas-btn:hover {
   background: #dbeafe;
   border-color: #bfdbfe;
   color: #1d4fd7;
 }
 
-.lc-forgot {
+.forgot-link {
   text-align: center;
   margin-top: 16px;
 }
 
-@media (max-width: 480px) {
-  .login-card {
-    padding: 30px 22px 24px;
+/* ===== 响应式 ===== */
+@media (max-width: 860px) {
+  .login-page {
+    flex-direction: column;
   }
-  .lc-title {
-    font-size: 19px;
+
+  .brand-panel {
+    padding: 32px 24px;
+    flex: none;
+  }
+
+  .brand-inner {
+    max-width: 100%;
+  }
+
+  .brand-features {
+    display: none;
+  }
+
+  .brand-title {
+    font-size: 26px;
+  }
+
+  .form-panel {
+    padding: 24px 16px;
+  }
+
+  .form-card {
+    padding: 28px 22px 24px;
   }
 }
 </style>
