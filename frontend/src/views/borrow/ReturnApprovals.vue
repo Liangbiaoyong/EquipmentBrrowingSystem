@@ -17,6 +17,12 @@
         <el-table-column label="借用人" width="100"><template #default="{row}">{{ row.userName || '用户#'+row.userId }}</template></el-table-column>
         <el-table-column prop="startTime" label="借用时间" width="160"><template #default="{row}">{{ fmt(row.startTime) }} ~ {{ fmt(row.endTime) }}</template></el-table-column>
         <el-table-column label="逾期" width="70"><template #default="{row}"><span v-if="row.overdueDays" style="color:#F56C6C">{{row.overdueDays}}天</span><span v-else style="color:#C0C4CC">-</span></template></el-table-column>
+        <el-table-column label="归还说明" min-width="120">
+          <template #default="{row}">
+            <span v-if="row.damageReport">{{ row.damageReport }}</span>
+            <span v-else style="color:#C0C4CC">无</span>
+          </template>
+        </el-table-column>
         <el-table-column label="归还照片" width="100">
           <template #default="{row}">
             <el-button size="small" @click="previewPhotos(row)">查看</el-button>
@@ -34,6 +40,7 @@
 
     <!-- 照片预览对话框 -->
     <el-dialog v-model="photoDlg.visible" title="归还照片" width="500px">
+      <p v-if="photoDlg.damageReport" style="color:#606266;margin-bottom:10px"><strong>归还说明：</strong>{{ photoDlg.damageReport }}</p>
       <div v-if="photoDlg.images.length" style="display:flex;flex-wrap:wrap;gap:10px">
         <el-image v-for="(url,i) in photoDlg.images" :key="i" :src="url" fit="cover" style="width:200px;height:150px;border-radius:8px" :preview-src-list="photoDlg.images"/>
       </div>
@@ -56,7 +63,7 @@ import axios from '@/api/request'
 import { ElMessage } from 'element-plus'
 
 const list=ref([]);const loading=ref(false)
-const photoDlg=reactive({visible:false,images:[]})
+const photoDlg=reactive({visible:false,images:[],damageReport:''})
 const rejectDlg=reactive({visible:false,row:null,comment:'',loading:false})
 
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
@@ -73,6 +80,7 @@ async function load(){
 async function previewPhotos(row){
   try{
     const{data}=await axios.get(`/borrows/${row.id}/images`)
+    photoDlg.damageReport=row.damageReport||''
     photoDlg.images=(data.returnImages||[]).map(url=>`/api/v1/files/${encodeURIComponent(url)}`)
     photoDlg.visible=true
   }catch{ElMessage.error('加载照片失败')}
