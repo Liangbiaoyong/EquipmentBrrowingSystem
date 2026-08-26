@@ -44,7 +44,7 @@
     </el-form><template #footer><el-button @click="editVisible=false">取消</el-button><el-button type="primary" @click="doEdit">保存</el-button></template></el-dialog>
 
     <!-- 审批人对话框 -->
-    <el-dialog v-model="approverVisible" title="设置默认审批人" width="400px"><el-select v-model="approverId" placeholder="选择审批人" filterable style="width:100%"><el-option v-for="u in users" :key="u.id" :label="`${u.realName||u.username} (${roleName(u.userType)})`" :value="u.id"/></el-select><template #footer><el-button @click="approverVisible=false">取消</el-button><el-button type="primary" @click="doSetApprover">保存</el-button></template></el-dialog>
+    <el-dialog v-model="approverVisible" title="设置默认审批人" width="400px"><el-select v-model="approverId" placeholder="选择审批人" filterable style="width:100%"><el-option v-for="u in approverCandidates" :key="u.id" :label="`${u.realName||u.username} (${roleName(u.userType)})`" :value="u.id"/></el-select><template #footer><el-button @click="approverVisible=false">取消</el-button><el-button type="primary" @click="doSetApprover">保存</el-button></template></el-dialog>
   </div>
 </template>
 <script setup>
@@ -52,7 +52,7 @@ import { ref,reactive,onMounted,computed } from 'vue';import { deviceApi } from 
 
 const loading=ref(false);const list=ref([]);const total=ref(0);const exportLoading=ref(false)
 const editVisible=ref(false);const approverVisible=ref(false)
-const approverCurrentId=ref(null);const approverId=ref(null);const users=ref([])
+const approverCurrentId=ref(null);const approverId=ref(null);const users=ref([]);const approverCandidates=ref([])
 const q=reactive({page:1,size:20,keyword:'',location:''})
 const userStore=useUserStore()
 const isTeacher=computed(()=>userStore.userInfo?.userType===1)
@@ -101,7 +101,13 @@ async function doEdit(){
   }catch(e){ElMessage.error(e?.response?.data?.msg||'更新失败')}
 }
 
-function openApprover(row){approverCurrentId.value=row.id;approverId.value=row.defaultApproverId;approverVisible.value=true}
+function openApprover(row){
+  approverCurrentId.value=row.id
+  approverId.value=row.defaultApproverId
+  approverCandidates.value=users.value.filter(u=>u.userType===2 || (row.custodian && u.realName===row.custodian))
+  if(!approverCandidates.value.length) approverCandidates.value=users.value.filter(u=>u.userType===3)
+  approverVisible.value=true
+}
 async function doSetApprover(){try{await axios.put(`/devices/${approverCurrentId.value}/default-approver`,null,{params:{approverId:approverId.value}});ElMessage.success('已更新');approverVisible.value=false;load()}catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}}
 async function doDelete(id){try{await deviceApi.delete(id);ElMessage.success('已删除');load()}catch(e){ElMessage.error(e?.response?.data?.msg||'删除失败')}}
 

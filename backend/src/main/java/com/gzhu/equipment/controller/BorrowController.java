@@ -591,10 +591,35 @@ public class BorrowController {
     }
 
     @GetMapping("/{id}/approval-logs")
-    @ApiOperation("审批记录列表")
-    public R<List<ApprovalLog>> approvalLogs(@PathVariable Long id) {
-        return R.ok(approvalLogMapper.selectList(
-                new LambdaQueryWrapper<ApprovalLog>().eq(ApprovalLog::getBorrowId, id).orderByAsc(ApprovalLog::getStep)));
+    @ApiOperation("审批记录列表（含审批人姓名）")
+    public R<List<Map<String,Object>>> approvalLogs(@PathVariable Long id) {
+        List<ApprovalLog> logs = approvalLogMapper.selectList(
+                new LambdaQueryWrapper<ApprovalLog>().eq(ApprovalLog::getBorrowId, id).orderByAsc(ApprovalLog::getStep));
+        java.util.Set<Long> ids = new java.util.HashSet<>();
+        for (ApprovalLog l : logs) if (l.getApproverId() != null) ids.add(l.getApproverId());
+        java.util.Map<Long,String> nameMap = new java.util.HashMap<>();
+        if (!ids.isEmpty()) {
+            var users = borrowRecordMapper.selectUserNames(new java.util.ArrayList<>(ids));
+            for (var u : users) {
+                Long uid = (Long) u.get("id");
+                nameMap.put(uid, (String) u.getOrDefault("real_name", "ID:" + uid));
+            }
+        }
+        java.util.List<Map<String,Object>> result = new java.util.ArrayList<>();
+        for (ApprovalLog l : logs) {
+            Map<String,Object> m = new java.util.LinkedHashMap<>();
+            m.put("id", l.getId());
+            m.put("borrowId", l.getBorrowId());
+            m.put("step", l.getStep());
+            m.put("stepName", l.getStep() == null ? "" : (l.getStep() == 1 ? "初审" : l.getStep() == 2 ? "终审" : "第" + l.getStep() + "级审批"));
+            m.put("approverId", l.getApproverId());
+            m.put("approverName", l.getApproverId() != null ? nameMap.getOrDefault(l.getApproverId(), "ID:" + l.getApproverId()) : "未分配");
+            m.put("result", l.getResult());
+            m.put("comment", l.getComment());
+            m.put("operateTime", l.getOperateTime());
+            result.add(m);
+        }
+        return R.ok(result);
     }
 
     @PostMapping("/{id}/verify")
