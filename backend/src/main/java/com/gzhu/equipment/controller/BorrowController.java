@@ -362,6 +362,10 @@ public class BorrowController {
             @RequestParam(required = false) String sort,
             @RequestParam(required = false, defaultValue = "desc") String order) {
         var w = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>();
+        com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(getCurrentUserId());
+        if (current != null && current.getUserType() != null && current.getUserType() == 1) {
+            w.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", current.getRealName());
+        }
         if (status != null && !status.isEmpty()) w.eq(BorrowRecord::getStatus, status);
         if (keyword != null && !keyword.isEmpty())
             w.and(wp -> wp.like(BorrowRecord::getPurpose, keyword).or().like(BorrowRecord::getReason, keyword));
@@ -395,6 +399,10 @@ public class BorrowController {
         w.select("borrow_record.*, d.name AS deviceName, d.asset_no AS deviceAssetNo, u.real_name AS userName");
         w.apply("LEFT JOIN device d ON borrow_record.device_id = d.id");
         w.apply("LEFT JOIN sys_user u ON borrow_record.user_id = u.id");
+        com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(getCurrentUserId());
+        if (current != null && current.getUserType() != null && current.getUserType() == 1) {
+            w.apply("borrow_record.device_id IN (SELECT id FROM device WHERE custodian = {0})", current.getRealName());
+        }
         if (status != null && !status.isEmpty()) w.eq("borrow_record.status", status);
         if (keyword != null && !keyword.isEmpty())
             w.and(wp -> wp.like("d.name", keyword).or().like("u.real_name", keyword).or().like("borrow_record.purpose", keyword));
@@ -464,6 +472,10 @@ public class BorrowController {
                 .and(w2 -> w2.eq(BorrowRecord::getStatus, "OVERDUE")
                         .or(w3 -> w3.eq(BorrowRecord::getStatus, "BORROWING")
                                 .lt(BorrowRecord::getEndTime, java.time.LocalDateTime.now())));
+        com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(getCurrentUserId());
+        if (current != null && current.getUserType() != null && current.getUserType() == 1) {
+            w.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", current.getRealName());
+        }
         if (keyword != null && !keyword.trim().isEmpty()) {
             w.and(w2 -> w2.like(BorrowRecord::getPurpose, keyword)
                     .or().like(BorrowRecord::getReason, keyword)

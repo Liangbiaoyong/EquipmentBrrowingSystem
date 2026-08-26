@@ -13,9 +13,9 @@ const routes = [
       { path: 'devices', name: 'DeviceList', component: () => import('@/views/device/DeviceList.vue'), meta: { title: '设备列表', perm: 'device:view' } },
       // 设备管理子路由（必须放在 devices/:id 之前，避免被 :id 吞掉）
       { path: 'devices/manage/list', name: 'DeviceManage', component: () => import('@/views/device/DeviceManage.vue'), meta: { title: '设备管理', perm: 'device:manage' } },
-      { path: 'devices/manage/import', name: 'DeviceImport', component: () => import('@/views/device/DeviceImport.vue'), meta: { title: '批量导入', perm: 'device:manage' } },
+      { path: 'devices/manage/import', name: 'DeviceImport', component: () => import('@/views/device/DeviceImport.vue'), meta: { title: '批量导入', perm: 'device:import' } },
       { path: 'devices/manage/missing-images', name: 'MissingImages', component: () => import('@/views/device/MissingImages.vue'), meta: { title: '缺少图片', perm: 'device:manage' } },
-      { path: 'devices/manage/categories', name: 'CategoryManage', component: () => import('@/views/device/CategoryManage.vue'), meta: { title: '分类管理', perm: 'device:manage' } },
+      { path: 'devices/manage/categories', name: 'CategoryManage', component: () => import('@/views/device/CategoryManage.vue'), meta: { title: '分类管理', perm: 'category:manage' } },
       { path: 'devices/manage/laboratories', name: 'LaboratoryManage', component: () => import('@/views/device/LaboratoryManage.vue'), meta: { title: '实验室管理', perm: 'laboratory:manage' } },
       { path: 'devices/:id', name: 'DeviceDetail', component: () => import('@/views/device/DeviceDetail.vue'), meta: { title: '设备详情', perm: 'device:view' } },
       // 借用

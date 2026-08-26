@@ -121,6 +121,10 @@ public class DeviceController {
     @ApiOperation("设置设备默认审批人")
     @PreAuthorize("hasAnyAuthority('device:manage','admin:user')")
     public R<String> setDefaultApprover(@PathVariable Long id, @RequestParam Long approverId) {
+        com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(getUserId());
+        if (current != null && current.getUserType() != null && current.getUserType() == 1) {
+            return R.fail("教师不能修改设备默认审批人");
+        }
         Device d = deviceService.getById(id);
         if (d == null) return R.fail(404, "设备不存在");
         d.setDefaultApproverId(approverId);
@@ -215,9 +219,29 @@ public class DeviceController {
     @ApiOperation("更新设备信息（管理员/设备使用人可操作）")
     @PreAuthorize("hasAnyAuthority('ROLE_LAB_ADMIN', 'ROLE_SYSTEM_ADMIN', 'device:manage')")
     public R<Device> updateDevice(@PathVariable Long id, @RequestBody Device device) {
+        com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(getUserId());
+        Device existing = deviceService.getById(id);
+        if (existing == null) return R.fail(404, "设备不存在");
+
+        // 教师：只能管理自己名下设备，且只能修改受限字段
+        if (current != null && current.getUserType() != null && current.getUserType() == 1) {
+            if (!java.util.Objects.equals(existing.getCustodian(), current.getRealName())) {
+                return R.fail("教师只能管理自己名下的设备");
+            }
+            Device restricted = new Device();
+            restricted.setId(id);
+            restricted.setLocation(device.getLocation());
+            restricted.setBorrowStatus(device.getBorrowStatus());
+            restricted.setDeviceStatus(device.getDeviceStatus());
+            restricted.setBorrowType(device.getBorrowType());
+            restricted.setDescription(device.getDescription());
+            deviceService.updateById(restricted);
+            return R.ok(deviceService.getById(id));
+        }
+
         device.setId(id);
         deviceService.updateById(device);
-        return R.ok(device);
+        return R.ok(deviceService.getById(id));
     }
 
     @DeleteMapping("/{id}")

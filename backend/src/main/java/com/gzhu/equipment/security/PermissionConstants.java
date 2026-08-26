@@ -20,6 +20,8 @@ public final class PermissionConstants {
 
     public static final String DEVICE_VIEW       = "device:view";
     public static final String DEVICE_MANAGE     = "device:manage";
+    public static final String DEVICE_IMPORT     = "device:import";
+    public static final String CATEGORY_MANAGE   = "category:manage";
 
     public static final String BORROW_CREATE     = "borrow:create";
     public static final String BORROW_MY         = "borrow:my";
@@ -57,8 +59,9 @@ public final class PermissionConstants {
     /** 实验室管理员 */
     private static final List<String> LAB_ADMIN_PERMS = Collections.unmodifiableList(Arrays.asList(
             DASHBOARD_VIEW, NOTIFICATION_VIEW, PROFILE_VIEW,
-            DEVICE_VIEW, DEVICE_MANAGE,
+            DEVICE_VIEW, DEVICE_MANAGE, DEVICE_IMPORT,
             LAB_VIEW, LAB_MANAGE,
+            CATEGORY_MANAGE,
             BORROW_VIEW, BORROW_RETURN,
             APPROVAL_FIRST, APPROVAL_SECOND,  // 管理员可处理初审和终审
             RETURN_MANAGE, REPAIR_MANAGE,
@@ -68,8 +71,9 @@ public final class PermissionConstants {
     /** 系统管理员 */
     private static final List<String> SYSTEM_ADMIN_PERMS = Collections.unmodifiableList(Arrays.asList(
             DASHBOARD_VIEW, NOTIFICATION_VIEW, PROFILE_VIEW,
-            DEVICE_VIEW, DEVICE_MANAGE,
+            DEVICE_VIEW, DEVICE_MANAGE, DEVICE_IMPORT,
             LAB_VIEW, LAB_MANAGE,
+            CATEGORY_MANAGE,
             BORROW_CREATE, BORROW_MY, BORROW_VIEW, BORROW_RETURN,
             APPROVAL_FIRST, APPROVAL_SECOND,
             RETURN_MANAGE, REPAIR_MANAGE,
@@ -81,6 +85,7 @@ public final class PermissionConstants {
         List<String> perms = new ArrayList<>(STUDENT_PERMS);
         perms.add(APPROVAL_FIRST);
         perms.add(DEVICE_MANAGE);   // 教师可管理个人名下设备
+        perms.add(RETURN_MANAGE);   // 教师可审批自己名下设备的归还
         perms.add(STATISTICS_VIEW);
         return perms;
     }

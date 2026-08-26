@@ -17,16 +17,16 @@
         <el-table-column prop="borrowStatus" label="借还状态" width="90" sortable="custom"><template #default="{row}"><el-tag :type="borrowStatusTag(row.borrowStatus)">{{ borrowStatusText(row.borrowStatus) }}</el-tag></template></el-table-column>
         <el-table-column prop="deviceStatus" label="设备状态" width="90" sortable="custom"><template #default="{row}"><el-tag :type="deviceStatusTag(row.deviceStatus)">{{ deviceStatusText(row.deviceStatus) }}</el-tag></template></el-table-column>
         <el-table-column label="借用类型" width="100"><template #default="{row}"><el-tag :type="row.borrowType===1?'warning':''" effect="plain">{{ row.borrowType===1?'仅现场':'可借出' }}</el-tag></template></el-table-column>
-        <el-table-column label="默认审批人" width="140"><template #default="{row}"><span style="font-size:13px">{{ getApproverName(row.defaultApproverId) }}</span><el-button size="small" style="margin-left:4px" @click="openApprover(row)">修改</el-button></template></el-table-column>
-        <el-table-column label="操作" width="160" fixed="right"><template #default="{row}"><el-button size="small" @click="openEdit(row)">编辑</el-button><el-popconfirm title="确定删除?" @confirm="doDelete(row.id)"><template #reference><el-button size="small" type="danger">删除</el-button></template></el-popconfirm></template></el-table-column>
+        <el-table-column v-if="!isTeacher" label="默认审批人" width="140"><template #default="{row}"><span style="font-size:13px">{{ getApproverName(row.defaultApproverId) }}</span><el-button size="small" style="margin-left:4px" @click="openApprover(row)">修改</el-button></template></el-table-column>
+        <el-table-column label="操作" width="160" fixed="right"><template #default="{row}"><el-button size="small" @click="openEdit(row)">编辑</el-button><el-popconfirm v-if="!isTeacher" title="确定删除?" @confirm="doDelete(row.id)"><template #reference><el-button size="small" type="danger">删除</el-button></template></el-popconfirm></template></el-table-column>
       </el-table>
       <div style="margin-top:15px;display:flex;justify-content:flex-end"><el-pagination v-model:current-page="q.page" v-model:page-size="q.size" :page-sizes="[20,100,500]" :total="total" layout="total,sizes,prev,pager,next,jumper" @current-change="load" @size-change="s=>{q.size=s;q.page=1;load()}"/></div>
     </el-card>
 
     <!-- 编辑设备对话框 -->
     <el-dialog v-model="editVisible" title="编辑设备" width="560px"><el-form :model="form" label-width="90px" v-if="editVisible">
-      <el-form-item label="名称"><el-input v-model="form.name"/></el-form-item>
-      <el-form-item label="型号"><el-input v-model="form.model"/></el-form-item>
+      <el-form-item v-if="!isTeacher" label="名称"><el-input v-model="form.name"/></el-form-item>
+      <el-form-item v-if="!isTeacher" label="型号"><el-input v-model="form.model"/></el-form-item>
       <el-form-item label="存放地"><el-input v-model="form.location"/></el-form-item>
       <el-form-item label="借还状态"><el-select v-model="form.borrowStatus" style="width:100%">
         <el-option label="可借用" :value="1"/><el-option label="借用中" :value="2"/>
@@ -48,18 +48,20 @@
   </div>
 </template>
 <script setup>
-import { ref,reactive,onMounted } from 'vue';import { deviceApi } from '@/api/device';import { ElMessage } from 'element-plus';import axios from '@/api/request'
+import { ref,reactive,onMounted,computed } from 'vue';import { deviceApi } from '@/api/device';import { ElMessage } from 'element-plus';import axios from '@/api/request';import { useUserStore } from '@/store/user'
 
 const loading=ref(false);const list=ref([]);const total=ref(0);const exportLoading=ref(false)
 const editVisible=ref(false);const approverVisible=ref(false)
 const approverCurrentId=ref(null);const approverId=ref(null);const users=ref([])
 const q=reactive({page:1,size:20,keyword:'',location:''})
+const userStore=useUserStore()
+const isTeacher=computed(()=>userStore.userInfo?.userType===1)
 const form=reactive({id:null,name:'',model:'',location:'',borrowStatus:1,deviceStatus:1,borrowType:2,description:''})
 const sortBy=ref('');const sortOrder=ref('');function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';load()}
 async function doExport(){
   exportLoading.value=true
   try{
-    const r=await axios.get('/devices/export/csv',{params:{keyword:q.keyword||undefined,location:q.location||undefined},responseType:'blob'})
+    const r=await axios.get('/devices/export/csv',{params:{keyword:q.keyword||undefined,location:q.location||undefined,custodian:isTeacher.value?userStore.userInfo?.realName:undefined},responseType:'blob'})
     const blob=new Blob([r.data],{type:'text/csv;charset=UTF-8'})
     const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`设备管理导出_${new Date().toISOString().slice(0,10)}.csv`;a.click()
   }catch(e){ElMessage.error('导出失败: '+(e?.response?.data?.msg||e.message))}finally{exportLoading.value=false}
@@ -78,7 +80,7 @@ function deviceStatusText(v){return deviceStatusTextMap[v]||v}
 function roleName(t){return roleNameMap[t]||t}
 function getApproverName(id){if(!id)return'未设置';const u=users.value.find(x=>x.id===id);return u?u.realName||u.username:`ID:${id}`}
 
-async function load(){loading.value=true;try{const{data}=await deviceApi.list({page:q.page,size:q.size,keyword:q.keyword||undefined,location:q.location||undefined,sort:sortBy.value||undefined,order:sortOrder.value||undefined});list.value=data.records||[];total.value=data.total||0}catch(e){console.error(e)}finally{loading.value=false}}
+async function load(){loading.value=true;try{const{data}=await deviceApi.list({page:q.page,size:q.size,keyword:q.keyword||undefined,location:q.location||undefined,custodian:isTeacher.value?userStore.userInfo?.realName:undefined,sort:sortBy.value||undefined,order:sortOrder.value||undefined});list.value=data.records||[];total.value=data.total||0}catch(e){console.error(e)}finally{loading.value=false}}
 async function loadUsers(){try{const{data}=await axios.get('/admin/users',{params:{page:1,size:500}});users.value=data.records||[]}catch{}}
 
 function openEdit(row){
