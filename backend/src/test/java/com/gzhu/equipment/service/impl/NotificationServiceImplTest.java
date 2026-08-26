@@ -15,6 +15,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import org.mockito.ArgumentCaptor;
+
 @ExtendWith(MockitoExtension.class)
 class NotificationServiceImplTest {
 
@@ -31,6 +33,20 @@ class NotificationServiceImplTest {
     void send_shouldInsertNotification() {
         notificationService.send(1L, "标题", "内容", "SYSTEM");
         verify(notificationMapper).insert(any(Notification.class));
+    }
+
+    @Test @DisplayName("通知内容包含借用单号")
+    void notifyMethods_shouldIncludeBorrowId() {
+        notificationService.notifyBorrowSubmitted(1L, "投影仪", 123L);
+        notificationService.notifyApprovalResult(1L, "投影仪", 123L, true, "同意");
+        notificationService.notifyReturnReminder(1L, "投影仪", 123L);
+        notificationService.notifyOverdue(1L, "投影仪", 123L, 3);
+
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationMapper, times(4)).insert(captor.capture());
+        assertThat(captor.getAllValues())
+                .extracting(Notification::getContent)
+                .allMatch(content -> content.contains("借用单#123"));
     }
 
     @Test @DisplayName("unreadCount → 返回未读数")

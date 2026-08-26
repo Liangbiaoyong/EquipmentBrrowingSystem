@@ -40,14 +40,14 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
     @Override
     public void notifyBorrowSubmitted(Long userId, String deviceName, Long borrowId) {
         send(userId, "新借用申请待审批",
-                "设备「" + deviceName + "」的借用申请已提交，请及时审批。",
+                "设备「" + deviceName + "」的借用申请已提交（借用单#" + borrowId + "），请及时审批。",
                 "APPROVAL");
     }
 
     @Override
     public void notifyApprovalResult(Long userId, String deviceName, Long borrowId, boolean approved, String comment) {
         String title = approved ? "借用申请已通过" : "借用申请被驳回";
-        String content = "设备「" + deviceName + "」的借用申请已" + (approved ? "通过" : "驳回") + "。";
+        String content = "设备「" + deviceName + "」的借用申请已" + (approved ? "通过" : "驳回") + "（借用单#" + borrowId + "）。";
         if (comment != null && !comment.isEmpty()) content += " 审批意见：" + comment;
         send(userId, title, content, "APPROVAL");
     }
@@ -55,14 +55,14 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
     @Override
     public void notifyReturnReminder(Long userId, String deviceName, Long borrowId) {
         send(userId, "归还提醒",
-                "设备「" + deviceName + "」即将到期，请按时归还。",
+                "设备「" + deviceName + "」（借用单#" + borrowId + "）即将到期，请按时归还。",
                 "REMIND");
     }
 
     @Override
     public void notifyOverdue(Long userId, String deviceName, Long borrowId, int overdueDays) {
         send(userId, "逾期警告",
-                "设备「" + deviceName + "」已逾期 " + overdueDays + " 天，请尽快归还！",
+                "设备「" + deviceName + "」（借用单#" + borrowId + "）已逾期 " + overdueDays + " 天，请尽快归还！",
                 "REMIND");
     }
 
