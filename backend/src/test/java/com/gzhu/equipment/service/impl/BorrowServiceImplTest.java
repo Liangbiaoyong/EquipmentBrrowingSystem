@@ -173,6 +173,7 @@ class BorrowServiceImplTest {
         assertThatThrownBy(() -> borrowService.submitBorrow(createBorrowRequest(1L), 1L))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("已被占用");
+        verify(borrowMapper, never()).insert(any());
     }
 
     @Test

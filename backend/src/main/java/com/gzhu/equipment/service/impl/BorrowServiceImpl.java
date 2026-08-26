@@ -90,7 +90,9 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             Device device = deviceMapper.selectById(deviceId);
             if (device == null || device.getBorrowStatus() == null || device.getBorrowStatus() != 1) continue;
             if (device.getAvailableQty() == null || device.getAvailableQty() <= 0) continue;
-            if (hasTimeConflict(deviceId, dto.getStartTime(), dto.getEndTime())) continue;
+            if (hasTimeConflict(deviceId, dto.getStartTime(), dto.getEndTime())) {
+                throw new IllegalArgumentException("设备「" + device.getName() + "」已被占用，不能重复申请");
+            }
 
             BorrowRecord r = new BorrowRecord();
             r.setUserId(userId); r.setDeviceId(deviceId);
