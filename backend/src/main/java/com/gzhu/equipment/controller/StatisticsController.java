@@ -167,17 +167,18 @@ public class StatisticsController {
     @PreAuthorize("hasAuthority('statistics:view')")
     public R<List<Map<String, Object>>> topDevices(@RequestParam(defaultValue = "auto") String scope) {
         try {
-            var w = new QueryWrapper<BorrowRecord>()
-                    .select("d.name as deviceName", "COUNT(*) as borrowCount")
-                    .apply("LEFT JOIN device d ON borrow_record.device_id = d.id")
-                    .groupBy("d.name")
-                    .orderByDesc("borrowCount")
-                    .last("LIMIT 10");
-            applyScopeFilter(w, scope);
-            var rows = borrowMapper.selectMaps(w);
+            String custodian = getCustodianForScope(scope);
+            StringBuilder sql = new StringBuilder(
+                    "SELECT d.name AS deviceName, COUNT(*) AS borrowCount FROM borrow_record b " +
+                    "LEFT JOIN device d ON b.device_id = d.id");
+            if (custodian != null) sql.append(" WHERE d.custodian = ?");
+            sql.append(" GROUP BY d.name ORDER BY borrowCount DESC LIMIT 10");
+            List<Map<String, Object>> rows = custodian != null
+                    ? jdbcTemplate.queryForList(sql.toString(), custodian)
+                    : jdbcTemplate.queryForList(sql.toString());
             return R.ok(rows != null ? rows : java.util.Collections.emptyList());
         } catch (Exception e) {
-            log.warn("热门设备查询失败: {}", e.getMessage());
+            log.warn("热门设备查询失败: {}", e.getMessage(), e);
             return R.ok(java.util.Collections.emptyList());
         }
     }
@@ -187,17 +188,19 @@ public class StatisticsController {
     @PreAuthorize("hasAuthority('statistics:view')")
     public R<List<Map<String, Object>>> topUsers(@RequestParam(defaultValue = "auto") String scope) {
         try {
-            var w = new QueryWrapper<BorrowRecord>()
-                    .select("u.real_name as userName", "COUNT(*) as borrowCount")
-                    .apply("LEFT JOIN sys_user u ON borrow_record.user_id = u.id")
-                    .groupBy("u.real_name")
-                    .orderByDesc("borrowCount")
-                    .last("LIMIT 10");
-            applyScopeFilter(w, scope);
-            var rows = borrowMapper.selectMaps(w);
+            String custodian = getCustodianForScope(scope);
+            StringBuilder sql = new StringBuilder(
+                    "SELECT u.real_name AS userName, COUNT(*) AS borrowCount FROM borrow_record b " +
+                    "LEFT JOIN sys_user u ON b.user_id = u.id " +
+                    "LEFT JOIN device d ON b.device_id = d.id");
+            if (custodian != null) sql.append(" WHERE d.custodian = ?");
+            sql.append(" GROUP BY u.real_name ORDER BY borrowCount DESC LIMIT 10");
+            List<Map<String, Object>> rows = custodian != null
+                    ? jdbcTemplate.queryForList(sql.toString(), custodian)
+                    : jdbcTemplate.queryForList(sql.toString());
             return R.ok(rows != null ? rows : java.util.Collections.emptyList());
         } catch (Exception e) {
-            log.warn("热门用户查询失败: {}", e.getMessage());
+            log.warn("热门用户查询失败: {}", e.getMessage(), e);
             return R.ok(java.util.Collections.emptyList());
         }
     }
@@ -206,16 +209,22 @@ public class StatisticsController {
     @ApiOperation("设备利用率分析（按分类，scope: auto|personal|global）")
     @PreAuthorize("hasAuthority('statistics:view')")
     public R<List<Map<String, Object>>> utilization(@RequestParam(defaultValue = "auto") String scope) {
-        var w = new QueryWrapper<BorrowRecord>()
-                .select("dc.name as categoryName", "COUNT(*) as borrowCount")
-                .apply("LEFT JOIN device d ON borrow_record.device_id = d.id")
-                .apply("LEFT JOIN device_category dc ON d.category_id = dc.id")
-                .groupBy("dc.name")
-                .orderByDesc("borrowCount")
-                .last("LIMIT 10");
-        applyScopeFilter(w, scope);
-        var rows = borrowMapper.selectMaps(w);
-        return R.ok(rows);
+        try {
+            String custodian = getCustodianForScope(scope);
+            StringBuilder sql = new StringBuilder(
+                    "SELECT dc.name AS categoryName, COUNT(*) AS borrowCount FROM borrow_record b " +
+                    "LEFT JOIN device d ON b.device_id = d.id " +
+                    "LEFT JOIN device_category dc ON d.category_id = dc.id");
+            if (custodian != null) sql.append(" WHERE d.custodian = ?");
+            sql.append(" GROUP BY dc.name ORDER BY borrowCount DESC LIMIT 10");
+            List<Map<String, Object>> rows = custodian != null
+                    ? jdbcTemplate.queryForList(sql.toString(), custodian)
+                    : jdbcTemplate.queryForList(sql.toString());
+            return R.ok(rows);
+        } catch (Exception e) {
+            log.warn("设备利用率查询失败: {}", e.getMessage(), e);
+            return R.ok(java.util.Collections.emptyList());
+        }
     }
 
     @GetMapping("/export")
