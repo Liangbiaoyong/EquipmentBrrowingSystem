@@ -400,6 +400,7 @@ public class BorrowController {
             w.and(wp -> wp.like("d.name", keyword).or().like("u.real_name", keyword).or().like("borrow_record.purpose", keyword));
         w.orderByDesc("borrow_record.id").last("LIMIT 5000");
         var rows = borrowRecordMapper.selectMaps(w);
+        rows.forEach(r -> r.put("status", borrowStatusText((String) r.get("status"))));
 
         if ("xlsx".equalsIgnoreCase(format)) {
             LinkedHashMap<String,String> hdrs = new LinkedHashMap<>();
@@ -428,6 +429,21 @@ public class BorrowController {
             osw.write((r.get("createTime")!=null?String.valueOf(r.get("createTime")):"")+"\n");
         }
         osw.flush();osw.close();
+    }
+
+    private String borrowStatusText(String status) {
+        if (status == null) return "";
+        switch (status) {
+            case "PENDING_APPROVAL": return "待审批";
+            case "APPROVED": return "已通过";
+            case "REJECTED": return "已驳回";
+            case "BORROWING": return "借用中";
+            case "RETURN_PENDING": return "归还中";
+            case "RETURNED": return "已归还";
+            case "OVERDUE": return "逾期";
+            case "CANCELLED": return "已取消";
+            default: return status;
+        }
     }
 
     private String esc(String s) { if (s==null||s.isEmpty()) return ""; if (s.contains(",")||s.contains("\"")) return "\""+s.replace("\"","\"\"")+"\""; return s; }

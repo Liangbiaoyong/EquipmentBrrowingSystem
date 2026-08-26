@@ -121,11 +121,11 @@ const stats=reactive({total:0,borrowing:0,overdue:0,pending:0})
 
 const statusOptions=[
   {label:'待审批',value:'PENDING_APPROVAL'},{label:'已通过',value:'APPROVED'},{label:'已驳回',value:'REJECTED'},
-  {label:'借用中',value:'BORROWING'},{label:'已归还',value:'RETURNED'},{label:'逾期',value:'OVERDUE'},{label:'已取消',value:'CANCELLED'}
+  {label:'借用中',value:'BORROWING'},{label:'归还中',value:'RETURN_PENDING'},{label:'已归还',value:'RETURNED'},{label:'逾期',value:'OVERDUE'},{label:'已取消',value:'CANCELLED'}
 ]
 
-const statusTagMap={PENDING_APPROVAL:'warning',APPROVED:'success',REJECTED:'danger',BORROWING:'',RETURNED:'info',OVERDUE:'danger',CANCELLED:'info'}
-const statusLabelMap={PENDING_APPROVAL:'待审批',APPROVED:'已通过',REJECTED:'已驳回',BORROWING:'借用中',RETURNED:'已归还',OVERDUE:'逾期',CANCELLED:'已取消'}
+const statusTagMap={PENDING_APPROVAL:'warning',APPROVED:'success',REJECTED:'danger',BORROWING:'',RETURN_PENDING:'warning',RETURNED:'info',OVERDUE:'danger',CANCELLED:'info'}
+const statusLabelMap={PENDING_APPROVAL:'待审批',APPROVED:'已通过',REJECTED:'已驳回',BORROWING:'借用中',RETURN_PENDING:'归还中',RETURNED:'已归还',OVERDUE:'逾期',CANCELLED:'已取消'}
 function statusTag(s){return statusTagMap[s]||'info'}
 function statusLabel(s){return statusLabelMap[s]||s}
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}

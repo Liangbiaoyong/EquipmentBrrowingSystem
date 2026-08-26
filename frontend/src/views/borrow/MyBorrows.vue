@@ -237,8 +237,8 @@ const returnDlg=reactive({visible:false,row:null,photos:[],damageReport:'',loadi
 function imgUrl(path){ return path ? `/api/v1/files/${encodeURIComponent(path)}` : '' }
 
 // 状态映射
-const stTags={PENDING_APPROVAL:'warning',APPROVED:'success',BORROWING:'',RETURNED:'info',REJECTED:'danger',CANCELLED:'info',OVERDUE:'danger'}
-const stTexts={PENDING_APPROVAL:'待审批',APPROVED:'已通过',BORROWING:'借用中',RETURNED:'已归还',REJECTED:'已驳回',CANCELLED:'已取消',OVERDUE:'逾期'}
+const stTags={PENDING_APPROVAL:'warning',APPROVED:'success',BORROWING:'',RETURN_PENDING:'warning',RETURNED:'info',REJECTED:'danger',CANCELLED:'info',OVERDUE:'danger'}
+const stTexts={PENDING_APPROVAL:'待审批',APPROVED:'已通过',BORROWING:'借用中',RETURN_PENDING:'归还中',RETURNED:'已归还',REJECTED:'已驳回',CANCELLED:'已取消',OVERDUE:'逾期'}
 function statusTag(s){return stTags[s]||'info'}
 function statusText(s){return stTexts[s]||s}
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}

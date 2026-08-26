@@ -49,8 +49,8 @@ import axios from '@/api/request'
 const route=useRoute();const loading=ref(true);const bLoading=ref(false);const user=ref(null)
 const borrows=ref([]);const borrowStats=reactive({total:0,borrowing:0,overdue:0})
 
-const statusTagMap={PENDING_APPROVAL:'warning',APPROVED:'success',BORROWING:'',RETURNED:'info',OVERDUE:'danger',CANCELLED:'info'}
-const statusTextMap={PENDING_APPROVAL:'待审批',APPROVED:'已通过',BORROWING:'借用中',RETURNED:'已归还',OVERDUE:'逾期',CANCELLED:'已取消'}
+const statusTagMap={PENDING_APPROVAL:'warning',APPROVED:'success',BORROWING:'',RETURN_PENDING:'warning',RETURNED:'info',OVERDUE:'danger',CANCELLED:'info'}
+const statusTextMap={PENDING_APPROVAL:'待审批',APPROVED:'已通过',BORROWING:'借用中',RETURN_PENDING:'归还中',RETURNED:'已归还',OVERDUE:'逾期',CANCELLED:'已取消'}
 function statusTag(s){return statusTagMap[s]||'info'}
 function statusText(s){return statusTextMap[s]||s}
 function roleText(t){const m={0:'学生',1:'教师',2:'实验室管理员',3:'系统管理员'};return m[t]||'未知'}

@@ -61,8 +61,8 @@ const props=defineProps({isSecond:{type:Boolean,default:false}})
 const loading=ref(false);const list=ref([]);const page=ref(1);const size=ref(20);const total=ref(0)
 const d=reactive({visible:false,borrowId:null,approved:true,comment:'',submitting:false})
 const detailVisible=ref(false);const detail=ref(null)
-const sm={PENDING_APPROVAL:'warning',APPROVED:'success',REJECTED:'danger',BORROWING:'',RETURNED:'info',OVERDUE:'danger',CANCELLED:'info'}
-const sx={PENDING_APPROVAL:'待审批',APPROVED:'已通过',REJECTED:'已驳回',BORROWING:'借用中',RETURNED:'已归还',OVERDUE:'逾期',CANCELLED:'已取消'}
+const sm={PENDING_APPROVAL:'warning',APPROVED:'success',REJECTED:'danger',BORROWING:'',RETURN_PENDING:'warning',RETURNED:'info',OVERDUE:'danger',CANCELLED:'info'}
+const sx={PENDING_APPROVAL:'待审批',APPROVED:'已通过',REJECTED:'已驳回',BORROWING:'借用中',RETURN_PENDING:'归还中',RETURNED:'已归还',OVERDUE:'逾期',CANCELLED:'已取消'}
 function st(s){return sm[s]||'info'}function stx(s){return sx[s]||s}
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
 
