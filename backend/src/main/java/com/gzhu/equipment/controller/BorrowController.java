@@ -60,6 +60,7 @@ public class BorrowController {
     private final BorrowRecordMapper borrowRecordMapper;
     private final com.gzhu.equipment.mapper.DeviceMapper deviceMapper;
     private final SysUserMapper sysUserMapper;
+    private final org.springframework.jdbc.core.JdbcTemplate jdbcTemplate;
 
     // ==================== 借用申请 ====================
 
@@ -395,8 +396,8 @@ public class BorrowController {
             @RequestParam(required=false) String keyword,
             @RequestParam(required=false) String status,
             javax.servlet.http.HttpServletResponse response) throws Exception {
-        var w = new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<BorrowRecord>();
-        String select = "borrow_record.*, d.name AS deviceName, d.asset_no AS deviceAssetNo, u.real_name AS userName, d.custodian AS custodian, "
+        StringBuilder sql = new StringBuilder(
+                "SELECT borrow_record.*, d.name AS deviceName, d.asset_no AS deviceAssetNo, u.real_name AS userName, d.custodian AS custodian, "
                 + "borrow_record.pickup_time AS pickupTime, borrow_record.real_return_time AS realReturnTime, borrow_record.return_request_time AS returnRequestTime, "
                 + "borrow_record.damage_report AS damageReport, borrow_record.reason AS reason, "
                 + "(SELECT u2.real_name FROM approval_log al LEFT JOIN sys_user u2 ON al.approver_id=u2.id "
@@ -404,19 +405,29 @@ public class BorrowController {
                 + "(SELECT al.operate_time FROM approval_log al WHERE al.borrow_id=borrow_record.id AND al.step=1 AND al.result IN ('APPROVED','REJECTED') ORDER BY al.operate_time DESC LIMIT 1) AS approver1Time, "
                 + "(SELECT u2.real_name FROM approval_log al LEFT JOIN sys_user u2 ON al.approver_id=u2.id "
                 + " WHERE al.borrow_id=borrow_record.id AND al.step=2 AND al.result IN ('APPROVED','REJECTED') ORDER BY al.operate_time DESC LIMIT 1) AS approver2Name, "
-                + "(SELECT al.operate_time FROM approval_log al WHERE al.borrow_id=borrow_record.id AND al.step=2 AND al.result IN ('APPROVED','REJECTED') ORDER BY al.operate_time DESC LIMIT 1) AS approver2Time";
-        w.select(select);
-        w.apply("LEFT JOIN device d ON borrow_record.device_id = d.id");
-        w.apply("LEFT JOIN sys_user u ON borrow_record.user_id = u.id");
+                + "(SELECT al.operate_time FROM approval_log al WHERE al.borrow_id=borrow_record.id AND al.step=2 AND al.result IN ('APPROVED','REJECTED') ORDER BY al.operate_time DESC LIMIT 1) AS approver2Time "
+                + "FROM borrow_record LEFT JOIN device d ON borrow_record.device_id = d.id "
+                + "LEFT JOIN sys_user u ON borrow_record.user_id = u.id");
+        java.util.List<Object> params = new java.util.ArrayList<>();
+        boolean hasWhere = false;
         com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(getCurrentUserId());
         if (current != null && current.getUserType() != null && current.getUserType() == 1) {
-            w.apply("borrow_record.device_id IN (SELECT id FROM device WHERE custodian = {0})", current.getRealName());
+            sql.append(" WHERE borrow_record.device_id IN (SELECT id FROM device WHERE custodian = ?)");
+            params.add(current.getRealName());
+            hasWhere = true;
         }
-        if (status != null && !status.isEmpty()) w.eq("borrow_record.status", status);
-        if (keyword != null && !keyword.isEmpty())
-            w.and(wp -> wp.like("d.name", keyword).or().like("u.real_name", keyword).or().like("borrow_record.purpose", keyword));
-        w.orderByDesc("borrow_record.id").last("LIMIT 5000");
-        var rows = borrowRecordMapper.selectMaps(w);
+        if (status != null && !status.isEmpty()) {
+            sql.append(hasWhere ? " AND " : " WHERE ").append("borrow_record.status = ?");
+            params.add(status);
+            hasWhere = true;
+        }
+        if (keyword != null && !keyword.isEmpty()) {
+            sql.append(hasWhere ? " AND (" : " WHERE (").append("d.name LIKE ? OR u.real_name LIKE ? OR borrow_record.purpose LIKE ?)");
+            String kw = "%" + keyword + "%";
+            params.add(kw); params.add(kw); params.add(kw);
+        }
+        sql.append(" ORDER BY borrow_record.id DESC LIMIT 5000");
+        var rows = jdbcTemplate.queryForList(sql.toString(), params.toArray());
         rows.forEach(r -> r.put("status", borrowStatusText((String) r.get("status"))));
 
         if ("xlsx".equalsIgnoreCase(format)) {
