@@ -50,7 +50,7 @@
           </div>
           <el-empty v-if="!detail.images?.length" description="暂无图片"><template #image><svg width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="8" fill="#f0f2f5"/><text x="40" y="45" text-anchor="middle" fill="#909399" font-size="12">暂无图片</text></svg></template></el-empty>
           <div v-for="img in detail.images" :key="img.id" style="position:relative;margin-bottom:10px">
-            <el-image :src="`/api/v1/files/${img.imageUrl}`" fit="cover" style="width:100%;height:200px;border-radius:4px" :preview-src-list="detail.images.map(i=>`/api/v1/minio/${i.imageUrl}`)"><template #error><div class="img-error"><svg width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="4" fill="#f0f2f5"/><text x="40" y="45" text-anchor="middle" fill="#909399" font-size="12">加载失败</text></svg></div></template></el-image>
+            <el-image :src="`/api/v1/files/${img.imageUrl}`" fit="cover" style="width:100%;height:200px;border-radius:4px" :preview-src-list="detail.images.map(i=>`/api/v1/files/${i.imageUrl}`)"><template #error><div class="img-error"><svg width="80" height="80" viewBox="0 0 80 80"><rect width="80" height="80" rx="4" fill="#f0f2f5"/><text x="40" y="45" text-anchor="middle" fill="#909399" font-size="12">加载失败</text></svg></div></template></el-image>
             <el-button v-if="isAdmin" size="small" type="danger" circle style="position:absolute;top:4px;right:4px;opacity:0.85" @click="deleteImage(img.id)"><el-icon><Delete/></el-icon></el-button>
           </div>
         </el-card>
