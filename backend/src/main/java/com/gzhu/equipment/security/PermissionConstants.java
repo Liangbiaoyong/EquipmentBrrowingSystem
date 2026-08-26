@@ -83,6 +83,7 @@ public final class PermissionConstants {
 
     private static List<String> buildTeacherPerms() {
         List<String> perms = new ArrayList<>(STUDENT_PERMS);
+        perms.add(DASHBOARD_VIEW);  // 教师保留仪表盘（md未要求删除教师仪表盘）
         perms.add(APPROVAL_FIRST);
         perms.add(DEVICE_MANAGE);   // 教师可管理个人名下设备
         perms.add(RETURN_MANAGE);   // 教师可审批自己名下设备的归还
