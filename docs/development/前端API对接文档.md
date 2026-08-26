@@ -857,8 +857,10 @@ DELETE /admin/config/{key}          → 删除配置（恢复yml默认值）
 预置配置项:
   borrow.max_days             默认7    借用最大天数
   borrow.default_approval_steps 默认2  审批级数
-  cleanup.small_record_days   默认15   小记录保留天数
+  cleanup.small_record_days   默认15   小记录保留天数（日志/审批记录）
   cleanup.large_file_days     默认30   大文件保留天数
+  notification.read_cleanup_days 默认180  已读消息保留天数（默认半年）
+  notification.unread_cleanup_days 默认-1  未读消息保留天数（-1=永久）
 ```
 
 ### 3. 操作日志

@@ -24,7 +24,8 @@ import java.time.LocalDateTime;
  * ┌─────────────────────┬──────────┬────────────────────────────┐
  * │ 数据类型            │ 保留周期 │ 说明                       │
  * ├─────────────────────┼──────────┼────────────────────────────┤
- * │ 通知(notification)  │  15天    │ 站内信，占用小             │
+ * │ 已读通知            │ 180天    │ notification.read_cleanup_days │
+ * │ 未读通知            │ -1(永久) │ notification.unread_cleanup_days │
  * │ 操作日志(sys_log)   │  15天    │ 审计日志，占用小           │
  * │ 审批记录(approval)  │  15天    │ 审批历史，占用小（注：借用│
  * │                     │          │ 单本身及其approve_flow_def │
@@ -55,6 +56,8 @@ public class ScheduledCleanupTask {
     // 默认值（system_config 表中有则优先）
     private static final int DEFAULT_SMALL_RECORD_DAYS = 15;
     private static final int DEFAULT_LARGE_FILE_DAYS = 30;
+    private static final int DEFAULT_NOTIFICATION_READ_DAYS = 180;
+    private static final int DEFAULT_NOTIFICATION_UNREAD_DAYS = -1;
 
     @Scheduled(cron = "0 0 3 * * ?")
     public void execute() {
@@ -62,20 +65,38 @@ public class ScheduledCleanupTask {
 
         int smallDays = configService.getIntValue("cleanup.small_record_days", DEFAULT_SMALL_RECORD_DAYS);
         int largeDays = configService.getIntValue("cleanup.large_file_days", DEFAULT_LARGE_FILE_DAYS);
+        int notificationReadDays = configService.getIntValue("notification.read_cleanup_days", DEFAULT_NOTIFICATION_READ_DAYS);
+        int notificationUnreadDays = configService.getIntValue("notification.unread_cleanup_days", DEFAULT_NOTIFICATION_UNREAD_DAYS);
 
-        log.info("清理参数: smallRecord={}天, largeFile={}天", smallDays, largeDays);
+        log.info("清理参数: smallRecord={}天, largeFile={}天, 已读通知={}天, 未读通知={}天",
+                smallDays, largeDays, notificationReadDays, notificationUnreadDays);
 
         // ─── 1. 小记录清理（15天）───
         int deleted = 0;
 
-        // 1a. 通知
-        LocalDateTime smallThreshold = LocalDateTime.now().minusDays(smallDays);
-        deleted += notificationMapper.delete(
-                new LambdaQueryWrapper<Notification>()
-                        .lt(Notification::getCreateTime, smallThreshold));
-        log.info("清理通知: {} 条（{}天前）", deleted, smallDays);
+        // 1a. 通知（已读/未读分别按各自保留天数清理，-1 表示永久保留）
+        int notificationDeleted = 0;
+        if (notificationReadDays >= 0) {
+            LocalDateTime readThreshold = LocalDateTime.now().minusDays(notificationReadDays);
+            notificationDeleted += notificationMapper.delete(
+                    new LambdaQueryWrapper<Notification>()
+                            .eq(Notification::getIsRead, 1)
+                            .lt(Notification::getCreateTime, readThreshold));
+        }
+        if (notificationUnreadDays >= 0) {
+            LocalDateTime unreadThreshold = LocalDateTime.now().minusDays(notificationUnreadDays);
+            notificationDeleted += notificationMapper.delete(
+                    new LambdaQueryWrapper<Notification>()
+                            .eq(Notification::getIsRead, 0)
+                            .lt(Notification::getCreateTime, unreadThreshold));
+        }
+        deleted += notificationDeleted;
+        log.info("清理通知: {} 条（已读{}天/未读{}天）", notificationDeleted,
+                notificationReadDays < 0 ? "永久" : notificationReadDays + "天",
+                notificationUnreadDays < 0 ? "永久" : notificationUnreadDays + "天");
 
         // 1b. 操作日志
+        LocalDateTime smallThreshold = LocalDateTime.now().minusDays(smallDays);
         int logDeleted = sysLogMapper.delete(
                 new LambdaQueryWrapper<com.gzhu.equipment.entity.SysLog>()
                         .lt(com.gzhu.equipment.entity.SysLog::getCreateTime, smallThreshold));
