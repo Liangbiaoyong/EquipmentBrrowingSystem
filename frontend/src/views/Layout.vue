@@ -86,8 +86,8 @@ import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { notifyApi } from '@/api/notification'
 import {
-  DataAnalysis, Monitor, Reading, EditPen, TrendCharts, Setting, User,
-  Bell, Fold, Expand, ArrowDown
+  DataAnalysis, Monitor, SetUp, DocumentAdd, Tickets, EditPen, TrendCharts,
+  Bell, Setting, User, Fold, Expand, ArrowDown
 } from '@element-plus/icons-vue'
 
 const route = useRoute()
@@ -103,7 +103,7 @@ const allMenus = [
   { index: '/dashboard', title: '仪表盘', icon: DataAnalysis, perm: 'dashboard:view' },
   { index: '/devices', title: '设备浏览', icon: Monitor, perm: 'device:view' },
   {
-    index: 'device-manage', title: '设备管理', icon: Setting, perm: 'device:manage',
+    index: 'device-manage', title: '设备管理', icon: SetUp, perm: 'device:manage',
     children: [
       { index: '/devices/manage/list', title: '设备列表' },
       { index: '/devices/manage/import', title: '批量导入', perm: 'device:import' },
@@ -114,8 +114,8 @@ const allMenus = [
       { index: '/scrap', title: '报废管理', perm: 'repair:manage' }
     ]
   },
-  { index: '/borrows/create', title: '借用申请', icon: Reading, perm: 'borrow:create' },
-  { index: '/borrows/my', title: '我的借用', icon: Reading, perm: 'borrow:my' },
+  { index: '/borrows/create', title: '借用申请', icon: DocumentAdd, perm: 'borrow:create' },
+  { index: '/borrows/my', title: '我的借用', icon: Tickets, perm: 'borrow:my' },
   {
     index: 'approval', title: '借用管理', icon: EditPen, perm: 'approval:first',
     children: [
