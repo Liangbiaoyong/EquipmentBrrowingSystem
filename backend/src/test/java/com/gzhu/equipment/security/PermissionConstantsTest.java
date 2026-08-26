@@ -26,26 +26,26 @@ class PermissionConstantsTest {
         assertThat(perms).hasSize(12);
     }
 
-    @Test @DisplayName("实验室管理员 → 13+一级审批=14")
+    @Test @DisplayName("实验室管理员 → 16个权限")
     void labAdmin_shouldHaveManagePerms() {
         List<String> perms = PermissionConstants.getPermissionsByUserType(2);
         assertThat(perms).contains(
                 "device:manage", "laboratory:manage", "approval:second",
                 "return:manage", "repair:manage",
-                "approval:first")
+                "approval:first", "device:import", "category:manage")
                 .doesNotContain("admin:user", "admin:config");
-        assertThat(perms).hasSize(14);
+        assertThat(perms).hasSize(16);
     }
 
-    @Test @DisplayName("系统管理员 → 20个权限")
+    @Test @DisplayName("系统管理员 → 22个权限")
     void systemAdmin_shouldHaveAllPerms() {
         List<String> perms = PermissionConstants.getPermissionsByUserType(3);
         assertThat(perms).contains(
                 "admin:user", "admin:config", "admin:log", "admin:backup",
                 "device:manage", "laboratory:manage",
                 "approval:first", "approval:second",
-                "borrow:create", "borrow:my");
-        assertThat(perms).hasSize(20);
+                "borrow:create", "borrow:my", "device:import", "category:manage");
+        assertThat(perms).hasSize(22);
     }
 
     @Test @DisplayName("null类型 → 空权限列表")
