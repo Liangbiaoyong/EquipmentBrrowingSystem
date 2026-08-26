@@ -50,3 +50,6 @@ merged_texts.txt
 
 # ─── 本地 Claude 设置，不提交 ────────────────────────
 .claude/settings.local.json
+
+# ─── 从甲方反馈md解析出的图片，不提交 ─────────────────
+docs/_extracted_images/
