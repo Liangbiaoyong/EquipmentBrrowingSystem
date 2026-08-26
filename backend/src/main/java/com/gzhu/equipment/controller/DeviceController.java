@@ -218,6 +218,27 @@ public class DeviceController {
         return R.ok(vo);
     }
 
+    @GetMapping("/{id}/borrows")
+    @ApiOperation("设备历史借用记录明细")
+    @PreAuthorize("hasAuthority('device:view')")
+    public R<IPage<com.gzhu.equipment.entity.BorrowRecord>> deviceBorrowRecords(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        var wrapper = new LambdaQueryWrapper<com.gzhu.equipment.entity.BorrowRecord>()
+                .eq(com.gzhu.equipment.entity.BorrowRecord::getDeviceId, id)
+                .orderByDesc(com.gzhu.equipment.entity.BorrowRecord::getId);
+        var result = borrowMapper.selectPage(
+                new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), wrapper);
+        for (com.gzhu.equipment.entity.BorrowRecord r : result.getRecords()) {
+            if (r.getUserId() != null) {
+                var u = sysUserMapper.selectById(r.getUserId());
+                if (u != null) r.setUserName(u.getRealName() != null ? u.getRealName() : u.getUsername());
+            }
+        }
+        return R.ok(result);
+    }
+
     @GetMapping("/by-asset-no/{assetNo}")
     @ApiOperation("按资产编号查询")
     public R<Device> getByAssetNo(@PathVariable String assetNo) {

@@ -63,11 +63,28 @@
       </div>
       <div v-else style="color:#909399">当前设备不可借用（借还状态：{{borrowStatusText(detail.device.borrowStatus)}}，设备状态：{{deviceStatusText(detail.device.deviceStatus)}}）</div>
     </div>
+
+    <el-card v-if="detail?.device" style="margin-top:20px">
+      <template #header><span>历史借用记录（{{ history.total }}）</span></template>
+      <el-table :data="history.list" v-loading="history.loading" stripe size="small">
+        <el-table-column prop="id" label="单号" width="75"/>
+        <el-table-column label="借用人" width="110"><template #default="{row}">{{ row.userName || '用户#'+row.userId }}</template></el-table-column>
+        <el-table-column prop="startTime" label="借用时间" width="170"><template #default="{row}">{{ fmt(row.startTime) }} ~ {{ fmt(row.endTime) }}</template></el-table-column>
+        <el-table-column prop="pickupTime" label="实际借出" width="160"><template #default="{row}">{{ fmt(row.pickupTime) }}</template></el-table-column>
+        <el-table-column prop="realReturnTime" label="实际归还" width="160"><template #default="{row}">{{ fmt(row.realReturnTime) }}</template></el-table-column>
+        <el-table-column label="状态" width="100"><template #default="{row}">{{ borrowStatusText2(row.status) }}</template></el-table-column>
+        <el-table-column prop="purpose" label="使用目的" min-width="140" show-overflow-tooltip/>
+      </el-table>
+      <div style="margin-top:12px;display:flex;justify-content:flex-end">
+        <el-pagination v-model:current-page="history.page" v-model:page-size="history.size" :page-sizes="[10,20,50]" :total="history.total" layout="total,sizes,prev,pager,next,jumper" @current-change="loadHistory" @size-change="s=>{history.size=s;history.page=1;loadHistory()}"/>
+      </div>
+    </el-card>
   </div>
 </template>
 <script setup>
 import { ref,onMounted } from 'vue';import { useRoute } from 'vue-router';import { deviceApi } from '@/api/device';import { Warning,Upload,Delete } from '@element-plus/icons-vue';import axios from '@/api/request';import { ElMessage } from 'element-plus'
 const route=useRoute();const loading=ref(true);const detail=ref(null);const uploading=ref(false)
+const history=ref({list:[],total:0,page:1,size:10,loading:false})
 
 const borrowStatusMap={1:'success',2:'warning',3:'danger',4:'danger'}
 const borrowStatusTextMap={1:'可借用',2:'借用中',3:'不可借',4:'逾期'}
@@ -77,6 +94,8 @@ function borrowStatusTagType(v){return borrowStatusMap[v]||'info'}
 function borrowStatusText(v){return borrowStatusTextMap[v]||'未知'}
 function deviceStatusTagType(v){return deviceStatusMap[v]||'info'}
 function deviceStatusText(v){return deviceStatusTextMap[v]||'未知'}
+function borrowStatusText2(s){const m={PENDING_APPROVAL:'待审批',APPROVED:'已通过',REJECTED:'已驳回',BORROWING:'借用中',RETURN_PENDING:'归还中',RETURNED:'已归还',OVERDUE:'逾期',CANCELLED:'已取消'};return m[s]||s}
+function fmt(t){return t?String(t).replace('T',' ').substring(0,16):'—'}
 
 // 判断当前用户是否为管理员（LAB_ADMIN=2 或 SYSTEM_ADMIN=3）
 const isAdmin=ref(false)
@@ -110,6 +129,15 @@ async function loadDetail(){
   try{const{data}=await deviceApi.getById(route.params.id);detail.value=data}catch(e){console.error('加载设备详情失败',e)}
 }
 
-onMounted(async()=>{checkAdmin();loading.value=true;await loadDetail();loading.value=false})
+async function loadHistory(){
+  if(!route.params.id)return
+  history.value.loading=true
+  try{
+    const{data}=await axios.get(`/devices/${route.params.id}/borrows`,{params:{page:history.value.page,size:history.value.size}})
+    history.value.list=data.records||[];history.value.total=data.total||0
+  }catch(e){console.error('加载历史借用失败',e)}finally{history.value.loading=false}
+}
+
+onMounted(async()=>{checkAdmin();loading.value=true;await loadDetail();loading.value=false;await loadHistory()})
 </script>
 <style scoped>.device-detail{padding:20px}.img-error{width:100%;height:200px;display:flex;align-items:center;justify-content:center;background:#f0f2f5;border-radius:4px}</style>
