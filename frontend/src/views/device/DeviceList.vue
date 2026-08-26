@@ -19,7 +19,7 @@
       </el-select></el-col>
       <el-col :span="2"><el-button type="primary" @click="search">搜索</el-button></el-col>
       <el-col :span="2"><el-button @click="resetSearch">重置</el-button></el-col>
-      <el-col :span="2"><el-button type="success" @click="doExport" :loading="exportLoading">导出CSV</el-button></el-col>
+      <el-col :span="2" v-if="canExport"><el-button type="success" @click="doExport" :loading="exportLoading">导出CSV</el-button></el-col>
     </el-row></el-card>
     <el-card style="margin-top:15px">
       <el-table :data="list" v-loading="loading" stripe @row-click="toDetail" style="cursor:pointer" @sort-change="onSort">
@@ -40,6 +40,7 @@
 </template>
 <script setup>
 import { ref,reactive,onMounted,watch } from 'vue';import { useRouter,useRoute } from 'vue-router';import axios from '@/api/request';import { categoryApi } from '@/api/category'
+const canExport = ['1','2','3'].includes(localStorage.getItem('userType'))
 const router=useRouter();const route=useRoute();const loading=ref(false);const list=ref([]);const total=ref(0);const categories=ref([]);const laboratories=ref([])
 const q=reactive({page:1,size:20,assetNo:'',name:'',model:'',categoryId:null,gbCategoryName:'',location:'',borrowStatus:null,deviceStatus:null,borrowType:null,laboratoryId:null,custodian:''})
 const sortBy=ref('');const sortOrder=ref('');const exportLoading=ref(false)

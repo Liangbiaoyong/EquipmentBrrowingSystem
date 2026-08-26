@@ -384,7 +384,7 @@ public class DeviceController {
 
     @GetMapping("/export/csv")
     @ApiOperation("导出设备为CSV（支持筛选条件）")
-    @PreAuthorize("hasAnyRole('LAB_ADMIN', 'SYSTEM_ADMIN')")
+    @PreAuthorize("hasAnyRole('LAB_ADMIN', 'SYSTEM_ADMIN') || hasAuthority('device:manage')")
     public ResponseEntity<byte[]> exportCsv(
             @RequestParam(required = false) Long categoryId,
             @RequestParam(required = false) String batchId,
@@ -420,14 +420,19 @@ public class DeviceController {
         bos.write(0xBF);
 
         try (OutputStreamWriter writer = new OutputStreamWriter(bos, StandardCharsets.UTF_8)) {
-            writer.write("资产编号,名称,型号,规格,业务分类ID,国标分类名,存放地,使用单位,使用人,数量,单价,金额,购置日期,厂家,供货商\n");
+            writer.write("设备ID,资产编号,名称,型号,规格,分类ID,国标分类名,借还状态,设备状态,借用类型,所属实验室ID,存放地,使用单位,使用人,数量,可借数量,单价,金额,购置日期,厂家,供货商\n");
             DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyy-MM-dd");
             for (Device d : devices) {
-                writer.write(String.format("%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%s,%s,%s,%s,%s\n",
-                        csv(d.getAssetNo()), csv(d.getName()), csv(d.getModel()), csv(d.getSpecs()),
-                        d.getCategoryId(), csv(d.getGbCategoryName()), csv(d.getLocation()),
+                writer.write(String.format("%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%d,%d,%s,%s,%s,%s,%s\n",
+                        d.getId(), csv(d.getAssetNo()), csv(d.getName()), csv(d.getModel()), csv(d.getSpecs()),
+                        d.getCategoryId(), csv(d.getGbCategoryName()),
+                        deviceBorrowStatusText(d.getBorrowStatus()),
+                        deviceStatusText(d.getDeviceStatus()),
+                        deviceBorrowTypeText(d.getBorrowType()),
+                        d.getLaboratoryId(), csv(d.getLocation()),
                         csv(d.getDepartment()), csv(d.getCustodian()),
                         d.getTotalQty() != null ? d.getTotalQty() : 0,
+                        d.getAvailableQty() != null ? d.getAvailableQty() : 0,
                         d.getUnitPrice(), d.getTotalAmount(),
                         d.getPurchaseDate() != null ? d.getPurchaseDate().format(dtf) : "",
                         csv(d.getManufacturer()), csv(d.getSupplier())));
@@ -451,6 +456,34 @@ public class DeviceController {
             return "\"" + val.replace("\"", "\"\"") + "\"";
         }
         return val;
+    }
+
+    private String deviceBorrowStatusText(Integer status) {
+        if (status == null) return "";
+        switch (status) {
+            case 1: return "可借用";
+            case 2: return "借用中";
+            case 3: return "不可借";
+            case 4: return "逾期";
+            default: return String.valueOf(status);
+        }
+    }
+
+    private String deviceStatusText(Integer status) {
+        if (status == null) return "";
+        switch (status) {
+            case 1: return "正常";
+            case 2: return "待维修";
+            case 3: return "维修中";
+            case 4: return "待报废";
+            case 5: return "已报废";
+            default: return String.valueOf(status);
+        }
+    }
+
+    private String deviceBorrowTypeText(Integer type) {
+        if (type == null) return "";
+        return type == 1 ? "仅现场借用" : "可借出";
     }
 
     private Long getUserId() {
