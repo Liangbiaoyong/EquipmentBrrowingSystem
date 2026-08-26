@@ -1,6 +1,8 @@
 package com.gzhu.equipment.controller;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.metadata.IPage;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gzhu.equipment.common.R;
 import com.gzhu.equipment.entity.Device;
 import com.gzhu.equipment.entity.DeviceImage;
@@ -120,16 +122,23 @@ public class DeviceImageController {
     @GetMapping("/missing-images")
     @ApiOperation("查询缺少图片的设备")
     @PreAuthorize("hasAuthority('device:manage')")
-    public R<List<Device>> listMissingImages(
+    public R<IPage<Device>> listMissingImages(
             @RequestParam(defaultValue = "1") int page,
-            @RequestParam(defaultValue = "50") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String keyword) {
         List<Long> idsWithImages = imageMapper.selectList(null).stream()
                 .map(DeviceImage::getDeviceId).distinct().collect(Collectors.toList());
 
         LambdaQueryWrapper<Device> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Device::getDeviceStatus, 1); // 仅设备正常状态的设备
         if (!idsWithImages.isEmpty()) wrapper.notIn(Device::getId, idsWithImages);
-        wrapper.last("LIMIT " + ((page - 1) * size) + "," + size);
-        return R.ok(deviceMapper.selectList(wrapper));
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            wrapper.and(w -> w.like(Device::getName, keyword)
+                    .or().like(Device::getAssetNo, keyword)
+                    .or().like(Device::getModel, keyword)
+                    .or().like(Device::getLocation, keyword));
+        }
+        wrapper.orderByDesc(Device::getId);
+        return R.ok(deviceMapper.selectPage(new Page<>(page, size), wrapper));
     }
 }
