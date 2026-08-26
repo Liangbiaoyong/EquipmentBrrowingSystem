@@ -3,7 +3,13 @@
     <!-- 左侧品牌区 -->
     <div class="brand-panel">
       <div class="brand-inner">
-        <div class="brand-logo">仪</div>
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round">
+            <circle cx="12" cy="12" r="3.5"/>
+            <ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(30 12 12)"/>
+            <ellipse cx="12" cy="12" rx="9" ry="4" transform="rotate(-30 12 12)"/>
+          </svg>
+        </div>
         <h1 class="brand-title">仪器共享平台</h1>
         <p class="brand-subtitle">高效管理学院仪器与借用流程</p>
 
