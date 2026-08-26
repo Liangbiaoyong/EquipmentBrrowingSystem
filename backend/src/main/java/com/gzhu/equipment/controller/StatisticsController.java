@@ -110,7 +110,7 @@ public class StatisticsController {
         deviceStats.put("scrap", pendingScrap + scrappedCount);
         data.put("deviceStats", deviceStats);
 
-        // 借用概览：借出中/逾期 使用设备维度(与借还状态卡片一致)；待审批/总借用使用记录维度
+        // 借用概览：按借用记录口径统计，逾期包含 BORROWING 已到期未还的记录
         String custodian = getCustodianForScope(scope);
         LambdaQueryWrapper<BorrowRecord> bwBase = new LambdaQueryWrapper<>();
         if (custodian != null) {
@@ -118,10 +118,16 @@ public class StatisticsController {
         }
         Long pendingCount = borrowMapper.selectCount(bwBase.clone().eq(BorrowRecord::getStatus, "PENDING_APPROVAL"));
         Long totalBorrows = borrowMapper.selectCount(bwBase);
+        Long overdueRecords = borrowMapper.selectCount(bwBase.clone().and(w -> w.eq(BorrowRecord::getStatus, "OVERDUE")
+                .or(w2 -> w2.eq(BorrowRecord::getStatus, "BORROWING")
+                        .lt(BorrowRecord::getEndTime, LocalDateTime.now()))));
+        Long borrowingRecords = borrowMapper.selectCount(bwBase.clone().and(w -> w.eq(BorrowRecord::getStatus, "BORROWING")
+                        .ge(BorrowRecord::getEndTime, LocalDateTime.now())
+                        .or(w2 -> w2.eq(BorrowRecord::getStatus, "OVERDUE"))));
 
         Map<String, Long> borrowStats = new LinkedHashMap<>();
-        borrowStats.put("borrowing", deviceBorrowingCount);
-        borrowStats.put("overdue", overdueCount2);
+        borrowStats.put("borrowing", borrowingRecords);
+        borrowStats.put("overdue", overdueRecords);
         borrowStats.put("pendingApproval", pendingCount);
         borrowStats.put("total", totalBorrows);
         data.put("borrowStats", borrowStats);
