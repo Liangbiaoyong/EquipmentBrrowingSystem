@@ -8,11 +8,11 @@
             <el-button @click="openBatchCategories">批量预置分类</el-button>
             <span style="margin-left:auto;color:#909399;font-size:12px">共 {{ categories.length }} 个分类</span>
           </div>
-          <el-table :data="categories" stripe>
-            <el-table-column prop="id" label="ID" width="80"/>
-            <el-table-column prop="name" label="分类名称" min-width="160"/>
+          <el-table :data="categories" stripe :default-sort="{prop:'sort', order:'ascending'}">
+            <el-table-column prop="id" label="ID" width="80" sortable/>
+            <el-table-column prop="name" label="分类名称" min-width="160" sortable/>
             <el-table-column prop="code" label="编码" width="120"/>
-            <el-table-column prop="sort" label="排序" width="80"/>
+            <el-table-column prop="sort" label="排序" width="80" sortable/>
             <el-table-column label="状态" width="80">
               <template #default="{row}"><el-tag :type="row.status===1?'success':'info'">{{ row.status===1?'启用':'禁用' }}</el-tag></template>
             </el-table-column>
@@ -44,12 +44,12 @@
             <el-button type="primary" @click="openMappingForm(null)">+ 新增规则</el-button>
           </div>
           <el-alert v-if="classifyResult" :title="classifyResult" type="info" :closable="false" style="margin-bottom:12px"/>
-          <el-table :data="mappings" stripe>
-            <el-table-column prop="id" label="ID" width="80"/>
+          <el-table :data="mappings" stripe :default-sort="{prop:'priority', order:'ascending'}">
+            <el-table-column prop="id" label="ID" width="80" sortable/>
             <el-table-column prop="gbCategoryName" label="国标分类名" min-width="160"/>
             <el-table-column prop="keyword" label="关键词" width="120"/>
             <el-table-column label="目标分类" width="140"><template #default="{row}">{{ catName(row.categoryId) }}</template></el-table-column>
-            <el-table-column prop="priority" label="优先级" width="80"/>
+            <el-table-column prop="priority" label="优先级" width="80" sortable/>
             <el-table-column label="状态" width="80"><template #default="{row}"><el-tag :type="row.isActive===1?'success':'info'">{{ row.isActive===1?'启用':'禁用' }}</el-tag></template></el-table-column>
             <el-table-column label="操作" width="240" fixed="right">
               <template #default="{row}">
