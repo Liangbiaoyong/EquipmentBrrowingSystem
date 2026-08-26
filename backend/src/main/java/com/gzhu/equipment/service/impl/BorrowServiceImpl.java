@@ -306,6 +306,7 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         }
 
         record.setStatus("RETURN_PENDING");
+        record.setReturnRequestTime(LocalDateTime.now());
         record.setDamageReport(damageReport);
 
         // 逾期判断

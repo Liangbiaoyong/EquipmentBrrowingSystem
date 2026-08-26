@@ -316,6 +316,27 @@ class BorrowServiceImplTest {
     // ==================== 归还 ====================
 
     @Test
+    @DisplayName("提交归还申请 → 记录提交归还申请时间")
+    void requestReturn_shouldSetReturnRequestTime() {
+        BorrowRecord record = new BorrowRecord();
+        record.setId(100L);
+        record.setDeviceId(1L);
+        record.setUserId(10L);
+        record.setStatus("BORROWING");
+        record.setEndTime(LocalDateTime.now().plusDays(1));
+
+        when(borrowMapper.selectById(100L)).thenReturn(record);
+        when(attachmentMapper.selectCount(any())).thenReturn(1L);
+        
+
+        borrowService.requestReturn(100L, 10L, "无损坏");
+
+        assertThat(record.getStatus()).isEqualTo("RETURN_PENDING");
+        assertThat(record.getReturnRequestTime()).isNotNull();
+        assertThat(record.getReturnRequestTime()).isBeforeOrEqualTo(LocalDateTime.now().plusSeconds(1));
+    }
+
+    @Test
     @DisplayName("归还设备 → 库存恢复、状态更新")
     void returnDevice_shouldRestoreStock() {
         BorrowRecord record = new BorrowRecord();

@@ -38,6 +38,8 @@ public class BorrowRecord implements Serializable {
     private String approveFlowDef;  // JSON快照
     private Integer currentStep;
     private LocalDateTime realReturnTime;
+    /** 提交归还申请时间 */
+    private LocalDateTime returnRequestTime;
     private Integer overdueDays;
     private String damageReport;
     /** V4: 借用成果（归还时可选填写/管理员后续补充） */

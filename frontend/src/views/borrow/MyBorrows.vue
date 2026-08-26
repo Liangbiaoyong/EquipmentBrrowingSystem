@@ -155,7 +155,10 @@
             <div class="tl-dot"></div>
             <div class="tl-content">
               <div class="tl-label">归还设备</div>
-              <div class="tl-time">{{ drawer.row.realReturnTime ? fmt(drawer.row.realReturnTime) : (drawer.row.status==='BORROWING'||drawer.row.status==='OVERDUE'?'待归还':'未到归还阶段') }}</div>
+              <div class="tl-time">
+                <div v-if="drawer.row.returnRequestTime" style="color:#909399;font-size:12px">提交归还申请：{{ fmt(drawer.row.returnRequestTime) }}</div>
+                <div>{{ drawer.row.realReturnTime ? '实际归还：'+fmt(drawer.row.realReturnTime) : (drawer.row.status==='BORROWING'||drawer.row.status==='OVERDUE'?'待归还':'未到归还阶段') }}</div>
+              </div>
               <!-- 归还照片 -->
               <div v-if="drawer.returnImages.length" class="tl-photos">
                 <el-image v-for="(url,i) in drawer.returnImages" :key="i" :src="imgUrl(url)" fit="cover" style="width:80px;height:60px;border-radius:6px;margin-right:6px;margin-top:6px" :preview-src-list="drawer.returnImages.map(u=>imgUrl(u))"/>

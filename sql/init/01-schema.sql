@@ -165,6 +165,7 @@ CREATE TABLE IF NOT EXISTS `borrow_record` (
   `approve_flow_def` text COMMENT '审批流定义JSON',
   `current_step` int DEFAULT '0' COMMENT '当前审批步骤',
   `real_return_time` datetime DEFAULT NULL COMMENT '实际归还时间',
+  `return_request_time` datetime DEFAULT NULL COMMENT '提交归还申请时间',
   `overdue_days` int DEFAULT '0' COMMENT '逾期天数',
   `damage_report` text COMMENT '损坏报告',
   `outcome` text DEFAULT NULL COMMENT '借用成果（V4：归还时可选/管理员后可补录）',
