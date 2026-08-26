@@ -62,7 +62,7 @@ grep "TEMP" docker-compose.yml
 ### ③ 数据库结构同步
 ```bash
 # 检查所有迁移 SQL 是否已应用到数据库
-docker exec dev-mysql mysql -uroot -proot123 device_borrow -e 'SHOW TABLES'
+docker exec dev-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" device_borrow -e 'SHOW TABLES'
 
 # 与本地 sql/init/ 下的表定义对比，缺失的表需要：
 # 方案A：docker volume rm → 重建MySQL（适用于清库场景）
@@ -153,10 +153,10 @@ docker compose up -d mysql
 
 # 等待就绪
 sleep 15
-docker exec dev-mysql mysqladmin ping -uroot -proot123 --silent
+docker exec dev-mysql mysqladmin ping -uroot -p"$MYSQL_ROOT_PASSWORD" --silent
 
 # 手动导入 V5 描述（如果 auto init 未成功）
-docker exec -i dev-mysql mysql -uroot -proot123 \
+docker exec -i dev-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
   --default-character-set=utf8mb4 device_borrow \
   < sql/init/07-update-v5-category-descriptions.sql
 ```
@@ -165,11 +165,11 @@ docker exec -i dev-mysql mysql -uroot -proot123 \
 
 ```bash
 # 插入 15 台测试设备（单行 SQL 兼容 Windows CMD）
-docker exec dev-mysql mysql -uroot -proot123 --default-character-set=utf8mb4 device_borrow \
+docker exec dev-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" --default-character-set=utf8mb4 device_borrow \
   -e "INSERT INTO device (asset_no,name,model,category_id,location,department,custodian,total_qty,available_qty,borrow_status,device_status,borrow_type) VALUES ..."
 
 # 生成一个月测试借用记录
-docker exec -i dev-mysql mysql -uroot -proot123 \
+docker exec -i dev-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
   --default-character-set=utf8mb4 device_borrow \
   < sql/init/03-test-data.sql
 ```
@@ -187,7 +187,7 @@ docker exec -i dev-mysql mysql -uroot -proot123 \
 
 **Windows CMD 下插入设备（单行）**：
 ```bash
-ssh root@gzhu-server.ydns.eu "docker exec dev-mysql mysql -uroot -proot123 --default-character-set=utf8mb4 device_borrow -e \"INSERT INTO device (asset_no,name,model,category_id,location,department,custodian,total_qty,available_qty,borrow_status,device_status,borrow_type) VALUES ('ZC2024001','ThinkPad X1 Carbon','X1C Gen11',1,'工程南501','建筑学院','张三',5,5,1,1,2),...; SELECT COUNT(*) FROM device;\""
+ssh root@gzhu-server.ydns.eu "docker exec dev-mysql mysql -uroot -p$(grep MYSQL_ROOT_PASSWORD /home/hp506/server/EquipmentBrrowingSystem/.env | cut -d= -f2) --default-character-set=utf8mb4 device_borrow -e \"INSERT INTO device (asset_no,name,model,category_id,location,department,custodian,total_qty,available_qty,borrow_status,device_status,borrow_type) VALUES ('ZC2024001','ThinkPad X1 Carbon','X1C Gen11',1,'工程南501','建筑学院','张三',5,5,1,1,2),...; SELECT COUNT(*) FROM device;\""
 ```
 
 ## 已知故障与排除
@@ -233,10 +233,10 @@ ssh root@gzhu-server.ydns.eu "docker exec dev-mysql mysql -uroot -proot123 --def
 docker ps --format 'table {{.Names}}\t{{.Status}}'
 
 # 2. MySQL 表完整
-docker exec dev-mysql mysql -uroot -proot123 device_borrow -e 'SHOW TABLES'
+docker exec dev-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" device_borrow -e 'SHOW TABLES'
 
 # 3. 种子数据
-docker exec dev-mysql mysql -uroot -proot123 device_borrow -e 'SELECT COUNT(*) FROM sys_user; SELECT COUNT(*) FROM device_category'
+docker exec dev-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" device_borrow -e 'SELECT COUNT(*) FROM sys_user; SELECT COUNT(*) FROM device_category'
 
 # 4. 前端可达
 curl -sI http://gzhu-server.ydns.eu/

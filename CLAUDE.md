@@ -218,7 +218,7 @@ git add -A && git commit -m "<type>: <description>" && git push
 - **单元测试**: 后端 Service 层使用 JUnit5 + Mockito，**217 个测试**（Controller 13个文件 + Service 8个文件 + Security 3个文件）
 - **测试命令**: `cd backend && mvn test`（全部通过方可提交）
 - **测试数据生成**: `sql/init/03-test-data.sql` — 生成最近一个月每天5~50条随机借用记录（含审批记录+成果数据）
-- **运行测试数据**: `docker exec -i dev-mysql mysql -uroot -proot123 --default-character-set=utf8mb4 device_borrow < sql/init/03-test-data.sql`
+- **运行测试数据**: `docker exec -i dev-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" --default-character-set=utf8mb4 device_borrow < sql/init/03-test-data.sql`
 - **性能测试**: JMeter 脚本模拟 30 并发用户
 - **安全测试**: 测试越权访问、XSS、文件上传漏洞
 - **提交前检查**: `mvn test` 通过 + `npm run lint` 无报错
