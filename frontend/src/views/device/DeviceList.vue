@@ -7,16 +7,17 @@
       <el-col :span="6"><el-select v-model="q.categoryId" placeholder="分类" clearable @change="search"><el-option v-for="c in categories" :key="c.id" :label="c.name" :value="c.id"/></el-select></el-col>
     </el-row>
     <el-row :gutter="10" style="margin-top:10px">
-      <el-col :span="6"><el-input v-model="q.gbCategoryName" placeholder="国标分类" clearable @keyup.enter="search"/></el-col>
-      <el-col :span="6"><el-select v-model="q.laboratoryId" placeholder="所属实验室" clearable @change="search">
+      <el-col :span="4"><el-input v-model="q.gbCategoryName" placeholder="国标分类" clearable @keyup.enter="search"/></el-col>
+      <el-col :span="4"><el-select v-model="q.laboratoryId" placeholder="所属实验室" clearable @change="search">
         <el-option v-for="lab in laboratories" :key="lab.id" :label="lab.name" :value="lab.id"/>
       </el-select></el-col>
-      <el-col :span="4"><el-select v-model="q.borrowStatus" placeholder="借还状态" clearable @change="search">
+      <el-col :span="3"><el-select v-model="q.borrowStatus" placeholder="借还状态" clearable @change="search">
         <el-option label="可借用" :value="1"/><el-option label="借用中" :value="2"/><el-option label="不可借" :value="3"/><el-option label="逾期" :value="4"/>
       </el-select></el-col>
-      <el-col :span="4"><el-select v-model="q.deviceStatus" placeholder="设备状态" clearable @change="search">
+      <el-col :span="3"><el-select v-model="q.deviceStatus" placeholder="设备状态" clearable @change="search">
         <el-option label="正常" :value="1"/><el-option label="待维修" :value="2"/><el-option label="无法维修" :value="3"/><el-option label="待报废" :value="4"/><el-option label="已报废" :value="5"/>
       </el-select></el-col>
+      <el-col :span="4"><el-input v-model="q.custodian" placeholder="使用人" clearable @keyup.enter="search"/></el-col>
       <el-col :span="2"><el-button type="primary" @click="search">搜索</el-button></el-col>
       <el-col :span="2"><el-button @click="resetSearch">重置</el-button></el-col>
       <el-col :span="2" v-if="canExport"><el-dropdown @command="doExport"><el-button type="success" :loading="exportLoading">导出</el-button><template #dropdown><el-dropdown-menu><el-dropdown-item command="csv">CSV 格式</el-dropdown-item><el-dropdown-item command="xlsx">Excel 格式</el-dropdown-item></el-dropdown-menu></template></el-dropdown></el-col>
@@ -48,7 +49,7 @@ function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==
 async function doExport(format='csv'){
   exportLoading.value=true
   try{
-    const r=await axios.get('/devices/export/csv',{params:{format,keyword:q.keyword||undefined,name:q.name||undefined,model:q.model||undefined,assetNo:q.assetNo||undefined,categoryId:q.categoryId,borrowStatus:q.borrowStatus,deviceStatus:q.deviceStatus,location:q.location||undefined,gbCategoryName:q.gbCategoryName||undefined,borrowType:q.borrowType,laboratoryId:q.laboratoryId},responseType:'blob'})
+    const r=await axios.get('/devices/export/csv',{params:{format,keyword:q.keyword||undefined,name:q.name||undefined,model:q.model||undefined,assetNo:q.assetNo||undefined,categoryId:q.categoryId,borrowStatus:q.borrowStatus,deviceStatus:q.deviceStatus,location:q.location||undefined,gbCategoryName:q.gbCategoryName||undefined,borrowType:q.borrowType,laboratoryId:q.laboratoryId,custodian:q.custodian||undefined},responseType:'blob'})
     const ext=format==='xlsx'?'xlsx':'csv'
     const mime=ext==='xlsx'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'text/csv;charset=UTF-8'
     const blob=new Blob([r.data],{type:mime})

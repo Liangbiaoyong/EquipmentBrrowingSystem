@@ -8,11 +8,16 @@
   </div>
 </template>
 <script setup>
-import { ref,onMounted } from 'vue';import { notifyApi } from '@/api/notification';import { ElMessage } from 'element-plus'
+import { ref,onMounted } from 'vue';import { useRouter } from 'vue-router';import { notifyApi } from '@/api/notification';import { ElMessage } from 'element-plus'
+const router=useRouter()
 const loading=ref(false);const list=ref([]);const page=ref(1);const size=ref(20);const total=ref(0)
 function fmt(t){return t||''}
 async function load(){loading.value=true;try{const{data}=await notifyApi.list({page:page.value,size:size.value});list.value=data;total.value=data.length>=size.value?page.value*size.value+1:page.value*size.value}catch{}finally{loading.value=false}}
-async function readOne(n){if(!n.isRead)try{await notifyApi.markRead(n.id);n.isRead=true}catch{}}
+async function readOne(n){
+  if(!n.isRead)try{await notifyApi.markRead(n.id);n.isRead=true}catch{}
+  const m=(n.content||'').match(/借用单#(\d+)/)
+  if(m) router.push('/borrows/'+m[1])
+}
 async function markAll(){try{await notifyApi.markAllRead();load();ElMessage.success('已全部标为已读')}catch{}}
 onMounted(load)
 </script>
