@@ -47,3 +47,6 @@ logs/
 *.tmp
 file_tree.txt
 merged_texts.txt
+
+# ─── 本地 Claude 设置，不提交 ────────────────────────
+.claude/settings.local.json
