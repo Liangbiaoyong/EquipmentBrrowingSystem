@@ -132,6 +132,21 @@ public class DeviceController {
         return R.ok("已更新");
     }
 
+    @DeleteMapping("/{id}/default-approver")
+    @ApiOperation("清除设备默认审批人（恢复使用人审批）")
+    @PreAuthorize("hasAnyAuthority('device:manage','admin:user')")
+    public R<String> clearDefaultApprover(@PathVariable Long id) {
+        com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(getUserId());
+        if (current != null && current.getUserType() != null && current.getUserType() == 1) {
+            return R.fail("教师不能修改设备默认审批人");
+        }
+        Device d = deviceService.getById(id);
+        if (d == null) return R.fail(404, "设备不存在");
+        d.setDefaultApproverId(null);
+        deviceService.updateById(d);
+        return R.ok("已恢复默认（使用人审批）");
+    }
+
     @GetMapping("/{id}")
     @ApiOperation("获取设备详情（含图片、借用状态、分类名）")
     public R<DeviceDetailVO> getDevice(@PathVariable Long id) {

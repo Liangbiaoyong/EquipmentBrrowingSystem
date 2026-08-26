@@ -44,7 +44,7 @@
     </el-form><template #footer><el-button @click="editVisible=false">取消</el-button><el-button type="primary" @click="doEdit">保存</el-button></template></el-dialog>
 
     <!-- 审批人对话框 -->
-    <el-dialog v-model="approverVisible" title="设置默认审批人" width="400px"><el-select v-model="approverId" placeholder="选择审批人" filterable style="width:100%"><el-option v-for="u in approverCandidates" :key="u.id" :label="`${u.realName||u.username} (${roleName(u.userType)})`" :value="u.id"/></el-select><template #footer><el-button @click="approverVisible=false">取消</el-button><el-button type="primary" @click="doSetApprover">保存</el-button></template></el-dialog>
+    <el-dialog v-model="approverVisible" title="设置默认审批人" width="400px"><el-select v-model="approverId" placeholder="选择审批人" filterable style="width:100%"><el-option v-for="u in approverCandidates" :key="u.id" :label="`${u.realName||u.username} (${roleName(u.userType)})`" :value="u.id"/></el-select><template #footer><el-button @click="approverVisible=false">取消</el-button><el-button type="warning" @click="doClearApprover">恢复默认</el-button><el-button type="primary" @click="doSetApprover">保存</el-button></template></el-dialog>
   </div>
 </template>
 <script setup>
@@ -109,6 +109,7 @@ function openApprover(row){
   approverVisible.value=true
 }
 async function doSetApprover(){try{await axios.put(`/devices/${approverCurrentId.value}/default-approver`,null,{params:{approverId:approverId.value}});ElMessage.success('已更新');approverVisible.value=false;load()}catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}}
+async function doClearApprover(){try{await axios.delete(`/devices/${approverCurrentId.value}/default-approver`);ElMessage.success('已恢复默认');approverVisible.value=false;load()}catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}}
 async function doDelete(id){try{await deviceApi.delete(id);ElMessage.success('已删除');load()}catch(e){ElMessage.error(e?.response?.data?.msg||'删除失败')}}
 
 onMounted(()=>{loadUsers();load()})
