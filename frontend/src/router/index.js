@@ -55,9 +55,10 @@ router.beforeEach((to, from, next) => {
   document.title = to.meta.title ? `${to.meta.title} - 设备借用系统` : '设备借用系统'
   const token = localStorage.getItem('token')
   if (!to.meta.noAuth && !token) return next({ name: 'Login' })
-  if (to.meta.perm && token) {
+  if (token) {
     const store = useUserStore()
-    if (!store.hasPermission(to.meta.perm)) return next({ name: 'Forbidden' })
+    if (to.path === '/dashboard' && !store.hasPermission('dashboard:view')) return next('/devices')
+    if (to.meta.perm && !store.hasPermission(to.meta.perm)) return next({ name: 'Forbidden' })
   }
   next()
 })

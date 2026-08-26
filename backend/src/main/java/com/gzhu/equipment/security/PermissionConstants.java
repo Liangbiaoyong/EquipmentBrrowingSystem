@@ -46,10 +46,9 @@ public final class PermissionConstants {
 
     /** 学生权限 */
     private static final List<String> STUDENT_PERMS = Collections.unmodifiableList(Arrays.asList(
-            DASHBOARD_VIEW, NOTIFICATION_VIEW, PROFILE_VIEW,
+            NOTIFICATION_VIEW, PROFILE_VIEW,
             DEVICE_VIEW, LAB_VIEW,
-            BORROW_CREATE, BORROW_MY, BORROW_VIEW, BORROW_RETURN,
-            STATISTICS_VIEW
+            BORROW_CREATE, BORROW_MY, BORROW_VIEW, BORROW_RETURN
     ));
 
     /** 教师权限 = 学生权限 + 一级审批 + 统计 */

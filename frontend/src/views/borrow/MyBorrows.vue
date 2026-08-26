@@ -145,8 +145,8 @@
               <div v-if="drawer.row.pickupImage" class="tl-photo">
                 <el-image :src="imgUrl(drawer.row.pickupImage)" fit="cover" style="width:120px;height:80px;border-radius:6px" :preview-src-list="[imgUrl(drawer.row.pickupImage)]"/>
               </div>
-              <el-upload v-if="canPickup(drawer.row)" :show-file-list="false" :http-request="(opt)=>doUpload(opt,'BORROW',drawer.row)" accept="image/*" style="margin-top:6px">
-                <el-button size="small" text type="primary" :loading="drawer.uploading">📷 {{ drawer.row.pickupImage?'更换照片':'上传取走照片' }}</el-button>
+              <el-upload v-if="canPickup(drawer.row) && !drawer.row.pickupImage" :show-file-list="false" :http-request="(opt)=>doUpload(opt,'BORROW',drawer.row)" accept="image/*" style="margin-top:6px">
+                <el-button size="small" text type="primary" :loading="drawer.uploading">📷 上传取走照片</el-button>
               </el-upload>
               <el-button v-if="!drawer.row.pickupTime && canPickup(drawer.row)" size="small" type="success" @click="doPickup(drawer.row)" :loading="drawer.picking" style="margin-top:6px">确认取走</el-button>
             </div>

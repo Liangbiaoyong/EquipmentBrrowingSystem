@@ -73,7 +73,7 @@ async function load(){
 async function previewPhotos(row){
   try{
     const{data}=await axios.get(`/borrows/${row.id}/images`)
-    photoDlg.images=data.returnImages||[]
+    photoDlg.images=(data.returnImages||[]).map(url=>`/api/v1/files/${encodeURIComponent(url)}`)
     photoDlg.visible=true
   }catch{ElMessage.error('加载照片失败')}
 }

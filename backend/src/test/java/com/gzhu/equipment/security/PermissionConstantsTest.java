@@ -9,21 +9,21 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 class PermissionConstantsTest {
 
-    @Test @DisplayName("学生 → 10个权限（含statistics:view）")
+    @Test @DisplayName("学生 → 8个权限，不含仪表盘和数据统计")
     void student_shouldHave8Perms() {
         List<String> perms = PermissionConstants.getPermissionsByUserType(0);
         assertThat(perms).contains(
-                "dashboard:view", "device:view", "laboratory:view",
-                "borrow:create", "borrow:my", "borrow:view", "borrow:return", "statistics:view")
-                .doesNotContain("device:manage", "approval:first", "admin:user");
-        assertThat(perms).hasSize(10);
+                "device:view", "laboratory:view",
+                "borrow:create", "borrow:my", "borrow:view", "borrow:return")
+                .doesNotContain("dashboard:view", "statistics:view", "device:manage", "approval:first", "admin:user");
+        assertThat(perms).hasSize(8);
     }
 
     @Test @DisplayName("教师 → 学生权限+一级审批+统计+设备管理")
     void teacher_shouldHaveExtraPerms() {
         List<String> perms = PermissionConstants.getPermissionsByUserType(1);
         assertThat(perms).contains("approval:first", "statistics:view", "device:manage");
-        assertThat(perms).hasSize(13);
+        assertThat(perms).hasSize(11);
     }
 
     @Test @DisplayName("实验室管理员 → 13+一级审批=14")

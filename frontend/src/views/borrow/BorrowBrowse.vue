@@ -40,7 +40,7 @@
 
     <!-- 数据表格 -->
     <el-card shadow="never" class="table-card">
-      <el-table :data="list" stripe v-loading="loading" @sort-change="onSort" @row-click="(row)=>$router.push('/devices/'+row.deviceId)" style="cursor:pointer">
+      <el-table :data="list" stripe v-loading="loading" @sort-change="onSort" @row-click="(row)=>$router.push('/borrows/'+row.id)" style="cursor:pointer">
         <el-table-column prop="id" label="单号" width="75" sortable="custom"/>
         <el-table-column label="设备" min-width="160">
           <template #default="{row}">
