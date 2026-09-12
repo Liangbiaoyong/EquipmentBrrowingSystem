@@ -626,7 +626,8 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             ov.setLastNotifyTime(LocalDateTime.now());
             overdueMapper.insert(ov);
         } else {
-            ov.setCollectionStatus("NOTIFIED");
+            // 已强制归还的记录不因再次催还而退回 NOTIFIED，否则「已强制归还」计数会莫名减少
+            if (!"COLLECTED".equals(ov.getCollectionStatus())) ov.setCollectionStatus("NOTIFIED");
             ov.setNotifyCount((ov.getNotifyCount() == null ? 0 : ov.getNotifyCount()) + 1);
             ov.setLastNotifyTime(LocalDateTime.now());
             overdueMapper.updateById(ov);

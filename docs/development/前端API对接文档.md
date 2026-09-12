@@ -478,12 +478,32 @@ Content-Type: multipart/form-data
 归还后: 库存+1 / 有damageReport→设备标记维修中 / 逾期自动计算天数
 ```
 
-### 9. 逾期列表
+### 9. 逾期管理
 
 ```
-GET /borrows/overdue?page=1&size=20
+GET /borrows/overdue?page=1&size=20&keyword=&sort=&order=
 权限: return:manage
+说明: 返回「已标记 OVERDUE」+「BORROWING 但已过应归还时间」两类记录。
+      教师仅返回名下设备的逾期记录；学生/管理员不限制。
+      逾期天数按 end_time 实时推导（不足 1 天记 1 天），不依赖存储的 overdue_days 字段；
+      按 overdueDays 排序时会转换为 end_time 反向排序。
+      记录已由服务端填充 deviceName / deviceAssetNo / userName。
+
+GET /borrows/overdue/stats
+权限: return:manage
+响应: { "overdueTotal": 3, "avgDays": 4.2, "notified": 1, "collected": 0 }
+说明: 统计口径与列表完全一致（同样按教师名下设备过滤）。avgDays 保留 1 位小数；
+      notified = 催还中（collection_status=NOTIFIED），collected = 已强制归还（COLLECTED），
+      两者是互斥状态，不会重复计数。
+
+POST /borrows/{id}/overdue-notify     发送催还通知
+PUT  /borrows/{id}/force-return       强制归还（需填 remark 原因）
+GET  /borrows/{id}/overdue-records    逾期处理轨迹
 ```
+
+> **变更说明**：原 `POST /borrows/overdue/refresh` 手动刷新接口已移除，前端「检测逾期」按钮同步删除。
+> 逾期状态在读取时实时推导，无需手动触发；每日 03:00 的 `ScheduledCleanupTask` 仍会落库标记 `OVERDUE`、
+> 同步设备借还状态并通知借用人。
 
 ---
 

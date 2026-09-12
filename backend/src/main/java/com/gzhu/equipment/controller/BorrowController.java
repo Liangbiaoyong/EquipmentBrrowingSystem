@@ -9,6 +9,8 @@ import com.gzhu.equipment.security.JwtUserPrincipal;
 import com.gzhu.equipment.entity.Attachment;
 import com.gzhu.equipment.mapper.AttachmentMapper;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.gzhu.equipment.entity.OverdueRecord;
 import com.gzhu.equipment.entity.ApprovalLog;
 import com.gzhu.equipment.mapper.ApprovalLogMapper;
 import com.gzhu.equipment.mapper.BorrowRecordMapper;
@@ -497,14 +499,10 @@ public class BorrowController {
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String sort,
             @RequestParam(required = false, defaultValue = "desc") String order) {
-        // 查询 OVERDUE 状态 + BORROWING且已过endTime的
-        var w = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>()
-                .and(w2 -> w2.eq(BorrowRecord::getStatus, "OVERDUE")
-                        .or(w3 -> w3.eq(BorrowRecord::getStatus, "BORROWING")
-                                .lt(BorrowRecord::getEndTime, java.time.LocalDateTime.now())));
-        com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(getCurrentUserId());
-        if (current != null && current.getUserType() != null && current.getUserType() == 1) {
-            w.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", current.getRealName());
+        var w = overdueCondition();
+        String custodian = custodianScope();
+        if (custodian != null) {
+            w.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", custodian);
         }
         if (keyword != null && !keyword.trim().isEmpty()) {
             w.and(w2 -> w2.like(BorrowRecord::getPurpose, keyword)
@@ -512,15 +510,16 @@ public class BorrowController {
                     .or().apply("device_id IN (SELECT id FROM device WHERE name LIKE {0})", "%" + keyword + "%")
                     .or().apply("user_id IN (SELECT id FROM sys_user WHERE real_name LIKE {0} OR username LIKE {0})", "%" + keyword + "%"));
         }
-        // 排序
+        // 逾期天数由 end_time 实时推导，天数越大意味着 end_time 越早，故按 end_time 反向排序
         boolean asc = "asc".equalsIgnoreCase(order);
         if ("id".equals(sort)) w.orderBy(true, asc, BorrowRecord::getId);
-        else if ("overdueDays".equals(sort)) w.orderBy(true, asc, BorrowRecord::getOverdueDays);
+        else if ("overdueDays".equals(sort)) w.orderBy(true, !asc, BorrowRecord::getEndTime);
         else if ("startTime".equals(sort)) w.orderBy(true, asc, BorrowRecord::getStartTime);
         else if ("endTime".equals(sort)) w.orderBy(true, asc, BorrowRecord::getEndTime);
-        else { w.orderByDesc(BorrowRecord::getOverdueDays); w.orderByAsc(BorrowRecord::getEndTime); }
+        else w.orderByAsc(BorrowRecord::getEndTime);
         IPage<BorrowRecord> pg = borrowService.page(
                 new com.baomidou.mybatisplus.extension.plugins.pagination.Page<>(page, size), w);
+        fillOverdueExtras(pg.getRecords());
         return R.ok(pg);
     }
 
@@ -559,65 +558,98 @@ public class BorrowController {
                         .orderByDesc(com.gzhu.equipment.entity.OverdueRecord::getCreateTime)));
     }
 
-    @PostMapping("/overdue/refresh")
-    @ApiOperation("手动刷新逾期状态（检查所有到期未还的借用，并同步设备状态）")
-    @PreAuthorize("hasAuthority('return:manage')")
-    public R<Integer> refreshOverdue() {
-        int count = 0;
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        var borrowing = borrowService.list(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>()
-                        .eq(BorrowRecord::getStatus, "BORROWING")
-                        .lt(BorrowRecord::getEndTime, now));
-        for (BorrowRecord br : borrowing) {
-            long days = java.time.Duration.between(br.getEndTime(), now).toDays();
-            br.setStatus("OVERDUE");
-            br.setOverdueDays((int) Math.max(days, 1)); // 至少1天
-            borrowService.updateById(br);
-            // 同步更新设备借还状态为逾期
-            var device = deviceMapper.selectById(br.getDeviceId());
-            if (device != null && device.getBorrowStatus() != null && device.getBorrowStatus() == 2) {
-                device.setBorrowStatus(4); // 逾期
-                deviceMapper.updateById(device);
-            }
-            count++;
-        }
-        log.info("手动逾期刷新: {}条记录", count);
-        return R.ok(count);
-    }
-
     @GetMapping("/overdue/stats")
     @ApiOperation("逾期统计数据")
     @PreAuthorize("hasAuthority('return:manage')")
     public R<java.util.Map<String, Object>> overdueStats() {
-        java.time.LocalDateTime now = java.time.LocalDateTime.now();
-        // 当前逾期总数：OVERDUE + BORROWING已过期的
-        Long overdueTotal = borrowRecordMapper.selectCount(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>()
-                        .and(q -> q.eq(BorrowRecord::getStatus, "OVERDUE")
-                                .or(q2 -> q2.eq(BorrowRecord::getStatus, "BORROWING").lt(BorrowRecord::getEndTime, now))));
-        // 用AVG聚合避免加载全部记录
-        Double avgDays = 0.0;
+        String custodian = custodianScope();
+
+        // 当前逾期总数：判定条件与列表完全一致
+        var totalW = overdueCondition();
+        if (custodian != null) {
+            totalW.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", custodian);
+        }
+        Long overdueTotal = borrowRecordMapper.selectCount(totalW);
+
+        // 平均逾期天数：按 end_time 实时推导，不用可能已过期的 overdue_days 字段
+        double avgDays = 0.0;
         try {
-            var avgResult = borrowRecordMapper.selectMaps(
-                new com.baomidou.mybatisplus.core.conditions.query.QueryWrapper<BorrowRecord>()
-                    .select("COALESCE(AVG(overdue_days), 0) as avg_days")
-                    .and(q -> q.eq("status", "OVERDUE").or(q2 -> q2.eq("status", "BORROWING").lt("end_time", now))));
-            if (!avgResult.isEmpty() && avgResult.get(0) != null) {
-                Object avg = avgResult.get(0).get("avg_days");
-                avgDays = avg instanceof Number ? ((Number) avg).doubleValue() : 0.0;
+            var avgW = new QueryWrapper<BorrowRecord>()
+                    .select("COALESCE(AVG(GREATEST(TIMESTAMPDIFF(DAY, end_time, NOW()), 1)), 0) AS avg_days")
+                    .apply("(status = 'OVERDUE' OR (status = 'BORROWING' AND end_time < NOW()))");
+            if (custodian != null) {
+                avgW.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", custodian);
             }
+            var avgResult = borrowRecordMapper.selectMaps(avgW);
+            Object avg = avgResult.isEmpty() || avgResult.get(0) == null ? null : avgResult.get(0).get("avg_days");
+            if (avg instanceof Number n) avgDays = n.doubleValue();
         } catch (Exception e) { log.warn("平均逾期天数计算失败: {}", e.getMessage()); }
-        var notified = overdueRecordMapper.selectCount(
-                new LambdaQueryWrapper<com.gzhu.equipment.entity.OverdueRecord>().gt(com.gzhu.equipment.entity.OverdueRecord::getNotifyCount, 0));
-        var collected = overdueRecordMapper.selectCount(
-                new LambdaQueryWrapper<com.gzhu.equipment.entity.OverdueRecord>().eq(com.gzhu.equipment.entity.OverdueRecord::getCollectionStatus, "COLLECTED"));
+
+        // 催还中与已强制归还是 collection_status 的两个互斥状态，避免同一记录被两张卡片重复计数
+        var notifiedW = new LambdaQueryWrapper<OverdueRecord>().eq(OverdueRecord::getCollectionStatus, "NOTIFIED");
+        var collectedW = new LambdaQueryWrapper<OverdueRecord>().eq(OverdueRecord::getCollectionStatus, "COLLECTED");
+        if (custodian != null) {
+            notifiedW.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", custodian);
+            collectedW.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", custodian);
+        }
+        Long notified = overdueRecordMapper.selectCount(notifiedW);
+        Long collected = overdueRecordMapper.selectCount(collectedW);
+
         java.util.Map<String, Object> stats = new java.util.LinkedHashMap<>();
         stats.put("overdueTotal", overdueTotal != null ? overdueTotal.intValue() : 0);
-        stats.put("avgDays", Math.round(avgDays));
+        stats.put("avgDays", Math.round(avgDays * 10) / 10.0);
         stats.put("notified", notified);
         stats.put("collected", collected);
         return R.ok(stats);
+    }
+
+    /** 教师（userType=1）仅可见名下设备，其余角色不限制；与 /statistics/overview 口径一致 */
+    private String custodianScope() {
+        com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(getCurrentUserId());
+        if (current == null || current.getUserType() == null || current.getUserType() != 1) return null;
+        return current.getRealName();
+    }
+
+    /** 逾期判定：已标记 OVERDUE，或仍为 BORROWING 但已过应归还时间 */
+    private LambdaQueryWrapper<BorrowRecord> overdueCondition() {
+        java.time.LocalDateTime now = java.time.LocalDateTime.now();
+        return new LambdaQueryWrapper<BorrowRecord>()
+                .and(w -> w.eq(BorrowRecord::getStatus, "OVERDUE")
+                        .or(w2 -> w2.eq(BorrowRecord::getStatus, "BORROWING")
+                                .lt(BorrowRecord::getEndTime, now)));
+    }
+
+    /** 逾期天数按 end_time 实时推导，不足 1 天记 1 天 */
+    private static int deriveOverdueDays(java.time.LocalDateTime endTime) {
+        if (endTime == null) return 0;
+        long days = java.time.Duration.between(endTime, java.time.LocalDateTime.now()).toDays();
+        return (int) Math.max(days, 1);
+    }
+
+    /** 批量填充设备名/资产编号/借用人姓名，并实时推导逾期天数 */
+    private void fillOverdueExtras(List<BorrowRecord> records) {
+        if (records == null || records.isEmpty()) return;
+        java.util.Set<Long> deviceIds = new java.util.HashSet<>();
+        java.util.Set<Long> userIds = new java.util.HashSet<>();
+        for (BorrowRecord r : records) {
+            if (r.getDeviceId() != null) deviceIds.add(r.getDeviceId());
+            if (r.getUserId() != null) userIds.add(r.getUserId());
+            r.setOverdueDays(deriveOverdueDays(r.getEndTime()));
+        }
+        java.util.Map<Long, com.gzhu.equipment.entity.Device> devices = new java.util.HashMap<>();
+        if (!deviceIds.isEmpty()) {
+            for (com.gzhu.equipment.entity.Device d : deviceMapper.selectBatchIds(deviceIds)) devices.put(d.getId(), d);
+        }
+        java.util.Map<Long, com.gzhu.equipment.entity.SysUser> users = new java.util.HashMap<>();
+        if (!userIds.isEmpty()) {
+            for (com.gzhu.equipment.entity.SysUser u : sysUserMapper.selectBatchIds(userIds)) users.put(u.getId(), u);
+        }
+        for (BorrowRecord r : records) {
+            com.gzhu.equipment.entity.Device d = devices.get(r.getDeviceId());
+            if (d != null) { r.setDeviceName(d.getName()); r.setDeviceAssetNo(d.getAssetNo()); }
+            com.gzhu.equipment.entity.SysUser u = users.get(r.getUserId());
+            if (u != null) r.setUserName(u.getRealName() != null ? u.getRealName() : u.getUsername());
+        }
     }
 
     @GetMapping("/{id}/approval-logs")
