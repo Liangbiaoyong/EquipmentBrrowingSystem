@@ -36,6 +36,7 @@ public class FileProxyController {
     private final MinioClient minioClient;
     private final MinioConfig minioConfig;
     private final JwtTokenProvider jwtTokenProvider;
+    private final com.gzhu.equipment.mapper.SysUserMapper sysUserMapper;
 
     @GetMapping("/files/**")
     @ApiOperation("访问 MinIO 文件（图片等）")
@@ -52,6 +53,11 @@ public class FileProxyController {
         if (!objectPath.startsWith("device-images/")) {
             String token = resolveToken(request);
             if (token == null || !jwtTokenProvider.validateToken(token)) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+            }
+            // 与 JwtAuthenticationFilter 保持一致：用户被删除/停用后，旧 token 也不能再取文件
+            com.gzhu.equipment.entity.SysUser u = sysUserMapper.selectById(jwtTokenProvider.getUserId(token));
+            if (u == null || (u.getStatus() != null && u.getStatus() != 1)) {
                 return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
             }
         }
@@ -78,7 +84,7 @@ public class FileProxyController {
             if (objectPath.startsWith("device-images/")) {
                 headers.setCacheControl("public, max-age=31536000, immutable");
             } else {
-                headers.setCacheControl("private, max-age=86400");
+                headers.setCacheControl("private, max-age=3600");
             }
 
             return ResponseEntity.ok().headers(headers).body(bytes);
