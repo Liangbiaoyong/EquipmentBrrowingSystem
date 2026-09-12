@@ -81,7 +81,7 @@ async function previewPhotos(row){
   try{
     const{data}=await axios.get(`/borrows/${row.id}/images`)
     photoDlg.damageReport=row.damageReport||''
-    photoDlg.images=(data.returnImages||[]).map(url=>`/api/v1/files/${encodeURIComponent(url)}`)
+    photoDlg.images=(data.returnImages||[]).map(url=>`/api/v1/files/${encodeURIComponent(url)}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`)
     photoDlg.visible=true
   }catch{ElMessage.error('加载照片失败')}
 }

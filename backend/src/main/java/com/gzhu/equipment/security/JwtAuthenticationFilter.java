@@ -28,7 +28,7 @@ import java.util.stream.Collectors;
  * 3. 从token解析用户ID、用户名、角色
  * 4. 构造 Authentication 对象存入 SecurityContext
  *
- * 注意：此过滤器不查数据库，所有用户信息均来自JWT payload（无状态设计）
+ * 注意：此过滤器以数据库为准校验用户状态与角色，角色变更/停用对旧 token 立即生效
  */
 @Slf4j
 @Component
@@ -42,6 +42,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Autowired
     private TokenBlacklist tokenBlacklist;
+
+    @Autowired
+    private com.gzhu.equipment.mapper.SysUserMapper sysUserMapper;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -57,12 +60,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String username = jwtTokenProvider.getUsername(token);
                 List<String> roles = jwtTokenProvider.getRoles(token);
 
+                // 以数据库为准重新校验用户状态与角色，避免改角色/停用后旧 token 仍保留权限
+                com.gzhu.equipment.entity.SysUser dbUser = sysUserMapper.selectById(userId);
+                if (dbUser == null || (dbUser.getStatus() != null && dbUser.getStatus() != 1)) {
+                    log.warn("JWT用户已不存在或已停用: userId={}", userId);
+                    SecurityContextHolder.clearContext();
+                    filterChain.doFilter(request, response);
+                    return;
+                }
+                Integer userType = dbUser.getUserType();   // 数据库为准，角色变更立即生效
+
                 // ROLE_ 前缀的权限（兼容 hasRole）
                 List<SimpleGrantedAuthority> authorities = roles != null
                         ? roles.stream().map(SimpleGrantedAuthority::new).collect(Collectors.toList())
                         : new java.util.ArrayList<>();
                 // module:action 细粒度权限（用于 hasAuthority）
-                Integer userType = jwtTokenProvider.getUserType(token);
                 PermissionConstants.getPermissionsByUserType(userType).stream()
                         .map(SimpleGrantedAuthority::new)
                         .forEach(authorities::add);
@@ -70,7 +82,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // 使用 JwtUserPrincipal 作为 principal，符合 Spring Security 惯例
                 // credentials 不存储原始 JWT，避免日志/调试时泄露
                 JwtUserPrincipal principal = new JwtUserPrincipal(
-                        userId, username, jwtTokenProvider.getUserType(token), roles, authorities);
+                        userId, username, userType, roles, authorities);
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(principal, null, authorities);

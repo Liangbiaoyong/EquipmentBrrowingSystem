@@ -13,6 +13,7 @@ import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -155,6 +156,7 @@ public class AuthController {
      */
     @GetMapping("/approvers")
     @ApiOperation("可选审批人列表（教师+管理员，所有登录用户可用）")
+    @PreAuthorize("hasAnyAuthority('borrow:create','borrow:my','approval:first','approval:second','admin:user')")
     public R<java.util.List<com.gzhu.equipment.entity.SysUser>> listApprovers() {
         var users = sysUserMapper.selectList(
                 new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<com.gzhu.equipment.entity.SysUser>()

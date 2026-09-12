@@ -237,7 +237,7 @@ const pickupFile=ref(null)
 const returnDlg=reactive({visible:false,row:null,photos:[],damageReport:'',loading:false})
 
 // MinIO图片URL（通过后端代理或直接访问）
-function imgUrl(path){ return path ? `/api/v1/files/${encodeURIComponent(path)}` : '' }
+function imgUrl(path){ return path ? `/api/v1/files/${encodeURIComponent(path)}?token=${encodeURIComponent(localStorage.getItem('token') || '')}` : '' }
 
 // 状态映射
 const stTags={PENDING_APPROVAL:'warning',APPROVED:'success',BORROWING:'',RETURN_PENDING:'warning',RETURNED:'info',REJECTED:'danger',CANCELLED:'info',OVERDUE:'danger'}

@@ -3,6 +3,7 @@ package com.gzhu.equipment.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gzhu.equipment.entity.CategoryMapping;
 import com.gzhu.equipment.entity.DeviceCategory;
+import com.gzhu.equipment.mapper.SysUserMapper;
 import com.gzhu.equipment.security.JwtTokenProvider;
 import com.gzhu.equipment.security.LoginRateLimiter;
 import com.gzhu.equipment.security.TokenBlacklist;
@@ -51,6 +52,9 @@ class CategoryControllerTest {
 
     @MockBean
     private TokenBlacklist tokenBlacklist;
+
+    @MockBean
+    private SysUserMapper sysUserMapper;
 
     @Test
     @DisplayName("GET /categories → 返回分类列表")

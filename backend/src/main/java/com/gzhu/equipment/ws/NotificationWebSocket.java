@@ -1,12 +1,15 @@
 package com.gzhu.equipment.ws;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.gzhu.equipment.security.JwtTokenProvider;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import javax.websocket.*;
 import javax.websocket.server.ServerEndpoint;
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArraySet;
@@ -14,13 +17,13 @@ import java.util.concurrent.CopyOnWriteArraySet;
 /**
  * WebSocket 实时通知推送
  *
- * 连接方式：ws://localhost:8080/api/v1/ws/notification?userId=1
+ * 连接方式：ws://localhost:8080/api/v1/ws/notification?token=&lt;JWT&gt;
  *
  * 服务端推送 JSON：{"type":"APPROVAL","title":"借用申请已通过","content":"..."}
  */
 @Slf4j
 @Component
-@ServerEndpoint("/ws/notification/{userId}")
+@ServerEndpoint("/ws/notification")
 public class NotificationWebSocket {
 
     private static final CopyOnWriteArraySet<NotificationWebSocket> connections = new CopyOnWriteArraySet<>();
@@ -28,12 +31,31 @@ public class NotificationWebSocket {
     private Session session;
     private Long userId;
 
+    private static JwtTokenProvider jwtTokenProvider;
+
+    @Autowired
+    public void setJwtTokenProvider(JwtTokenProvider provider) {
+        NotificationWebSocket.jwtTokenProvider = provider;
+    }
+
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
     @OnOpen
-    public void onOpen(Session session, @javax.websocket.server.PathParam("userId") Long userId) {
+    public void onOpen(Session session) {
+        String token = null;
+        Map<String, List<String>> params = session.getRequestParameterMap();
+        if (params != null && params.get("token") != null && !params.get("token").isEmpty()) {
+            token = params.get("token").get(0);
+        }
+        if (token == null || token.isEmpty() || jwtTokenProvider == null || !jwtTokenProvider.validateToken(token)) {
+            log.warn("WebSocket连接被拒绝: 缺少或无效的token");
+            try {
+                session.close(new CloseReason(CloseReason.CloseCodes.VIOLATED_POLICY, "unauthorized"));
+            } catch (IOException ignored) { }
+            return;
+        }
         this.session = session;
-        this.userId = userId;
+        this.userId = jwtTokenProvider.getUserId(token);
         connections.add(this);
         userSessions.put(userId, session);
         log.info("WebSocket连接: userId={}", userId);

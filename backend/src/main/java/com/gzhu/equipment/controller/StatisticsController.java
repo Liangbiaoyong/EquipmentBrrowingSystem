@@ -553,6 +553,16 @@ public class StatisticsController {
         return R.ok(result);
     }
 
+    /** 校验日期参数（yyyy-MM-dd），非法输入抛出 IllegalArgumentException，由全局异常处理转为 400 */
+    private String validateDateParam(String date, String paramName) {
+        if (date == null || date.isEmpty()) return date;
+        try {
+            return LocalDate.parse(date).toString();
+        } catch (Exception e) {
+            throw new IllegalArgumentException(paramName + " 格式不正确，应为 yyyy-MM-dd，当前值: " + date);
+        }
+    }
+
     @GetMapping("/outcomes/stats")
     @ApiOperation("成果产出统计（概述+分布+趋势，scope: auto|personal|global）")
     @PreAuthorize("hasAuthority('statistics:view')")
@@ -567,15 +577,20 @@ public class StatisticsController {
         String custodian = getCustodianForScope(scope);
         String scopeSql = (custodian != null) ? " AND o.device_id IN (SELECT id FROM device WHERE custodian = '" + custodian.replace("'","''") + "')" : "";
 
+        // 校验日期参数，非法输入直接报错（与 /trend 处理保持一致）
+        startDate = validateDateParam(startDate, "startDate");
+        endDate = validateDateParam(endDate, "endDate");
+
         // 成果总数（从 borrow_outcome 表统计，数据更可靠）
         Long outcomeTotal;
         try {
-            var sb = new StringBuilder("SELECT COUNT(*) FROM borrow_outcome o WHERE 1=1");
-            sb.append(scopeSql);
-            if (deviceId != null) sb.append(" AND o.device_id = ").append(deviceId);
-            if (startDate != null) sb.append(" AND o.create_time >= '").append(startDate).append(" 00:00:00'");
-            if (endDate != null) sb.append(" AND o.create_time <= '").append(endDate).append(" 23:59:59'");
-            outcomeTotal = jdbcTemplate.queryForObject(sb.toString(), Long.class);
+            var sql = new StringBuilder("SELECT COUNT(*) FROM borrow_outcome o WHERE 1=1");
+            var args = new ArrayList<Object>();
+            sql.append(scopeSql);
+            if (deviceId != null) { sql.append(" AND o.device_id = ?"); args.add(deviceId); }
+            if (startDate != null) { sql.append(" AND o.create_time >= ?"); args.add(startDate + " 00:00:00"); }
+            if (endDate != null) { sql.append(" AND o.create_time <= ?"); args.add(endDate + " 23:59:59"); }
+            outcomeTotal = jdbcTemplate.queryForObject(sql.toString(), Long.class, args.toArray());
         } catch (Exception e) {
             var fw = new LambdaQueryWrapper<BorrowRecord>().isNotNull(BorrowRecord::getOutcome).ne(BorrowRecord::getOutcome, "");
             if (deviceId != null) fw.eq(BorrowRecord::getDeviceId, deviceId);
@@ -602,13 +617,14 @@ public class StatisticsController {
 
         // 按设备统计 TOP10（从 borrow_outcome 表）
         try {
-            var sb = new StringBuilder("SELECT d.name AS name, COUNT(*) AS value FROM borrow_outcome o LEFT JOIN device d ON o.device_id = d.id WHERE 1=1");
-            sb.append(scopeSql);
-            if (deviceId != null) sb.append(" AND o.device_id = ").append(deviceId);
-            if (startDate != null) sb.append(" AND o.create_time >= '").append(startDate).append(" 00:00:00'");
-            if (endDate != null) sb.append(" AND o.create_time <= '").append(endDate).append(" 23:59:59'");
-            sb.append(" GROUP BY d.name ORDER BY value DESC LIMIT 10");
-            result.put("deviceTop10", jdbcTemplate.queryForList(sb.toString()));
+            var sql = new StringBuilder("SELECT d.name AS name, COUNT(*) AS value FROM borrow_outcome o LEFT JOIN device d ON o.device_id = d.id WHERE 1=1");
+            var args = new ArrayList<Object>();
+            sql.append(scopeSql);
+            if (deviceId != null) { sql.append(" AND o.device_id = ?"); args.add(deviceId); }
+            if (startDate != null) { sql.append(" AND o.create_time >= ?"); args.add(startDate + " 00:00:00"); }
+            if (endDate != null) { sql.append(" AND o.create_time <= ?"); args.add(endDate + " 23:59:59"); }
+            sql.append(" GROUP BY d.name ORDER BY value DESC LIMIT 10");
+            result.put("deviceTop10", jdbcTemplate.queryForList(sql.toString(), args.toArray()));
         } catch (Exception e) {
             log.warn("成果设备TOP10查询失败: {}", e.getMessage());
             result.put("deviceTop10", java.util.Collections.emptyList());
@@ -616,13 +632,14 @@ public class StatisticsController {
 
         // 按月趋势（从 borrow_outcome 表）
         try {
-            var sb = new StringBuilder("SELECT DATE_FORMAT(o.create_time,'%Y-%m') AS name, COUNT(*) AS value FROM borrow_outcome o WHERE 1=1");
-            sb.append(scopeSql);
-            if (deviceId != null) sb.append(" AND o.device_id = ").append(deviceId);
-            if (startDate != null) sb.append(" AND o.create_time >= '").append(startDate).append(" 00:00:00'");
-            if (endDate != null) sb.append(" AND o.create_time <= '").append(endDate).append(" 23:59:59'");
-            sb.append(" GROUP BY DATE_FORMAT(o.create_time,'%Y-%m') ORDER BY name LIMIT 12");
-            result.put("monthTrend", jdbcTemplate.queryForList(sb.toString()));
+            var sql = new StringBuilder("SELECT DATE_FORMAT(o.create_time,'%Y-%m') AS name, COUNT(*) AS value FROM borrow_outcome o WHERE 1=1");
+            var args = new ArrayList<Object>();
+            sql.append(scopeSql);
+            if (deviceId != null) { sql.append(" AND o.device_id = ?"); args.add(deviceId); }
+            if (startDate != null) { sql.append(" AND o.create_time >= ?"); args.add(startDate + " 00:00:00"); }
+            if (endDate != null) { sql.append(" AND o.create_time <= ?"); args.add(endDate + " 23:59:59"); }
+            sql.append(" GROUP BY DATE_FORMAT(o.create_time,'%Y-%m') ORDER BY name LIMIT 12");
+            result.put("monthTrend", jdbcTemplate.queryForList(sql.toString(), args.toArray()));
         } catch (Exception e) {
             log.warn("成果月度趋势查询失败: {}", e.getMessage());
             result.put("monthTrend", java.util.Collections.emptyList());

@@ -151,7 +151,7 @@ const menuItems = computed(() =>
 function connectWs() {
   if (!userStore.userInfo) return
   const proto = location.protocol === 'https:' ? 'wss' : 'ws'
-  ws = new WebSocket(`${proto}://${location.host}/api/v1/ws/notification/${userStore.userInfo.id}`)
+  ws = new WebSocket(`${proto}://${location.host}/api/v1/ws/notification?token=${encodeURIComponent(localStorage.getItem('token') || '')}`)
   ws.onmessage = () => { unread.value++; setTimeout(fetchUnread, 1000) }
   ws.onclose = () => setTimeout(connectWs, 10000)
 }

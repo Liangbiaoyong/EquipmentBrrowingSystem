@@ -5,6 +5,7 @@ import com.gzhu.equipment.entity.Device;
 import com.gzhu.equipment.entity.DeviceImage;
 import com.gzhu.equipment.mapper.DeviceImageMapper;
 import com.gzhu.equipment.mapper.DeviceMapper;
+import com.gzhu.equipment.mapper.SysUserMapper;
 import com.gzhu.equipment.security.JwtTokenProvider;
 import com.gzhu.equipment.security.LoginRateLimiter;
 import com.gzhu.equipment.security.TokenBlacklist;
@@ -57,6 +58,9 @@ class DeviceImageControllerTest {
 
     @MockBean
     private TokenBlacklist tokenBlacklist;
+
+    @MockBean
+    private SysUserMapper sysUserMapper;
 
     @Test
     @DisplayName("GET /devices/1/images → 设备图片列表")

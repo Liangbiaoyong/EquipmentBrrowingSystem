@@ -3,6 +3,7 @@ package com.gzhu.equipment.controller;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.gzhu.equipment.entity.Device;
 import com.gzhu.equipment.entity.RepairRecord;
+import com.gzhu.equipment.mapper.SysUserMapper;
 import com.gzhu.equipment.security.JwtTokenProvider;
 import com.gzhu.equipment.security.LoginRateLimiter;
 import com.gzhu.equipment.security.TokenBlacklist;
@@ -46,6 +47,9 @@ class RepairControllerTest {
 
     @MockBean
     private TokenBlacklist tokenBlacklist;
+
+    @MockBean
+    private SysUserMapper sysUserMapper;
 
     @BeforeEach
     void setUp() {

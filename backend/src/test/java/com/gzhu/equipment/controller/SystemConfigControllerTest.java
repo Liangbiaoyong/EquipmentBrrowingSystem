@@ -1,5 +1,6 @@
 package com.gzhu.equipment.controller;
 
+import com.gzhu.equipment.mapper.SysUserMapper;
 import com.gzhu.equipment.security.JwtTokenProvider;
 import com.gzhu.equipment.security.LoginRateLimiter;
 import com.gzhu.equipment.security.TokenBlacklist;
@@ -48,6 +49,9 @@ class SystemConfigControllerTest {
 
     @MockBean
     private TokenBlacklist tokenBlacklist;
+
+    @MockBean
+    private SysUserMapper sysUserMapper;
 
     @BeforeEach
     void setUp() {

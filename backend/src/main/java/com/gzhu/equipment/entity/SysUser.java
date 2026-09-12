@@ -1,6 +1,7 @@
 package com.gzhu.equipment.entity;
 
 import com.baomidou.mybatisplus.annotation.*;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -52,7 +53,11 @@ public class SysUser implements Serializable {
     /** 手机号 */
     private String phone;
 
-    /** BCrypt加密密码（仅本地用户 auth_source=L） */
+    /**
+     * BCrypt加密密码（仅本地用户 auth_source=L）
+     * 仅限服务端读写，禁止序列化到任何API响应/日志
+     */
+    @JsonIgnore
     private String password;
 
     /**

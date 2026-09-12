@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.gzhu.equipment.entity.Laboratory;
 import com.gzhu.equipment.entity.LaboratoryRoom;
 import com.gzhu.equipment.mapper.LaboratoryRoomMapper;
+import com.gzhu.equipment.mapper.SysUserMapper;
 import com.gzhu.equipment.security.JwtTokenProvider;
 import com.gzhu.equipment.security.LoginRateLimiter;
 import com.gzhu.equipment.security.TokenBlacklist;
@@ -55,6 +56,9 @@ class LaboratoryControllerTest {
 
     @MockBean
     private TokenBlacklist tokenBlacklist;
+
+    @MockBean
+    private SysUserMapper sysUserMapper;
 
     @BeforeEach
     void setUp() {

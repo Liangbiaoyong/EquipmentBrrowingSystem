@@ -25,6 +25,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -88,6 +89,9 @@ class BorrowControllerTest {
 
     @MockBean
     private SysUserMapper sysUserMapper;
+
+    @MockBean
+    private JdbcTemplate jdbcTemplate;
 
     @BeforeEach
     void setUp() {
@@ -188,11 +192,29 @@ class BorrowControllerTest {
     void getDetail_shouldReturnRecord() throws Exception {
         BorrowRecord record = new BorrowRecord();
         record.setId(1L);
+        record.setUserId(1L);   // 属于当前登录用户（setUp 中 userId=1），归属校验才放行
         when(borrowService.getDetail(1L)).thenReturn(record);
 
         mockMvc.perform(get("/borrows/1"))
                 .andDo(print())
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
+    }
+
+    @Test
+    @DisplayName("GET /borrows/{id} → 他人的借用单且无管理权限 → 拒绝访问")
+    void getDetail_notOwner_shouldBeDenied() throws Exception {
+        BorrowRecord record = new BorrowRecord();
+        record.setId(2L);
+        record.setUserId(999L);   // 属于他人
+        when(borrowService.getDetail(2L)).thenReturn(record);
+        com.gzhu.equipment.entity.SysUser me = new com.gzhu.equipment.entity.SysUser();
+        me.setId(1L);
+        me.setUserType(0);        // 当前登录用户是学生
+        when(sysUserMapper.selectById(1L)).thenReturn(me);
+
+        mockMvc.perform(get("/borrows/2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400));
     }
 }

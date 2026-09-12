@@ -116,6 +116,7 @@ public class BorrowController {
     public R<BorrowRecord> getDetail(@PathVariable Long id) {
         BorrowRecord record = borrowService.getDetail(id);
         if (record == null) return R.fail(404, "借用单不存在");
+        assertCanAccess(record);
         // 填充设备名称/资产编号
         var device = deviceMapper.selectById(record.getDeviceId());
         if (device != null) { record.setDeviceName(device.getName()); record.setDeviceAssetNo(device.getAssetNo()); }
@@ -184,9 +185,9 @@ public class BorrowController {
     public R<java.util.Map<String, Object>> getImages(@PathVariable Long id) {
         java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
         BorrowRecord record = borrowService.getById(id);
-        if (record != null) {
-            result.put("pickupImage", record.getPickupImage());
-        }
+        if (record == null) return R.fail(404, "借用单不存在");
+        assertCanAccess(record);
+        result.put("pickupImage", record.getPickupImage());
         // 从附件表查询
         var borrowImgs = attachmentMapper.selectList(
             new LambdaQueryWrapper<Attachment>().eq(Attachment::getBizId, id).eq(Attachment::getBizType, "BORROW_IMG"));
@@ -206,6 +207,7 @@ public class BorrowController {
                                          @RequestParam(value = "file", required = false) MultipartFile file) {
         BorrowRecord record = borrowService.getById(id);
         if (record == null) return R.fail(404, "借用单不存在");
+        assertCanAccess(record);
         if (!"APPROVED".equals(record.getStatus()) && !"BORROWING".equals(record.getStatus()))
             return R.fail("仅已通过或借用中的单据可登记取走");
 
@@ -242,6 +244,7 @@ public class BorrowController {
                                         @RequestParam(defaultValue = "BORROW") String bizType) {
         BorrowRecord record = borrowService.getById(id);
         if (record == null) return R.fail(404, "借用单不存在");
+        assertCanAccess(record);
 
         try {
             String objectPath = minioFileService.uploadImage(file, bizType);
@@ -365,9 +368,12 @@ public class BorrowController {
             @RequestParam(required = false) String sort,
             @RequestParam(required = false, defaultValue = "desc") String order) {
         var w = new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BorrowRecord>();
-        com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(getCurrentUserId());
+        Long currentUserId = getCurrentUserId();
+        com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(currentUserId);
         if (current != null && current.getUserType() != null && current.getUserType() == 1) {
             w.apply("device_id IN (SELECT id FROM device WHERE custodian = {0})", current.getRealName());
+        } else if (current == null || current.getUserType() == null || current.getUserType() == 0) {
+            w.eq(BorrowRecord::getUserId, currentUserId);
         }
         if (status != null && !status.isEmpty()) w.eq(BorrowRecord::getStatus, status);
         if (keyword != null && !keyword.isEmpty())
@@ -412,10 +418,15 @@ public class BorrowController {
                 + "LEFT JOIN sys_user u ON borrow_record.user_id = u.id");
         java.util.List<Object> params = new java.util.ArrayList<>();
         boolean hasWhere = false;
-        com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(getCurrentUserId());
+        Long currentUserId = getCurrentUserId();
+        com.gzhu.equipment.entity.SysUser current = sysUserMapper.selectById(currentUserId);
         if (current != null && current.getUserType() != null && current.getUserType() == 1) {
             sql.append(" WHERE borrow_record.device_id IN (SELECT id FROM device WHERE custodian = ?)");
             params.add(current.getRealName());
+            hasWhere = true;
+        } else if (current == null || current.getUserType() == null || current.getUserType() == 0) {
+            sql.append(" WHERE borrow_record.user_id = ?");
+            params.add(currentUserId);
             hasWhere = true;
         }
         if (status != null && !status.isEmpty()) {
@@ -452,20 +463,20 @@ public class BorrowController {
         osw.write("单号,设备,资产编号,使用人,借用人,目的,事由,目的分类,计划开始,计划归还,实际借出,实际归还,提交归还申请,状态,逾期天数,初审人,初审时间,终审人,终审时间,损坏报告,创建时间\n");
         for (var r : rows) {
             osw.write((r.get("id")!=null?String.valueOf(r.get("id")):"")+",");
-            osw.write(esc((String)r.get("deviceName"))+",");osw.write(esc((String)r.get("deviceAssetNo"))+",");
-            osw.write(esc((String)r.get("custodian"))+",");osw.write(esc((String)r.get("userName"))+",");
-            osw.write(esc((String)r.get("purpose"))+",");osw.write(esc((String)r.get("reason"))+",");
-            osw.write(esc((String)r.get("purposeCategory"))+",");
+            osw.write(csvCell((String)r.get("deviceName"))+",");osw.write(csvCell((String)r.get("deviceAssetNo"))+",");
+            osw.write(csvCell((String)r.get("custodian"))+",");osw.write(csvCell((String)r.get("userName"))+",");
+            osw.write(csvCell((String)r.get("purpose"))+",");osw.write(csvCell((String)r.get("reason"))+",");
+            osw.write(csvCell((String)r.get("purposeCategory"))+",");
             osw.write((r.get("startTime")!=null?String.valueOf(r.get("startTime")):"")+",");
             osw.write((r.get("endTime")!=null?String.valueOf(r.get("endTime")):"")+",");
             osw.write((r.get("pickupTime")!=null?String.valueOf(r.get("pickupTime")):"")+",");
             osw.write((r.get("realReturnTime")!=null?String.valueOf(r.get("realReturnTime")):"")+",");
             osw.write((r.get("returnRequestTime")!=null?String.valueOf(r.get("returnRequestTime")):"")+",");
-            osw.write(esc((String)r.get("status"))+",");
+            osw.write(csvCell((String)r.get("status"))+",");
             osw.write((r.get("overdueDays")!=null?String.valueOf(r.get("overdueDays")):"")+",");
-            osw.write(esc((String)r.get("approver1Name"))+",");osw.write((r.get("approver1Time")!=null?String.valueOf(r.get("approver1Time")):"")+",");
-            osw.write(esc((String)r.get("approver2Name"))+",");osw.write((r.get("approver2Time")!=null?String.valueOf(r.get("approver2Time")):"")+",");
-            osw.write(esc((String)r.get("damageReport"))+",");
+            osw.write(csvCell((String)r.get("approver1Name"))+",");osw.write((r.get("approver1Time")!=null?String.valueOf(r.get("approver1Time")):"")+",");
+            osw.write(csvCell((String)r.get("approver2Name"))+",");osw.write((r.get("approver2Time")!=null?String.valueOf(r.get("approver2Time")):"")+",");
+            osw.write(csvCell((String)r.get("damageReport"))+",");
             osw.write((r.get("createTime")!=null?String.valueOf(r.get("createTime")):"")+"\n");
         }
         osw.flush();osw.close();
@@ -487,6 +498,15 @@ public class BorrowController {
     }
 
     private String esc(String s) { if (s==null||s.isEmpty()) return ""; if (s.contains(",")||s.contains("\"")) return "\""+s.replace("\"","\"\"")+"\""; return s; }
+
+    /** CSV 单元格：中和公式注入（Excel 会把 = + - @ 开头的内容当公式执行） */
+    private String csvCell(String s) {
+        if (s == null || s.isEmpty()) return "";
+        String t = esc(s);
+        char c = t.charAt(0);
+        if (c == '=' || c == '+' || c == '-' || c == '@' || c == '\t' || c == '\r') t = "'" + t;
+        return t;
+    }
 
     // ==================== V6 逾期管理 ====================
 
@@ -551,7 +571,11 @@ public class BorrowController {
 
     @GetMapping("/{id}/overdue-records")
     @ApiOperation("查看逾期记录追踪")
+    @PreAuthorize("hasAuthority('borrow:view')")
     public R<List<com.gzhu.equipment.entity.OverdueRecord>> getOverdueRecords(@PathVariable Long id) {
+        BorrowRecord record = borrowService.getById(id);
+        if (record == null) return R.fail(404, "借用单不存在");
+        assertCanAccess(record);
         return R.ok(overdueRecordMapper.selectList(
                 new LambdaQueryWrapper<com.gzhu.equipment.entity.OverdueRecord>()
                         .eq(com.gzhu.equipment.entity.OverdueRecord::getBorrowId, id)
@@ -654,7 +678,11 @@ public class BorrowController {
 
     @GetMapping("/{id}/approval-logs")
     @ApiOperation("审批记录列表（含审批人姓名）")
+    @PreAuthorize("hasAuthority('borrow:view')")
     public R<List<Map<String,Object>>> approvalLogs(@PathVariable Long id) {
+        BorrowRecord record = borrowService.getById(id);
+        if (record == null) return R.fail(404, "借用单不存在");
+        assertCanAccess(record);
         List<ApprovalLog> logs = approvalLogMapper.selectList(
                 new LambdaQueryWrapper<ApprovalLog>().eq(ApprovalLog::getBorrowId, id).orderByAsc(ApprovalLog::getStep));
         java.util.Set<Long> ids = new java.util.HashSet<>();
@@ -699,6 +727,7 @@ public class BorrowController {
     public R<String> recordOutcome(@PathVariable Long id, @RequestParam String outcome) {
         BorrowRecord record = borrowService.getDetail(id);
         if (record == null) return R.fail(404, "借用单不存在");
+        assertCanAccess(record);
         record.setOutcome(outcome);
         record.setOutcomeRecordedBy(getCurrentUserId());
         record.setOutcomeRecordedTime(java.time.LocalDateTime.now());
@@ -737,6 +766,7 @@ public class BorrowController {
              @RequestBody com.gzhu.equipment.entity.BorrowOutcome outcome) {
         BorrowRecord record = borrowService.getDetail(id);
         if (record == null) return R.fail(404, "借用单不存在");
+        assertCanAccess(record);
         outcome.setBorrowId(id);
         outcome.setDeviceId(record.getDeviceId());
         outcome.setRecordedBy(getCurrentUserId());
@@ -752,7 +782,11 @@ public class BorrowController {
 
     @GetMapping("/{id}/outcomes")
     @ApiOperation("查看借用单的成果列表")
+    @PreAuthorize("hasAuthority('borrow:view')")
     public R<java.util.List<com.gzhu.equipment.entity.BorrowOutcome>> listOutcomes(@PathVariable Long id) {
+        BorrowRecord record = borrowService.getById(id);
+        if (record == null) return R.fail(404, "借用单不存在");
+        assertCanAccess(record);
         return R.ok(outcomeMapper.selectList(
                 new LambdaQueryWrapper<com.gzhu.equipment.entity.BorrowOutcome>().eq(com.gzhu.equipment.entity.BorrowOutcome::getBorrowId, id)));
     }
@@ -841,6 +875,22 @@ public class BorrowController {
             enriched.add(m);
         }
         return enriched;
+    }
+
+    /** 借阅记录可见性：本人 / 实验室管理员 / 系统管理员 / 名下设备的教师 */
+    private void assertCanAccess(BorrowRecord record) {
+        if (record == null) throw new IllegalArgumentException("借用单不存在");
+        Long uid = getCurrentUserId();
+        if (uid.equals(record.getUserId())) return;
+        com.gzhu.equipment.entity.SysUser me = sysUserMapper.selectById(uid);
+        if (me == null) throw new IllegalArgumentException("用户不存在");
+        Integer t = me.getUserType();
+        if (t != null && (t == 2 || t == 3)) return;              // 实验室管理员 / 系统管理员
+        if (t != null && t == 1) {                                 // 教师：仅名下设备
+            com.gzhu.equipment.entity.Device d = deviceMapper.selectById(record.getDeviceId());
+            if (d != null && me.getRealName() != null && me.getRealName().equals(d.getCustodian())) return;
+        }
+        throw new IllegalArgumentException("无权访问该借用单");
     }
 
     private Long getCurrentUserId() {

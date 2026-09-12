@@ -1,6 +1,7 @@
 package com.gzhu.equipment.controller;
 
 import com.gzhu.equipment.config.MinioConfig;
+import com.gzhu.equipment.security.JwtTokenProvider;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.swagger.annotations.Api;
@@ -34,6 +35,7 @@ public class FileProxyController {
 
     private final MinioClient minioClient;
     private final MinioConfig minioConfig;
+    private final JwtTokenProvider jwtTokenProvider;
 
     @GetMapping("/files/**")
     @ApiOperation("访问 MinIO 文件（图片等）")
@@ -44,6 +46,14 @@ public class FileProxyController {
 
         if (objectPath.isEmpty()) {
             return ResponseEntity.notFound().build();
+        }
+
+        // 设备图片对外公开；借用/归还照片等需要有效 JWT
+        if (!objectPath.startsWith("device-images/")) {
+            String token = resolveToken(request);
+            if (token == null || !jwtTokenProvider.validateToken(token)) {
+                return ResponseEntity.status(org.springframework.http.HttpStatus.UNAUTHORIZED).build();
+            }
         }
 
         try (InputStream stream = minioClient.getObject(GetObjectArgs.builder()
@@ -68,7 +78,7 @@ public class FileProxyController {
             if (objectPath.startsWith("device-images/")) {
                 headers.setCacheControl("public, max-age=31536000, immutable");
             } else {
-                headers.setCacheControl("public, max-age=86400");
+                headers.setCacheControl("private, max-age=86400");
             }
 
             return ResponseEntity.ok().headers(headers).body(bytes);
@@ -76,5 +86,13 @@ public class FileProxyController {
             log.warn("MinIO文件读取失败: path={} msg={}", objectPath, e.getMessage());
             return ResponseEntity.notFound().build();
         }
+    }
+
+    /** 优先取 Authorization 头，其次取 ?token= 查询参数（<img> 无法设置请求头） */
+    private String resolveToken(HttpServletRequest request) {
+        String auth = request.getHeader("Authorization");
+        if (auth != null && auth.startsWith("Bearer ")) return auth.substring(7);
+        String q = request.getParameter("token");
+        return (q != null && !q.isEmpty()) ? q : null;
     }
 }

@@ -1,5 +1,6 @@
 package com.gzhu.equipment.controller;
 
+import com.gzhu.equipment.mapper.SysUserMapper;
 import com.gzhu.equipment.security.JwtTokenProvider;
 import com.gzhu.equipment.security.LoginRateLimiter;
 import com.gzhu.equipment.security.TokenBlacklist;
@@ -25,6 +26,7 @@ class BackupControllerTest {
     @MockBean private JwtTokenProvider jwtTokenProvider;
     @MockBean private LoginRateLimiter loginRateLimiter;
     @MockBean private TokenBlacklist tokenBlacklist;
+    @MockBean private SysUserMapper sysUserMapper;
 
     @Test @DisplayName("GET /admin/backup/status → 返回备份就绪")
     void status_shouldReturnOk() throws Exception {
