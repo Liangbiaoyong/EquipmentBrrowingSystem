@@ -236,8 +236,10 @@ const pickupFile=ref(null)
 // 归还申请对话框
 const returnDlg=reactive({visible:false,row:null,photos:[],damageReport:'',loading:false})
 
+// 逐段编码，保留 '/' 分隔符——整段 encodeURIComponent 会把 '/' 变成 %2F，导致 MinIO 查不到对象
+function encPath(p){ return String(p||'').split('/').map(encodeURIComponent).join('/') }
 // MinIO图片URL（通过后端代理或直接访问）
-function imgUrl(path){ return path ? `/api/v1/files/${encodeURIComponent(path)}?token=${encodeURIComponent(localStorage.getItem('token') || '')}` : '' }
+function imgUrl(path){ return path ? `/api/v1/files/${encPath(path)}?token=${encodeURIComponent(localStorage.getItem('token') || '')}` : '' }
 
 // 状态映射
 const stTags={PENDING_APPROVAL:'warning',APPROVED:'success',BORROWING:'',RETURN_PENDING:'warning',RETURNED:'info',REJECTED:'danger',CANCELLED:'info',OVERDUE:'danger'}

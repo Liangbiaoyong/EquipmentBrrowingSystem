@@ -115,8 +115,7 @@ public class BorrowController {
     @PreAuthorize("hasAuthority('borrow:view')")
     public R<BorrowRecord> getDetail(@PathVariable Long id) {
         BorrowRecord record = borrowService.getDetail(id);
-        if (record == null) return R.fail(404, "借用单不存在");
-        assertCanAccess(record);
+        if (!canAccess(record)) return R.fail(404, "借用单不存在");
         // 填充设备名称/资产编号
         var device = deviceMapper.selectById(record.getDeviceId());
         if (device != null) { record.setDeviceName(device.getName()); record.setDeviceAssetNo(device.getAssetNo()); }
@@ -185,8 +184,7 @@ public class BorrowController {
     public R<java.util.Map<String, Object>> getImages(@PathVariable Long id) {
         java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
         BorrowRecord record = borrowService.getById(id);
-        if (record == null) return R.fail(404, "借用单不存在");
-        assertCanAccess(record);
+        if (!canAccess(record)) return R.fail(404, "借用单不存在");
         result.put("pickupImage", record.getPickupImage());
         // 从附件表查询
         var borrowImgs = attachmentMapper.selectList(
@@ -206,8 +204,7 @@ public class BorrowController {
     public R<BorrowRecord> pickupDevice(@PathVariable Long id,
                                          @RequestParam(value = "file", required = false) MultipartFile file) {
         BorrowRecord record = borrowService.getById(id);
-        if (record == null) return R.fail(404, "借用单不存在");
-        assertCanAccess(record);
+        if (!canAccess(record)) return R.fail(404, "借用单不存在");
         if (!"APPROVED".equals(record.getStatus()) && !"BORROWING".equals(record.getStatus()))
             return R.fail("仅已通过或借用中的单据可登记取走");
 
@@ -243,8 +240,7 @@ public class BorrowController {
                                         @RequestParam("file") MultipartFile file,
                                         @RequestParam(defaultValue = "BORROW") String bizType) {
         BorrowRecord record = borrowService.getById(id);
-        if (record == null) return R.fail(404, "借用单不存在");
-        assertCanAccess(record);
+        if (!canAccess(record)) return R.fail(404, "借用单不存在");
 
         try {
             String objectPath = minioFileService.uploadImage(file, bizType);
@@ -574,8 +570,7 @@ public class BorrowController {
     @PreAuthorize("hasAuthority('borrow:view')")
     public R<List<com.gzhu.equipment.entity.OverdueRecord>> getOverdueRecords(@PathVariable Long id) {
         BorrowRecord record = borrowService.getById(id);
-        if (record == null) return R.fail(404, "借用单不存在");
-        assertCanAccess(record);
+        if (!canAccess(record)) return R.fail(404, "借用单不存在");
         return R.ok(overdueRecordMapper.selectList(
                 new LambdaQueryWrapper<com.gzhu.equipment.entity.OverdueRecord>()
                         .eq(com.gzhu.equipment.entity.OverdueRecord::getBorrowId, id)
@@ -681,8 +676,7 @@ public class BorrowController {
     @PreAuthorize("hasAuthority('borrow:view')")
     public R<List<Map<String,Object>>> approvalLogs(@PathVariable Long id) {
         BorrowRecord record = borrowService.getById(id);
-        if (record == null) return R.fail(404, "借用单不存在");
-        assertCanAccess(record);
+        if (!canAccess(record)) return R.fail(404, "借用单不存在");
         List<ApprovalLog> logs = approvalLogMapper.selectList(
                 new LambdaQueryWrapper<ApprovalLog>().eq(ApprovalLog::getBorrowId, id).orderByAsc(ApprovalLog::getStep));
         java.util.Set<Long> ids = new java.util.HashSet<>();
@@ -726,8 +720,7 @@ public class BorrowController {
     @PreAuthorize("hasAnyAuthority('borrow:return','return:manage','laboratory:manage')")
     public R<String> recordOutcome(@PathVariable Long id, @RequestParam String outcome) {
         BorrowRecord record = borrowService.getDetail(id);
-        if (record == null) return R.fail(404, "借用单不存在");
-        assertCanAccess(record);
+        if (!canAccess(record)) return R.fail(404, "借用单不存在");
         record.setOutcome(outcome);
         record.setOutcomeRecordedBy(getCurrentUserId());
         record.setOutcomeRecordedTime(java.time.LocalDateTime.now());
@@ -765,8 +758,7 @@ public class BorrowController {
     public R<com.gzhu.equipment.entity.BorrowOutcome> addOutcome(@PathVariable Long id,
              @RequestBody com.gzhu.equipment.entity.BorrowOutcome outcome) {
         BorrowRecord record = borrowService.getDetail(id);
-        if (record == null) return R.fail(404, "借用单不存在");
-        assertCanAccess(record);
+        if (!canAccess(record)) return R.fail(404, "借用单不存在");
         outcome.setBorrowId(id);
         outcome.setDeviceId(record.getDeviceId());
         outcome.setRecordedBy(getCurrentUserId());
@@ -785,8 +777,7 @@ public class BorrowController {
     @PreAuthorize("hasAuthority('borrow:view')")
     public R<java.util.List<com.gzhu.equipment.entity.BorrowOutcome>> listOutcomes(@PathVariable Long id) {
         BorrowRecord record = borrowService.getById(id);
-        if (record == null) return R.fail(404, "借用单不存在");
-        assertCanAccess(record);
+        if (!canAccess(record)) return R.fail(404, "借用单不存在");
         return R.ok(outcomeMapper.selectList(
                 new LambdaQueryWrapper<com.gzhu.equipment.entity.BorrowOutcome>().eq(com.gzhu.equipment.entity.BorrowOutcome::getBorrowId, id)));
     }
@@ -877,20 +868,29 @@ public class BorrowController {
         return enriched;
     }
 
-    /** 借阅记录可见性：本人 / 实验室管理员 / 系统管理员 / 名下设备的教师 */
-    private void assertCanAccess(BorrowRecord record) {
-        if (record == null) throw new IllegalArgumentException("借用单不存在");
+    /**
+     * 借阅记录可见性：本人 / 实验室管理员 / 系统管理员 / 名下设备的教师 / 该单据登记的审批人。
+     * 记录不存在与无权访问一律返回 false，调用方统一按「不存在」响应，
+     * 避免通过响应差异枚举他人单号。
+     */
+    private boolean canAccess(BorrowRecord record) {
+        if (record == null) return false;
         Long uid = getCurrentUserId();
-        if (uid.equals(record.getUserId())) return;
+        if (uid.equals(record.getUserId())) return true;
         com.gzhu.equipment.entity.SysUser me = sysUserMapper.selectById(uid);
-        if (me == null) throw new IllegalArgumentException("用户不存在");
+        if (me == null) return false;
         Integer t = me.getUserType();
-        if (t != null && (t == 2 || t == 3)) return;              // 实验室管理员 / 系统管理员
-        if (t != null && t == 1) {                                 // 教师：仅名下设备
+        if (t != null && (t == 2 || t == 3)) return true;          // 实验室管理员 / 系统管理员
+        if (t != null && t == 1) {                                  // 教师：仅名下设备
             com.gzhu.equipment.entity.Device d = deviceMapper.selectById(record.getDeviceId());
-            if (d != null && me.getRealName() != null && me.getRealName().equals(d.getCustodian())) return;
+            if (d != null && me.getRealName() != null && me.getRealName().equals(d.getCustodian())) return true;
         }
-        throw new IllegalArgumentException("无权访问该借用单");
+        // 该单据登记的审批人：可由申请人指定，未必是设备保管人（见 BorrowServiceImpl 建单逻辑）
+        Long asApprover = approvalLogMapper.selectCount(
+                new LambdaQueryWrapper<com.gzhu.equipment.entity.ApprovalLog>()
+                        .eq(com.gzhu.equipment.entity.ApprovalLog::getBorrowId, record.getId())
+                        .eq(com.gzhu.equipment.entity.ApprovalLog::getApproverId, uid));
+        return asApprover != null && asApprover > 0;
     }
 
     private Long getCurrentUserId() {

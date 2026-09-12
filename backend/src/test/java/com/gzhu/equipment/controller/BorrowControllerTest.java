@@ -202,7 +202,7 @@ class BorrowControllerTest {
     }
 
     @Test
-    @DisplayName("GET /borrows/{id} → 他人的借用单且无管理权限 → 拒绝访问")
+    @DisplayName("GET /borrows/{id} → 他人的借用单 → 与不存在同样返回 404（不暴露存在性）")
     void getDetail_notOwner_shouldBeDenied() throws Exception {
         BorrowRecord record = new BorrowRecord();
         record.setId(2L);
@@ -215,6 +215,26 @@ class BorrowControllerTest {
 
         mockMvc.perform(get("/borrows/2"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.code").value(400));
+                .andExpect(jsonPath("$.code").value(404));
+    }
+
+    @Test
+    @DisplayName("GET /borrows/{id} → 被指定为该单审批人的教师（非本人、非保管人）→ 允许访问")
+    void getDetail_designatedApprover_shouldBeAllowed() throws Exception {
+        BorrowRecord record = new BorrowRecord();
+        record.setId(3L);
+        record.setUserId(999L);   // 他人的单据
+        when(borrowService.getDetail(3L)).thenReturn(record);
+        com.gzhu.equipment.entity.SysUser me = new com.gzhu.equipment.entity.SysUser();
+        me.setId(1L);
+        me.setUserType(1);        // 教师
+        me.setRealName("teacher01");
+        when(sysUserMapper.selectById(1L)).thenReturn(me);
+        when(deviceMapper.selectById(any())).thenReturn(null);      // 不是该设备的保管人
+        when(approvalLogMapper.selectCount(any())).thenReturn(1L);  // 但被登记为该单审批人
+
+        mockMvc.perform(get("/borrows/3"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
     }
 }

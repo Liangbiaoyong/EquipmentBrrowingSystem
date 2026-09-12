@@ -67,6 +67,8 @@ const photoDlg=reactive({visible:false,images:[],damageReport:''})
 const rejectDlg=reactive({visible:false,row:null,comment:'',loading:false})
 
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
+// 逐段编码，保留 '/' 分隔符——整段 encodeURIComponent 会把 '/' 变成 %2F，导致 MinIO 查不到对象
+function encPath(p){ return String(p||'').split('/').map(encodeURIComponent).join('/') }
 function onSort(){}
 
 async function load(){
@@ -81,7 +83,7 @@ async function previewPhotos(row){
   try{
     const{data}=await axios.get(`/borrows/${row.id}/images`)
     photoDlg.damageReport=row.damageReport||''
-    photoDlg.images=(data.returnImages||[]).map(url=>`/api/v1/files/${encodeURIComponent(url)}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`)
+    photoDlg.images=(data.returnImages||[]).map(url=>`/api/v1/files/${encPath(url)}?token=${encodeURIComponent(localStorage.getItem('token') || '')}`)
     photoDlg.visible=true
   }catch{ElMessage.error('加载照片失败')}
 }

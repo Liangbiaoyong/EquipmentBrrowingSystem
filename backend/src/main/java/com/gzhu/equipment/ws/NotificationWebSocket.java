@@ -12,7 +12,6 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.CopyOnWriteArraySet;
 
 /**
  * WebSocket 实时通知推送
@@ -26,10 +25,11 @@ import java.util.concurrent.CopyOnWriteArraySet;
 @ServerEndpoint("/ws/notification")
 public class NotificationWebSocket {
 
-    private static final CopyOnWriteArraySet<NotificationWebSocket> connections = new CopyOnWriteArraySet<>();
+    /** userId → 当前活跃会话 */
     private static final Map<Long, Session> userSessions = new ConcurrentHashMap<>();
-    private Session session;
-    private Long userId;
+
+    /** Session 属性键：登录用户ID */
+    private static final String ATTR_USER_ID = "wsUserId";
 
     private static JwtTokenProvider jwtTokenProvider;
 
@@ -54,53 +54,60 @@ public class NotificationWebSocket {
             } catch (IOException ignored) { }
             return;
         }
-        this.session = session;
-        this.userId = jwtTokenProvider.getUserId(token);
-        connections.add(this);
-        userSessions.put(userId, session);
-        log.info("WebSocket连接: userId={}", userId);
+        Long uid = jwtTokenProvider.getUserId(token);
+        // 本类是 Spring 单例，会话状态必须挂在 Session 上，不能用实例字段
+        session.getUserProperties().put(ATTR_USER_ID, uid);
+        Session previous = userSessions.put(uid, session);
+        if (previous != null && previous != session && previous.isOpen()) {
+            try {
+                previous.close(new CloseReason(CloseReason.CloseCodes.NORMAL_CLOSURE, "replaced"));
+            } catch (IOException ignored) { }
+        }
+        log.info("WebSocket连接: userId={}", uid);
     }
 
     @OnClose
-    public void onClose() {
-        connections.remove(this);
-        if (userId != null) userSessions.remove(userId);
-        log.info("WebSocket断开: userId={}", userId);
+    public void onClose(Session session) {
+        Object v = session.getUserProperties().get(ATTR_USER_ID);
+        if (v instanceof Long uid) {
+            // 两参 remove：仅当仍映射到本会话时才删除，避免误删同一用户后来的连接
+            userSessions.remove(uid, session);
+            log.info("WebSocket断开: userId={}", uid);
+        }
     }
 
     @OnError
     public void onError(Throwable t) {
-        log.warn("WebSocket异常: userId={} msg={}", userId, t.getMessage());
+        log.warn("WebSocket异常: msg={}", t.getMessage());
     }
 
-    /**
-     * 向指定用户推送通知
-     */
+    /** 向指定用户推送通知 */
     public static void pushToUser(Long userId, String type, String title, String content) {
         Session s = userSessions.get(userId);
         if (s != null && s.isOpen()) {
-            try {
-                Map<String, String> msg = Map.of("type", type, "title", title, "content", content);
-                s.getBasicRemote().sendText(objectMapper.writeValueAsString(msg));
-            } catch (IOException e) {
-                log.warn("WebSocket推送失败: userId={}", userId);
+            send(s, type, title, content);
+        }
+    }
+
+    /** 广播给所有在线用户 */
+    public static void broadcast(String type, String title, String content) {
+        for (Session s : userSessions.values()) {
+            if (s != null && s.isOpen()) {
+                send(s, type, title, content);
             }
         }
     }
 
-    /**
-     * 广播给所有在线用户
-     */
-    public static void broadcast(String type, String title, String content) {
-        for (NotificationWebSocket ws : connections) {
-            if (ws.session != null && ws.session.isOpen()) {
-                try {
-                    Map<String, String> msg = Map.of("type", type, "title", title, "content", content);
-                    ws.session.getBasicRemote().sendText(objectMapper.writeValueAsString(msg));
-                } catch (IOException e) {
-                    log.warn("WebSocket广播失败");
-                }
+    private static void send(Session s, String type, String title, String content) {
+        try {
+            Map<String, String> msg = Map.of("type", type, "title", title, "content", content);
+            String json = objectMapper.writeValueAsString(msg);
+            // JSR-356 不允许并发调用 getBasicRemote()
+            synchronized (s) {
+                s.getBasicRemote().sendText(json);
             }
+        } catch (IOException e) {
+            log.warn("WebSocket推送失败: msg={}", e.getMessage());
         }
     }
 }
