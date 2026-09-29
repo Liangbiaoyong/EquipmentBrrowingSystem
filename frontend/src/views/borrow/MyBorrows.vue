@@ -73,7 +73,7 @@
             <span v-else style="color:#C0C4CC">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        <el-table-column label="操作" width="240" fixed="right">
           <template #default="{row}">
             <div class="action-btns" @click.stop>
               <el-button size="small" text type="primary" @click="openDetail(row)">详情</el-button>
@@ -141,13 +141,11 @@
             <div class="tl-content">
               <div class="tl-label">取走设备</div>
               <div class="tl-time">{{ drawer.row.pickupTime ? fmt(drawer.row.pickupTime) : '尚未取走' }}</div>
-              <!-- 取走照片 -->
-              <div v-if="drawer.row.pickupImage" class="tl-photo">
-                <el-image :src="imgUrl(drawer.row.pickupImage)" fit="cover" style="width:120px;height:80px;border-radius:6px" :preview-src-list="[imgUrl(drawer.row.pickupImage)]"/>
+              <!-- 取走照片（支持多张） -->
+              <div v-if="drawer.pickupImages.length" class="tl-photos">
+                <el-image v-for="(url,i) in drawer.pickupImages" :key="i" :src="imgUrl(url)" fit="cover" style="width:80px;height:60px;border-radius:6px;margin-right:6px;margin-top:6px" :preview-src-list="drawer.pickupImages.map(u=>imgUrl(u))" :initial-index="i"/>
               </div>
-              <el-upload v-if="canPickup(drawer.row) && !drawer.row.pickupImage" :show-file-list="false" :http-request="(opt)=>doUpload(opt,'BORROW',drawer.row)" accept="image/*" style="margin-top:6px">
-                <el-button size="small" text type="primary" :loading="drawer.uploading">📷 上传取走照片</el-button>
-              </el-upload>
+              <el-button v-if="canPickup(drawer.row)" size="small" text type="primary" @click="openPickup(drawer.row)" style="margin-top:6px">📷 {{ drawer.row.pickupTime?'补传取走照片':'取走登记' }}</el-button>
               <el-button v-if="!drawer.row.pickupTime && canPickup(drawer.row)" size="small" type="success" @click="doPickup(drawer.row)" :loading="drawer.picking" style="margin-top:6px">确认取走</el-button>
             </div>
           </div>
@@ -169,21 +167,26 @@
       </template>
     </el-drawer>
 
-    <!-- 取走登记对话框 -->
-    <el-dialog v-model="pickupDlg.visible" title="取走登记" width="440px" :close-on-click-modal="false" destroy-on-close>
-      <el-form label-width="80px">
+    <!-- 取走登记 / 补传照片对话框 -->
+    <el-dialog v-model="pickupDlg.visible" :title="pickupDlg.row?.pickupTime?'补传取走照片':'取走登记'" width="480px" :close-on-click-modal="false" destroy-on-close>
+      <el-form label-width="90px">
         <el-form-item label="借用单号"><el-tag>{{ pickupDlg.row?.id }}</el-tag></el-form-item>
-        <el-form-item label="设备">{{ getDevName(pickupDlg.row?.deviceId) }}</el-form-item>
+        <el-form-item label="设备名称">{{ getDevName(pickupDlg.row?.deviceId) }}</el-form-item>
         <el-form-item label="取走照片">
-          <el-upload :show-file-list="true" :http-request="(opt)=>doUploadSingle(opt,'BORROW')" :before-upload="checkFileSize" accept="image/*" list-type="picture-card" :limit="1">
-            <el-icon><Plus/></el-icon>
-          </el-upload>
-          <div class="upload-hint">支持 jpg/png，自动压缩至 1MB 以内</div>
+          <div style="width:100%">
+            <el-upload :show-file-list="false" :http-request="doUploadPickupPhoto" :before-upload="checkFileSize" accept="image/*" list-type="picture-card" multiple>
+              <el-icon><Plus/></el-icon>
+            </el-upload>
+            <div v-if="pickupDlg.photos.length" class="pk-grid">
+              <el-image v-for="(url,i) in pickupDlg.photos" :key="i" :src="imgUrl(url)" fit="cover" :preview-src-list="pickupDlg.photos.map(u=>imgUrl(u))" :initial-index="i"/>
+            </div>
+            <div class="upload-hint">可上传多张，支持 jpg/png，自动压缩至 1MB 以内</div>
+          </div>
         </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="pickupDlg.visible=false">取消</el-button>
-        <el-button type="primary" @click="confirmPickup" :loading="pickupDlg.loading">确认取走</el-button>
+        <el-button type="primary" @click="confirmPickup" :loading="pickupDlg.loading">{{ pickupDlg.row?.pickupTime?'完成':'确认取走' }}</el-button>
       </template>
     </el-dialog>
 
@@ -200,11 +203,13 @@
           <div v-if="!returnDlg.photos.length" style="color:#F56C6C;font-size:12px;margin-top:4px">* 必须至少上传一张归还照片</div>
           <div v-else style="color:#67C23A;font-size:12px;margin-top:4px">✓ 已上传 {{ returnDlg.photos.length }} 张照片</div>
         </el-form-item>
-        <el-form-item label="损坏情况"><el-input v-model="returnDlg.damageReport" type="textarea" :rows="2" placeholder="设备有无损坏？无损坏可不填"/></el-form-item>
+        <el-form-item label="设备情况" required>
+          <el-input v-model="returnDlg.damageReport" type="textarea" :rows="2" placeholder="请填写归还时设备的情况，如「设备良好」「设备损坏：镜头有划痕」"/>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="returnDlg.visible=false">取消</el-button>
-        <el-button type="primary" @click="confirmReturnRequest" :loading="returnDlg.loading" :disabled="!returnDlg.photos.length">提交归还申请</el-button>
+        <el-button type="primary" @click="confirmReturnRequest" :loading="returnDlg.loading" :disabled="!returnDlg.photos.length || !returnDlg.damageReport.trim()">提交归还申请</el-button>
       </template>
     </el-dialog>
   </div>
@@ -228,11 +233,10 @@ const devNames=ref({});const devAssets=ref({})
 const stats=reactive({total:0,pending:0,borrowing:0,returned:0,overdue:0})
 
 // 详情抽屉
-const drawer=reactive({visible:false,row:null,returnImages:[],uploading:false,picking:false})
+const drawer=reactive({visible:false,row:null,pickupImages:[],returnImages:[],picking:false})
 
 // 取走对话框
-const pickupDlg=reactive({visible:false,row:null,loading:false})
-const pickupFile=ref(null)
+const pickupDlg=reactive({visible:false,row:null,photos:[],loading:false})
 
 // 归还申请对话框
 const returnDlg=reactive({visible:false,row:null,photos:[],damageReport:'',loading:false})
@@ -291,35 +295,50 @@ async function loadStats(){
 
 // 详情
 async function openDetail(row){
-  drawer.row=row;drawer.visible=true;drawer.returnImages=[]
+  drawer.row=row;drawer.visible=true;drawer.pickupImages=[];drawer.returnImages=[]
   try{
     const{data}=await axios.get(`/borrows/${row.id}/images`)
+    drawer.pickupImages=data.borrowImages||[]
     drawer.returnImages=data.returnImages||[]
-    if(data.pickupImage && !row.pickupImage){row.pickupImage=data.pickupImage}
   }catch{}
 }
 
-// 取走登记
-function openPickup(row){
-  pickupDlg.row=row;pickupDlg.visible=true;pickupFile.value=null
+// 取走登记 / 补传照片：照片即传即存（与归还申请一致），支持多张
+async function openPickup(row){
+  pickupDlg.row=row;pickupDlg.photos=[];pickupDlg.visible=true
+  try{
+    const{data}=await axios.get(`/borrows/${row.id}/images`)
+    pickupDlg.photos=data.borrowImages||[]
+  }catch{}
 }
 
-async function doUploadSingle(opt, bizType){
-  pickupFile.value=opt.file
-  // 不做实际上传，等确认取走时一起上传
-  return {url:''}
+async function doUploadPickupPhoto(opt){
+  try{
+    const fd=new FormData();fd.append('file',opt.file);fd.append('bizType','BORROW')
+    const{data}=await axios.post(`/borrows/${pickupDlg.row.id}/upload-image`,fd,{headers:{'Content-Type':'multipart/form-data'}})
+    pickupDlg.photos.push(data)
+    if(drawer.visible && drawer.row?.id===pickupDlg.row.id)drawer.pickupImages.push(data)
+    // 首张同步为展示图；后端在已有 pickup_image 时不会覆盖，故补传不会顶掉原图
+    if(!pickupDlg.row.pickupImage)pickupDlg.row.pickupImage=data
+    ElMessage.success('照片已上传')
+  }catch(e){ElMessage.error(e?.response?.data?.msg||'上传失败')}
 }
 
 async function confirmPickup(){
   if(!pickupDlg.row)return
+  const alreadyPicked=!!pickupDlg.row.pickupTime
   pickupDlg.loading=true
   try{
-    const fd=new FormData()
-    if(pickupFile.value)fd.append('file',pickupFile.value)
-    await axios.post(`/borrows/${pickupDlg.row.id}/pickup`,fd,{headers:{'Content-Type':'multipart/form-data'}})
-    ElMessage.success('取走登记完成')
+    if(!alreadyPicked){
+      await axios.post(`/borrows/${pickupDlg.row.id}/pickup`)
+      ElMessage.success('取走登记完成')
+      load();loadStats()
+    }else{
+      // 补传场景照片已即时上传，无需重复登记取走
+      ElMessage.success('照片已保存')
+      load()
+    }
     pickupDlg.visible=false
-    load();loadStats()
   }catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}finally{pickupDlg.loading=false}
 }
 
@@ -332,16 +351,6 @@ async function doPickup(row){
     row.status='BORROWING'
     load();loadStats()
   }catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}finally{drawer.picking=false}
-}
-
-async function doUpload(opt, bizType, row){
-  drawer.uploading=true
-  try{
-    const fd=new FormData();fd.append('file',opt.file);fd.append('bizType',bizType)
-    const{data}=await axios.post(`/borrows/${row.id}/upload-image`,fd,{headers:{'Content-Type':'multipart/form-data'}})
-    if(bizType==='BORROW'){row.pickupImage=data}
-    ElMessage.success('照片已上传（自动压缩至1MB以内）')
-  }catch(e){ElMessage.error(e?.response?.data?.msg||'上传失败')}finally{drawer.uploading=false}
 }
 
 async function doCancel(id){
@@ -362,6 +371,7 @@ async function doUploadReturnPhoto(opt){
 }
 async function confirmReturnRequest(){
   if(!returnDlg.photos.length){ElMessage.warning('请至少上传一张归还照片');return}
+  if(!returnDlg.damageReport.trim()){ElMessage.warning('请填写设备情况');return}
   returnDlg.loading=true
   try{
     const{data}=await axios.post(`/borrows/${returnDlg.row.id}/return-request`,null,{params:{damageReport:returnDlg.damageReport||undefined}})
@@ -400,7 +410,9 @@ onMounted(()=>{load();loadStats()})
 .device-info{display:flex;flex-direction:column}
 .di-name{font-size:13px;color:#303133}.di-asset{font-size:11px;color:#909399}
 .overdue-num{color:#F56C6C;font-weight:600}
-.action-btns{display:flex;gap:2px;flex-wrap:wrap}
+.action-btns{display:flex;gap:2px;flex-wrap:nowrap;white-space:nowrap}
+.pk-grid{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.pk-grid .el-image{width:80px;height:80px;border-radius:6px}
 .mb-empty{padding:60px 0}
 .mb-pagination{display:flex;justify-content:flex-end;margin-top:14px}
 
@@ -420,7 +432,7 @@ onMounted(()=>{load();loadStats()})
 .tl-content{flex:1;min-width:0}
 .tl-label{font-size:14px;font-weight:500;color:#303133}
 .tl-time{font-size:12px;color:#909399;margin-top:2px}
-.tl-photo,.tl-photos{margin-top:8px}
+.tl-photos{margin-top:8px}
 .tl-photos{display:flex;flex-wrap:wrap;gap:6px}
 
 /* 上传提示 */

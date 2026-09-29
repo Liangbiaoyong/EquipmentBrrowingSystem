@@ -213,10 +213,10 @@ public class BorrowController {
             record.setStatus("BORROWING");
         }
 
-        // 上传借用照片（如有）
+        // 上传借用照片（如有）；pickup_image 只作展示用，已有则保留首张
         if (file != null && !file.isEmpty()) {
             String objectPath = minioFileService.uploadImage(file, "BORROW");
-            record.setPickupImage(objectPath);
+            if (record.getPickupImage() == null) record.setPickupImage(objectPath);
             // 同时记录到附件表
             Attachment att = new Attachment();
             att.setBizType("BORROW_IMG");
@@ -246,7 +246,8 @@ public class BorrowController {
             String objectPath = minioFileService.uploadImage(file, bizType);
 
             // 根据业务类型更新对应字段
-            if ("BORROW".equals(bizType)) {
+            // 仅在尚未设置时写入：取走照片支持多张，补传不应覆盖已展示的那张
+            if ("BORROW".equals(bizType) && record.getPickupImage() == null) {
                 record.setPickupImage(objectPath);
                 borrowService.updateById(record);
             }
@@ -315,6 +316,10 @@ public class BorrowController {
     @PreAuthorize("hasAuthority('borrow:my')")
     public R<BorrowRecord> requestReturn(@PathVariable Long id,
                                           @RequestParam(required = false) String damageReport) {
+        // 设备情况为必填：需明确记录归还时设备是否完好
+        if (damageReport == null || damageReport.trim().isEmpty()) {
+            return R.fail(400, "请填写设备情况");
+        }
         try {
             BorrowRecord record = borrowService.requestReturn(id, getCurrentUserId(), damageReport);
             return R.ok("归还申请已提交，等待设备使用人审批", record);

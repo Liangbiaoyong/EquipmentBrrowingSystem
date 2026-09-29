@@ -237,4 +237,31 @@ class BorrowControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.code").value(200));
     }
+
+    @Test
+    @DisplayName("POST /borrows/{id}/return-request → 未填写设备情况 → 拒绝提交")
+    void requestReturn_withoutDeviceCondition_shouldBeRejected() throws Exception {
+        mockMvc.perform(post("/borrows/1/return-request"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400))
+                .andExpect(jsonPath("$.msg").value("请填写设备情况"));
+    }
+
+    @Test
+    @DisplayName("POST /borrows/{id}/return-request → 空白设备情况 → 拒绝提交")
+    void requestReturn_withBlankDeviceCondition_shouldBeRejected() throws Exception {
+        mockMvc.perform(post("/borrows/1/return-request").param("damageReport", "   "))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(400));
+    }
+
+    @Test
+    @DisplayName("POST /borrows/{id}/return-request → 已填写设备情况 → 通过")
+    void requestReturn_withDeviceCondition_shouldSucceed() throws Exception {
+        when(borrowService.requestReturn(any(), anyLong(), any())).thenReturn(new BorrowRecord());
+
+        mockMvc.perform(post("/borrows/1/return-request").param("damageReport", "设备良好"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.code").value(200));
+    }
 }

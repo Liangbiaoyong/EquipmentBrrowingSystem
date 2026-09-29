@@ -496,6 +496,38 @@ Content-Type: multipart/form-data
 归还后: 库存+1 / 有damageReport→设备标记维修中 / 逾期自动计算天数
 ```
 
+#### 8.1 提交归还申请（学生）
+
+```
+POST /borrows/{id}/return-request?damageReport=设备良好
+权限: borrow:my
+
+参数:
+  damageReport  设备情况（必填），如「设备良好」「设备损坏：镜头有划痕」
+
+说明:
+  - 需先用下面的 upload-image（bizType=RETURN）上传至少一张归还照片
+  - 状态 → RETURN_PENDING，等待设备使用人审批
+  - 未填写（或纯空白）返回 400「请填写设备情况」
+```
+
+#### 8.2 上传借用/归还照片（支持多张）
+
+```
+POST /borrows/{id}/upload-image   Content-Type: multipart/form-data
+权限: borrow:my
+
+参数:
+  file      图片文件
+  bizType   BORROW（取走照片） | RETURN（归还照片）
+
+返回: data 为 MinIO 对象路径，形如 borrow-images/2026-09/xxxx.jpeg
+```
+
+- **可重复调用上传多张**，取走与归还照片都存入 `attachment` 表（`BORROW_IMG` / `RETURN_IMG`）
+- `bizType=BORROW` 时**仅在该单尚无 `pickup_image` 时写入**——补传照片不会覆盖已展示的那张
+- 读取全部照片：`GET /borrows/{id}/images` → `{ pickupImage, borrowImages[], returnImages[] }`
+
 ### 9. 逾期管理
 
 ```

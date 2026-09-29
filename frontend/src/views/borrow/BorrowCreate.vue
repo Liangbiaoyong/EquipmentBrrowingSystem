@@ -78,7 +78,10 @@
           </template>
         </div>
       </el-form-item>
-      <el-form-item label="终审人"><el-tag type="success">{{ approverLevel2 || '实验室管理员（自动分配）' }}</el-tag></el-form-item>
+      <el-form-item label="终审人">
+        <el-tag type="success">实验室管理员</el-tag>
+        <span class="approver-hint">由实验室管理员审批，不预先指定具体人员</span>
+      </el-form-item>
       <el-form-item><el-button type="primary" @click="submit" :loading="submitting">提交申请</el-button></el-form-item>
     </el-form></el-card>
   </div>
@@ -86,7 +89,7 @@
 <script setup>
 import { ref,reactive,onMounted,computed } from 'vue';import { useRoute,useRouter } from 'vue-router';import { borrowApi } from '@/api/borrow';import axios from '@/api/request';import { descriptionApi } from '@/api/categoryDescription';import { ElMessage } from 'element-plus';import { todayRange } from '@/utils/datetime'
 const route=useRoute();const router=useRouter();const deviceOptions=ref([]);const deviceLoading=ref(false);const submitting=ref(false)
-const approverLevel1=ref('');const approverLevel2=ref('');const fromDetailDeviceId=ref(null)
+const approverLevel1=ref('');const fromDetailDeviceId=ref(null)
 const f=reactive({deviceIds:[],startTime:'',endTime:'',reason:'',purpose:'',purposeCategory:'教学与培养',purposeSubcategory:'',approverId:null})
 
 // 目的分类描述
@@ -112,7 +115,6 @@ const purposeCategories = [
 
 onMounted(async()=>{
   await loadDevices()
-  try{const{data}=await axios.get('/auth/approvers');const labAdmins=(data||[]).filter(u=>u.userType===2);if(labAdmins.length)approverLevel2.value=labAdmins[0].realName||labAdmins[0].username}catch{}
   if(route.query.deviceId){const id=Number(route.query.deviceId);fromDetailDeviceId.value=id;f.deviceIds=[id];updateApproverInfo()}
   loadPurposeDescriptions()
 })
@@ -153,4 +155,4 @@ async function submit(){
   try{await borrowApi.create({...f});ElMessage.success('申请已提交');router.push('/borrows/my')}catch(e){ElMessage.error(e?.response?.data?.msg||e?.message||'提交失败')}finally{submitting.value=false}
 }
 </script>
-<style scoped>.create{padding:20px}</style>
+<style scoped>.create{padding:20px}.approver-hint{margin-left:8px;font-size:12px;color:#909399}</style>
