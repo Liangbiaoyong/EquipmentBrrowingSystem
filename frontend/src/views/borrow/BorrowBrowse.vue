@@ -111,6 +111,7 @@ import { ref,reactive,onMounted } from 'vue'
 import axios from '@/api/request'
 import { ElMessage,ElMessageBox } from 'element-plus'
 import { Search,ArrowDown } from '@element-plus/icons-vue'
+import { toLocalDate } from '@/utils/datetime'
 
 const list=ref([]);const loading=ref(false)
 const page=ref(1);const size=ref(20);const total=ref(0)
@@ -177,7 +178,7 @@ function doExport(format){
   const mime=ext==='xlsx'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'text/csv'
   axios.get('/borrows/browse/export',{params:{format,keyword:keyword.value||undefined,status:statusFilter.value},responseType:'blob'}).then(r=>{
     const blob=new Blob([r.data],{type:mime});const a=document.createElement('a')
-    a.href=URL.createObjectURL(blob);a.download=`借用浏览_${new Date().toISOString().slice(0,10)}.${ext}`;a.click()
+    a.href=URL.createObjectURL(blob);a.download=`借用浏览_${toLocalDate()}.${ext}`;a.click()
   }).catch(e=>ElMessage.error('导出失败'))
 }
 

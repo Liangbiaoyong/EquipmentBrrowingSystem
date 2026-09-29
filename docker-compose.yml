@@ -3,8 +3,11 @@ services:
     image: mysql:8.0
     container_name: dev-mysql
     restart: always
-    command: --character-set-client-handshake=FALSE --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    # --default-time-zone 决定 NOW()/CURRENT_TIMESTAMP 及 datetime 列默认值的取值时区，
+    # 必须与中国时区一致，否则「到期未还」等基于 NOW() 的判定会整体偏移 8 小时
+    command: --character-set-client-handshake=FALSE --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+08:00
     environment:
+      TZ: Asia/Shanghai
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: device_borrow
       MYSQL_USER: ${MYSQL_USER}
@@ -28,6 +31,8 @@ services:
     image: redis:7-alpine
     container_name: dev-redis
     restart: always
+    environment:
+      TZ: Asia/Shanghai
     volumes:
       - redis-data:/data
     healthcheck:
@@ -44,6 +49,7 @@ services:
     restart: always
     command: server /data --console-address ":9001"
     environment:
+      TZ: Asia/Shanghai
       MINIO_ROOT_USER: ${MINIO_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
     ports:
@@ -71,6 +77,7 @@ services:
       minio:
         condition: service_healthy
     environment:
+      TZ: Asia/Shanghai
       SPRING_PROFILES_ACTIVE: prod
       DB_URL: jdbc:mysql://mysql:3306/device_borrow?useSSL=false&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&characterEncoding=UTF-8&useUnicode=true
       DB_USER: ${MYSQL_USER}
@@ -95,6 +102,8 @@ services:
     build: ./frontend
     container_name: dev-frontend
     restart: always
+    environment:
+      TZ: Asia/Shanghai
     depends_on:
       - backend
     ports:

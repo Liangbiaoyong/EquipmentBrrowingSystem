@@ -144,6 +144,72 @@ class DeviceControllerTest {
                 .andExpect(jsonPath("$.data.device.name").value("测试设备"));
     }
 
+    // ==================== 设备介绍编辑权限（canEditIntro） ====================
+
+    /** 切换当前登录用户，用于校验 canEditIntro 的角色判定 */
+    private void loginAs(long userId, int userType) {
+        JwtUserPrincipal p = new JwtUserPrincipal(userId, "u" + userId, userType,
+                List.of("ROLE_STUDENT"), List.of(new SimpleGrantedAuthority("ROLE_STUDENT")));
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken(p, null, p.getAuthorities()));
+    }
+
+    private com.gzhu.equipment.entity.SysUser dbUser(int userType, String realName) {
+        com.gzhu.equipment.entity.SysUser u = new com.gzhu.equipment.entity.SysUser();
+        u.setId(1L);
+        u.setUserType(userType);
+        u.setRealName(realName);
+        return u;
+    }
+
+    /** 准备一个属于 custodian 名下的设备，并桩好详情页所需的其它查询 */
+    private void stubIntroDevice(String custodian) {
+        Device device = new Device();
+        device.setId(1L);
+        device.setName("测试设备");
+        device.setCustodian(custodian);
+        when(deviceService.getById(1L)).thenReturn(device);
+        when(deviceImageMapper.selectList(any())).thenReturn(java.util.Collections.emptyList());
+        when(borrowRecordMapper.selectOne(any())).thenReturn(null);
+        when(borrowRecordMapper.selectCount(any())).thenReturn(0L);
+    }
+
+    @Test
+    @DisplayName("GET /devices/1 → 实验室管理员可编辑设备介绍")
+    void getDevice_labAdmin_canEditIntro() throws Exception {
+        loginAs(2L, 2);
+        stubIntroDevice("陈诗昌");
+        when(sysUserMapper.selectById(2L)).thenReturn(dbUser(2, "实验室管理员"));
+
+        mockMvc.perform(get("/devices/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.canEditIntro").value(true));
+    }
+
+    @Test
+    @DisplayName("GET /devices/1 → 该设备使用人本人可编辑设备介绍")
+    void getDevice_custodian_canEditIntro() throws Exception {
+        loginAs(3L, 1);
+        stubIntroDevice("陈诗昌");
+        when(sysUserMapper.selectById(3L)).thenReturn(dbUser(1, "陈诗昌"));
+
+        mockMvc.perform(get("/devices/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.canEditIntro").value(true));
+    }
+
+    @Test
+    @DisplayName("GET /devices/1 → 非本人名下设备的教师不可编辑设备介绍")
+    void getDevice_otherTeacher_cannotEditIntro() throws Exception {
+        loginAs(4L, 1);
+        stubIntroDevice("陈诗昌");
+        when(sysUserMapper.selectById(4L)).thenReturn(dbUser(1, "别的老师"));
+
+        mockMvc.perform(get("/devices/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.canEditIntro").value(false));
+    }
+
     @Test
     @DisplayName("GET /devices/999 → 设备不存在")
     void getDevice_notFound_shouldReturn404() throws Exception {

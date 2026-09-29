@@ -9,9 +9,12 @@ RUN mvn clean package -DskipTests
 
 # 第二阶段：运行 JRE
 FROM eclipse-temurin:17-jre-alpine
-# 安装 mysql-client（备份）+ nodejs（CAS DES加密）
-RUN apk add --no-cache mysql-client nodejs
+# tzdata 提供 Asia/Shanghai 时区数据；mysql-client（备份）+ nodejs（CAS DES加密）
+RUN apk add --no-cache mysql-client nodejs tzdata
+# 容器时区，决定 Java 默认时区（LocalDateTime.now() 等）与日志时间戳
+ENV TZ=Asia/Shanghai
 WORKDIR /app
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# -Duser.timezone 与 TZ 双保险：基础镜像若未读取 TZ，JVM 仍固定在中国时区
+ENTRYPOINT ["java", "-Duser.timezone=Asia/Shanghai", "-jar", "app.jar"]

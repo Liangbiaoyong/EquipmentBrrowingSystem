@@ -56,6 +56,30 @@
         </el-card>
       </el-col>
     </el-row>
+
+    <!-- 设备介绍：说明设备功能与可完成的实验，由设备使用人/实验室管理员/系统管理员维护 -->
+    <el-card v-if="detail?.device" style="margin-top:20px">
+      <template #header>
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span>设备介绍</span>
+          <el-button v-if="detail.canEditIntro" type="primary" size="small" plain @click="openIntroEdit">
+            <el-icon><Edit/></el-icon>{{ detail.device.description ? '编辑' : '添加介绍' }}
+          </el-button>
+        </div>
+      </template>
+      <div v-if="detail.device.description" class="intro-text">{{ detail.device.description }}</div>
+      <el-empty v-else :image-size="60" :description="detail.canEditIntro ? '暂无介绍，可点击右上角补充设备功能与适用实验' : '暂无介绍'"/>
+    </el-card>
+
+    <el-dialog v-model="intro.visible" title="编辑设备介绍" width="620px">
+      <el-input v-model="intro.text" type="textarea" :rows="8" maxlength="2000" show-word-limit
+        placeholder="介绍设备的主要功能、可完成的实验类型、操作与安全注意事项等"/>
+      <template #footer>
+        <el-button @click="intro.visible=false">取消</el-button>
+        <el-button type="primary" :loading="intro.saving" @click="saveIntro">保存</el-button>
+      </template>
+    </el-dialog>
+
     <div style="margin-top:20px;text-align:center" v-if="detail?.device">
       <div v-if="detail.device.borrowStatus===1&&detail.device.deviceStatus===1&&detail.device.availableQty>0">
         <el-button type="primary" size="large" @click="$router.push(`/borrows/create?deviceId=${detail.device.id}`)">申请借用</el-button>
@@ -82,7 +106,7 @@
   </div>
 </template>
 <script setup>
-import { ref,onMounted } from 'vue';import { useRoute } from 'vue-router';import { deviceApi } from '@/api/device';import { Warning,Upload,Delete } from '@element-plus/icons-vue';import axios from '@/api/request';import { ElMessage } from 'element-plus'
+import { ref,reactive,onMounted } from 'vue';import { useRoute } from 'vue-router';import { deviceApi } from '@/api/device';import { Warning,Upload,Delete,Edit } from '@element-plus/icons-vue';import axios from '@/api/request';import { ElMessage } from 'element-plus'
 const route=useRoute();const loading=ref(true);const detail=ref(null);const uploading=ref(false)
 const history=ref({list:[],total:0,page:1,size:10,loading:false})
 
@@ -96,6 +120,20 @@ function deviceStatusTagType(v){return deviceStatusMap[v]||'info'}
 function deviceStatusText(v){return deviceStatusTextMap[v]||'未知'}
 function borrowStatusText2(s){const m={PENDING_APPROVAL:'待审批',APPROVED:'已通过',REJECTED:'已驳回',BORROWING:'借用中',RETURN_PENDING:'归还中',RETURNED:'已归还',OVERDUE:'逾期',CANCELLED:'已取消'};return m[s]||s}
 function fmt(t){return t?String(t).replace('T',' ').substring(0,16):'—'}
+
+// 设备介绍编辑（是否可编辑由后端 canEditIntro 判定：实验室管理员/系统管理员/该设备使用人）
+const intro=reactive({visible:false,text:'',saving:false})
+function openIntroEdit(){intro.text=detail.value?.device?.description||'';intro.visible=true}
+async function saveIntro(){
+  intro.saving=true
+  try{
+    await deviceApi.update(route.params.id,{description:intro.text})
+    ElMessage.success('设备介绍已保存')
+    intro.visible=false
+    await loadDetail()
+  }catch(e){ElMessage.error('保存失败: '+(e?.response?.data?.msg||e?.message))}
+  finally{intro.saving=false}
+}
 
 // 判断当前用户是否为管理员（LAB_ADMIN=2 或 SYSTEM_ADMIN=3）
 const isAdmin=ref(false)
@@ -140,4 +178,4 @@ async function loadHistory(){
 
 onMounted(async()=>{checkAdmin();loading.value=true;await loadDetail();loading.value=false;await loadHistory()})
 </script>
-<style scoped>.device-detail{padding:20px}.img-error{width:100%;height:200px;display:flex;align-items:center;justify-content:center;background:#f0f2f5;border-radius:4px}</style>
+<style scoped>.device-detail{padding:20px}.img-error{width:100%;height:200px;display:flex;align-items:center;justify-content:center;background:#f0f2f5;border-radius:4px}.intro-text{white-space:pre-wrap;line-height:1.8;color:#303133}</style>

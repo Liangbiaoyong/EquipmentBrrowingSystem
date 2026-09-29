@@ -84,7 +84,7 @@
   </div>
 </template>
 <script setup>
-import { ref,reactive,onMounted,computed } from 'vue';import { useRoute,useRouter } from 'vue-router';import { borrowApi } from '@/api/borrow';import axios from '@/api/request';import { descriptionApi } from '@/api/categoryDescription';import { ElMessage } from 'element-plus'
+import { ref,reactive,onMounted,computed } from 'vue';import { useRoute,useRouter } from 'vue-router';import { borrowApi } from '@/api/borrow';import axios from '@/api/request';import { descriptionApi } from '@/api/categoryDescription';import { ElMessage } from 'element-plus';import { todayRange } from '@/utils/datetime'
 const route=useRoute();const router=useRouter();const deviceOptions=ref([]);const deviceLoading=ref(false);const submitting=ref(false)
 const approverLevel1=ref('');const approverLevel2=ref('');const fromDetailDeviceId=ref(null)
 const f=reactive({deviceIds:[],startTime:'',endTime:'',reason:'',purpose:'',purposeCategory:'教学与培养',purposeSubcategory:'',approverId:null})
@@ -135,8 +135,8 @@ function onDeviceChange(ids){
   if(ids&&ids.length){
     const d=deviceOptions.value.find(x=>x.id===ids[0])
     if(d){f.approverId=d.defaultApproverId||null;approverLevel1.value=d.custodian||'设备使用人（自动匹配）'}
-    // 纯现场借用设备自动设当天时间
-    if(allOnsite.value){const now=new Date();f.startTime=now.toISOString().slice(0,19);f.endTime=new Date(now.getTime()+8*3600000).toISOString().slice(0,19)}
+    // 纯现场借用设备自动设当天时间（界面约定：借用时间系统自动设为当天）
+    if(allOnsite.value){const {start,end}=todayRange();f.startTime=start;f.endTime=end}
   }
 }
 
@@ -148,7 +148,7 @@ async function submit(){
   if(!f.purposeSubcategory||!f.purposeSubcategory.trim()){ElMessage.warning('请选择或填写子目标分类');return}
   if(!f.purpose||!f.purpose.trim()){ElMessage.warning('请填写借用目的');return}
   if(!allOnsite.value&&(!f.startTime||!f.endTime)){ElMessage.warning('请选择借用时间');return}
-  if(allOnsite.value){const now=new Date();f.startTime=now.toISOString().slice(0,19);f.endTime=new Date(now.getTime()+8*3600000).toISOString().slice(0,19)}
+  if(allOnsite.value){const {start,end}=todayRange();f.startTime=start;f.endTime=end}
   submitting.value=true
   try{await borrowApi.create({...f});ElMessage.success('申请已提交');router.push('/borrows/my')}catch(e){ElMessage.error(e?.response?.data?.msg||e?.message||'提交失败')}finally{submitting.value=false}
 }

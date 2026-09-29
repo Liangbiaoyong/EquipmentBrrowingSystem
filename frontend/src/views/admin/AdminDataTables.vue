@@ -84,7 +84,7 @@
   </div>
 </template>
 <script setup>
-import { ref,reactive,onMounted } from 'vue';import axios from '@/api/request';import { ElMessage,ElMessageBox } from 'element-plus'
+import { ref,reactive,onMounted } from 'vue';import axios from '@/api/request';import { ElMessage,ElMessageBox } from 'element-plus';import { toLocalDate } from '@/utils/datetime'
 const tables=ref([]);const currentTable=ref(null);const columns=ref([]);const rows=ref([])
 const page=ref(1);const size=ref(50);const total=ref(0);const keyword=ref('');const sort=ref(null);const sortOrder=ref('asc')
 const selectedRows=ref([]);const editingCell=ref(null);const readOnly=ref(false);const isAdmin=ref(false)
@@ -140,7 +140,7 @@ function handleExport(format){
   const mime=ext==='xlsx'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'text/csv'
   axios.get(url,{responseType:'blob'}).then(r=>{
     const blob=new Blob([r.data],{type:mime});const a=document.createElement('a')
-    a.href=URL.createObjectURL(blob);a.download=`${currentTable.value}_${new Date().toISOString().slice(0,10)}.${ext}`;a.click()
+    a.href=URL.createObjectURL(blob);a.download=`${currentTable.value}_${toLocalDate()}.${ext}`;a.click()
   }).catch(e=>ElMessage.error('导出失败: '+(e?.response?.data?.msg||e.message)))
 }
 

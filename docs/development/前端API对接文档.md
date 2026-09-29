@@ -211,10 +211,15 @@ GET /devices/{id}
     "expectedReturnTime": null,     // 预计归还时间
     "borrowCount": 12,              // 历史借用次数
     "borrowType": 2,                // 借用类型: 1可现场借用 2可借出
-    "laboratoryName": "建成环境气候模拟实验室"  // 所属实验室名称
+    "laboratoryName": "建成环境气候模拟实验室",  // 所属实验室名称
+    "canEditIntro": true            // 当前用户能否编辑「设备介绍」（服务端判定）
   }
 }
 ```
+
+> **设备介绍** 复用 `device.description` 字段（介绍设备功能、可完成的实验）。
+> 是否显示编辑入口一律以响应里的 `canEditIntro` 为准，**不要在前端自行判断角色**：
+> 实验室管理员 / 系统管理员 / 该设备登记的使用人本人为 `true`。
 
 ### 3. 按资产编号查询
 
@@ -227,12 +232,25 @@ GET /devices/by-asset-no/{assetNo}
 ```
 PUT /devices/{id}
 Content-Type: application/json
-权限: device:manage
+权限: ROLE_LAB_ADMIN / ROLE_SYSTEM_ADMIN / device:manage
 
 请求体: Device对象（JSON），新增字段:
   borrowType    借用类型: 1可现场借用 2可借出
   laboratoryId  所属实验室ID
 ```
+
+**编辑「设备介绍」（V2.4）**：复用同一接口，只提交 `description` 一个字段即可——
+MyBatis-Plus `updateById` 会忽略 null 字段，不会误改其它列。
+
+```javascript
+await deviceApi.update(deviceId, { description: '本设备可完成……' })
+```
+
+| 角色 | 可改范围 |
+|:--|:--|
+| 实验室管理员 / 系统管理员 | 全部字段 |
+| 使用人本人（教师，`userType=1` 且 `realName` 与该设备 `custodian` 相同） | 仅 `location`/`borrowStatus`/`deviceStatus`/`borrowType`/`description` |
+| 其它教师 | 返回业务失败「教师只能管理自己名下的设备」 |
 
 ### 5. 删除设备
 
@@ -991,6 +1009,7 @@ interface DeviceDetailVO {
   borrowType: number;          // 1可现场借用 2可借出
   laboratoryName: string | null;
   borrowCount: number;
+  canEditIntro: boolean;       // 能否编辑「设备介绍」（服务端判定，前端据此显示入口）
 }
 
 interface DeviceImage {

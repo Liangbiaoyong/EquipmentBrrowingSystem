@@ -45,4 +45,10 @@ public class DeviceDetailVO {
 
     /** 所属实验室名称 */
     private String laboratoryName;
+
+    /**
+     * 当前用户是否可编辑该设备的「设备介绍」。
+     * 由服务端判定，前端据此控制编辑入口，避免依赖客户端角色状态。
+     */
+    private boolean canEditIntro;
 }

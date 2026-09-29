@@ -216,6 +216,7 @@ import { borrowApi } from '@/api/borrow'
 import axios from '@/api/request'
 import { ElMessage } from 'element-plus'
 import { Plus,Clock,Loading,CircleCheck,WarningFilled } from '@element-plus/icons-vue'
+import { toLocalDateTime } from '@/utils/datetime'
 
 // 状态
 const loading=ref(false);const list=ref([]);const page=ref(1);const size=ref(20);const total=ref(0)
@@ -327,7 +328,7 @@ async function doPickup(row){
   try{
     await axios.post(`/borrows/${row.id}/pickup`)
     ElMessage.success('已确认取走')
-    row.pickupTime=new Date().toISOString()
+    row.pickupTime=toLocalDateTime()
     row.status='BORROWING'
     load();loadStats()
   }catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}finally{drawer.picking=false}

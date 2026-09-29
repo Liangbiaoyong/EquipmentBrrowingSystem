@@ -8,6 +8,8 @@ RUN npm run build
 
 # 第二阶段：Nginx 提供静态文件
 FROM nginx:stable-alpine
+# 容器时区，决定 nginx 访问/错误日志的时间戳
+ENV TZ=Asia/Shanghai
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

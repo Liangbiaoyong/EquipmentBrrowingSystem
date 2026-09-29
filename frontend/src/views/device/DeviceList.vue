@@ -40,7 +40,7 @@
   </div>
 </template>
 <script setup>
-import { ref,reactive,onMounted,watch } from 'vue';import { useRouter,useRoute } from 'vue-router';import axios from '@/api/request';import { categoryApi } from '@/api/category'
+import { ref,reactive,onMounted,watch } from 'vue';import { useRouter,useRoute } from 'vue-router';import axios from '@/api/request';import { categoryApi } from '@/api/category';import { toLocalDate } from '@/utils/datetime'
 const canExport = ['1','2','3'].includes(localStorage.getItem('userType'))
 const router=useRouter();const route=useRoute();const loading=ref(false);const list=ref([]);const total=ref(0);const categories=ref([]);const laboratories=ref([])
 const q=reactive({page:1,size:20,assetNo:'',name:'',model:'',categoryId:null,gbCategoryName:'',location:'',borrowStatus:null,deviceStatus:null,borrowType:null,laboratoryId:null,custodian:''})
@@ -53,7 +53,7 @@ async function doExport(format='csv'){
     const ext=format==='xlsx'?'xlsx':'csv'
     const mime=ext==='xlsx'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'text/csv;charset=UTF-8'
     const blob=new Blob([r.data],{type:mime})
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`设备导出_${new Date().toISOString().slice(0,10)}.${ext}`;a.click()
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`设备导出_${toLocalDate()}.${ext}`;a.click()
   }catch(e){ElMessage.error('导出失败: '+(e?.response?.data?.msg||e.message))}finally{exportLoading.value=false}
 }
 

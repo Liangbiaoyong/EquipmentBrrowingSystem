@@ -213,9 +213,27 @@ public class DeviceController {
                 .borrowCount(borrowCount)
                 .borrowType(borrowType)
                 .laboratoryName(laboratoryName)
+                .canEditIntro(canEditDeviceIntro(device))
                 .build();
 
         return R.ok(vo);
+    }
+
+    /**
+     * 是否可编辑该设备的「设备介绍」：实验室管理员 / 系统管理员，
+     * 或该设备登记的使用人本人。
+     *
+     * 与 PUT /devices/{id} 的鉴权保持一致——教师虽持有 device:manage，
+     * 但仅能修改本人名下设备，故此处同样要求 custodian 与本人姓名相符。
+     */
+    private boolean canEditDeviceIntro(Device device) {
+        SysUser me = sysUserMapper.selectById(getUserId());
+        if (me == null || me.getUserType() == null) return false;
+        int userType = me.getUserType();
+        if (userType == 2 || userType == 3) return true;
+        return userType == 1
+                && device.getCustodian() != null
+                && device.getCustodian().equals(me.getRealName());
     }
 
     @GetMapping("/{id}/borrows")

@@ -204,6 +204,7 @@ import { useUserStore } from '@/store/user'
 import { statsApi } from '@/api/statistics'
 import axios from '@/api/request'
 import { Download,Monitor,CircleCheck,Clock,Bell,ArrowDown } from '@element-plus/icons-vue'
+import { toLocalDate } from '@/utils/datetime'
 
 const userStore = useUserStore()
 
@@ -420,7 +421,7 @@ function doExport(format) {
     const blob = new Blob([r.data], { type: mime })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
-    a.download = `统计报表_${new Date().toISOString().slice(0,10)}.${ext}`
+    a.download = `统计报表_${toLocalDate()}.${ext}`
     a.click()
   }).catch(() => {})
 }

@@ -48,7 +48,7 @@
   </div>
 </template>
 <script setup>
-import { ref,reactive,onMounted,computed } from 'vue';import { deviceApi } from '@/api/device';import { ElMessage } from 'element-plus';import axios from '@/api/request';import { useUserStore } from '@/store/user'
+import { ref,reactive,onMounted,computed } from 'vue';import { deviceApi } from '@/api/device';import { ElMessage } from 'element-plus';import axios from '@/api/request';import { useUserStore } from '@/store/user';import { toLocalDate } from '@/utils/datetime'
 
 const loading=ref(false);const list=ref([]);const total=ref(0);const exportLoading=ref(false)
 const editVisible=ref(false);const approverVisible=ref(false)
@@ -65,7 +65,7 @@ async function doExport(format='csv'){
     const ext=format==='xlsx'?'xlsx':'csv'
     const mime=ext==='xlsx'?'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':'text/csv;charset=UTF-8'
     const blob=new Blob([r.data],{type:mime})
-    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`设备管理导出_${new Date().toISOString().slice(0,10)}.${ext}`;a.click()
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=`设备管理导出_${toLocalDate()}.${ext}`;a.click()
   }catch(e){ElMessage.error('导出失败: '+(e?.response?.data?.msg||e.message))}finally{exportLoading.value=false}
 }
 

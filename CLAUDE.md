@@ -174,6 +174,22 @@ git add -A && git commit -m "<type>: <description>" && git push
 - **软删除**: 不使用逻辑删除，关键记录永久保留
 - **utf8mb4 加固**: MySQL 服务端 `MYSQL_CHARACTER_SET_SERVER=utf8mb4` + JDBC `characterEncoding=UTF-8&useUnicode=true` + CLI 导入 `--default-character-set=utf8mb4`
 
+### 时区（全链路中国时区）
+
+系统统一使用 `Asia/Shanghai`，四层都要一致，缺一层就会整体偏移 8 小时：
+
+| 层 | 位置 | 说明 |
+|:--|:-----|:-----|
+| 容器 | `docker-compose.yml` 各服务 `TZ: Asia/Shanghai` | 决定容器内 `date`、进程默认时区 |
+| JVM | `backend/Dockerfile` 的 `ENV TZ` + `-Duser.timezone` | 决定 `LocalDateTime.now()` 与**日志时间戳** |
+| MySQL | mysql 服务 `--default-time-zone=+08:00` | 决定 `NOW()` / `CURRENT_TIMESTAMP` 及 datetime 列默认值 |
+| 应用序列化 | `application-*.yml` 的 `spring.jackson.time-zone` | 决定 `Date`/`Instant` 的 JSON 输出 |
+
+- **数据库里存的是「本地墙钟时间」**：`LocalDateTime` 不做时区换算，Java 写入与 MySQL 写入的口径都必须是中国时间
+- **前端禁止用 `Date#toISOString()` 生成要提交给后端的时间**（它按 UTC 输出）——用 `frontend/src/utils/datetime.js` 的 `toLocalDateTime` / `todayRange` / `toLocalDate`
+- 宿主机建议一并 `timedatectl set-timezone Asia/Shanghai`，保证宿主机日志与 cron 口径一致
+
+
 ### 审批流
 
 - 默认两级：审批人（申请人指定教师）→ 审核员（实验室管理员）
@@ -198,6 +214,15 @@ git add -A && git commit -m "<type>: <description>" && git push
 - **测试账号**: `admin/admin123`(系统管理员) / `student01/admin123`(学生) / `teacher01/admin123`(教师) / `labadmin/admin123`(实验室管理员)
 - **一键部署脚本**: `deploy-remote.sh` (Linux/Mac) / `run-deploy.bat` (Windows)
 - **初始化流程**: `01-schema.sql` → `02-data.sql` → `07-update-v5-category-descriptions.sql` → `03-test-data.sql`（按文件名排序自动执行）
+- **一次性数据迁移**: `sql/migrations/` 目录**不会**被初始化流程自动执行，需手工导入。目前有一支：
+  - `16-timezone-cst-shift.sql` — 把 V14 之前按 UTC 写入的历史时间整体 +8 小时。
+    仅在**存量数据**的库上执行，全新初始化的库无需执行（否则会把正确数据推快 8 小时）。
+    脚本以 `system_config.db.timezone_shifted` 做幂等保护，重复执行不会二次平移。
+    ```bash
+    docker exec -i dev-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
+      --default-character-set=utf8mb4 device_borrow < sql/migrations/16-timezone-cst-shift.sql
+    ```
+
 
 ### ⚠️ 部署关键经验
 
@@ -207,6 +232,7 @@ git add -A && git commit -m "<type>: <description>" && git push
 | 新增表 `Table doesn't exist` | MySQL volume 持久化后不重跑 init 脚本 | 手动 `CREATE TABLE` 或重建 volume |
 | 功能未更新 | `git pull` 后构建用缓存 | 用 `--no-cache` 确保重新编译 |
 | 批量导入/新增规则无效 | 前端表单无默认值，`minYears` 为空 | 设置 `ruleForm={minYears:6, priority:100}` |
+| 界面/日志时间比北京慢 8 小时 | 容器与 JVM 未设时区，跑在 UTC | `docker-compose.yml` 加 `TZ`、Dockerfile 加 `ENV TZ` 与 `-Duser.timezone`、MySQL 加 `--default-time-zone=+08:00`；存量数据跑 `sql/migrations/16-timezone-cst-shift.sql` |
 
 **部署三步检查**：
 1. ✅ 代码完整 — `git pull --ff-only`，检查 commit 一致
