@@ -127,14 +127,21 @@ const purposeCategories = [
 
 onMounted(async()=>{
   await loadDevices()
-  loadApproverNames()
+  // 必须先等审批人加载完再算初审人：否则 approverMap 还是空的，
+  // resolveApproverLabel 会退回到设备使用人，界面显示成使用人姓名而不是实际审批人
+  await loadApproverNames()
   if(route.query.deviceId){const id=Number(route.query.deviceId);fromDetailDeviceId.value=id;f.deviceIds=[id];updateApproverInfo()}
   loadPurposeDescriptions()
 })
 
 /** 拉取可选审批人，用于把设备的 defaultApproverId 解析成姓名显示 */
 async function loadApproverNames(){
-  try{const{data}=await axios.get('/auth/approvers');const m={};(data||[]).forEach(u=>{m[u.id]=u});approverMap.value=m}catch{}
+  try{
+    const{data}=await axios.get('/auth/approvers')
+    const m={};(data||[]).forEach(u=>{m[u.id]=u})
+    approverMap.value=m
+    updateApproverInfo()   // 加载完成后刷新一次，兜住任何先于加载触发的计算
+  }catch{}
 }
 
 async function loadPurposeDescriptions(){
@@ -160,7 +167,13 @@ function onDeviceChange(ids){
   }
 }
 
-function updateApproverInfo(){if(f.deviceIds.length){const d=deviceOptions.value.find(x=>x.id===f.deviceIds[0]);if(d)approverLevel1.value=resolveApproverLabel(d)}}
+function updateApproverInfo(){
+  if(!f.deviceIds.length)return
+  const d=deviceOptions.value.find(x=>x.id===f.deviceIds[0])
+  if(!d)return
+  approverLevel1.value=resolveApproverLabel(d)
+  f.approverId=d.defaultApproverId||null   // 显示与提交值保持一致
+}
 
 async function submit(){
   if(!f.deviceIds.length){ElMessage.warning('请选择设备');return}
