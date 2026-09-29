@@ -80,7 +80,15 @@ function borrowStatusText(v){return borrowStatusTextMap[v]||v}
 function deviceStatusTag(v){return deviceStatusMap[v]||'info'}
 function deviceStatusText(v){return deviceStatusTextMap[v]||v}
 function roleName(t){return roleNameMap[t]||t}
-function getApproverName(id){if(!id)return'未设置';const u=users.value.find(x=>x.id===id);return u?u.realName||u.username:`ID:${id}`}
+// 审批人是实验室管理员/系统管理员时统一显示角色名，不显示具体账号——
+// 该节点本就是「该角色任一人均可审批」，显示到人只会让人以为绑定了某个账号
+function getApproverName(id){
+  if(!id)return'未设置'
+  const u=users.value.find(x=>x.id===id)
+  if(!u)return `ID:${id}`
+  if(u.userType===2||u.userType===3)return '实验室管理员'
+  return u.realName||u.username
+}
 
 async function load(){loading.value=true;try{const{data}=await deviceApi.list({page:q.page,size:q.size,keyword:q.keyword||undefined,location:q.location||undefined,custodian:isTeacher.value?userStore.userInfo?.realName:undefined,sort:sortBy.value||undefined,order:sortOrder.value||undefined});list.value=data.records||[];total.value=data.total||0}catch(e){console.error(e)}finally{loading.value=false}}
 async function loadUsers(){try{const{data}=await axios.get('/admin/users',{params:{page:1,size:500}});users.value=data.records||[]}catch{}}

@@ -105,7 +105,11 @@ const currentPurposeDesc=computed(()=>f.purposeCategory ? purposeDescriptions.va
 // 否则管理员改了设备默认审批人，借用人这边看到的还是旧的使用人。
 const approverMap=ref({})
 function resolveApproverLabel(d){
-  if(d?.defaultApproverId){const u=approverMap.value[d.defaultApproverId];if(u)return u.realName||u.username}
+  if(d?.defaultApproverId){
+    const u=approverMap.value[d.defaultApproverId]
+    // 管理员审批时统一显示角色名，不显示具体账号（该节点任一管理员均可办）
+    if(u)return (u.userType===2||u.userType===3)?'实验室管理员':(u.realName||u.username)
+  }
   return d?.custodian||'设备使用人（自动匹配）'
 }
 const multiApprovers=computed(()=>f.deviceIds.map(id=>{
