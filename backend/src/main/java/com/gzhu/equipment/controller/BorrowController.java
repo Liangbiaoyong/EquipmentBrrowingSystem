@@ -868,6 +868,10 @@ public class BorrowController {
             m.put("userName", userNames.getOrDefault(r.getUserId(), "用户#"+r.getUserId()));
             m.put("approver1Name", approver1Names.getOrDefault(r.getId(), ""));
             m.put("approver2Name", approver2Names.getOrDefault(r.getId(), ""));
+            // 归还审批要看学生填写的「设备情况」，故必须显式列出——
+            // 本 map 是手工构造的，漏字段不会报错，只会静默传不到前端
+            m.put("damageReport", r.getDamageReport());
+            m.put("returnRequestTime", r.getReturnRequestTime());
             enriched.add(m);
         }
         return enriched;

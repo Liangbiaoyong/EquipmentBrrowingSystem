@@ -17,7 +17,7 @@
         <el-table-column label="借用人" width="100"><template #default="{row}">{{ row.userName || '用户#'+row.userId }}</template></el-table-column>
         <el-table-column prop="startTime" label="借用时间" width="160"><template #default="{row}">{{ fmt(row.startTime) }} ~ {{ fmt(row.endTime) }}</template></el-table-column>
         <el-table-column label="逾期" width="70"><template #default="{row}"><span v-if="row.overdueDays" style="color:#F56C6C">{{row.overdueDays}}天</span><span v-else style="color:#C0C4CC">-</span></template></el-table-column>
-        <el-table-column label="归还说明" min-width="120">
+        <el-table-column label="设备情况" min-width="120">
           <template #default="{row}">
             <span v-if="row.damageReport">{{ row.damageReport }}</span>
             <span v-else style="color:#C0C4CC">无</span>
@@ -40,7 +40,7 @@
 
     <!-- 照片预览对话框 -->
     <el-dialog v-model="photoDlg.visible" title="归还照片" width="500px">
-      <p v-if="photoDlg.damageReport" style="color:#606266;margin-bottom:10px"><strong>归还说明：</strong>{{ photoDlg.damageReport }}</p>
+      <p v-if="photoDlg.damageReport" style="color:#606266;margin-bottom:10px"><strong>设备情况：</strong>{{ photoDlg.damageReport }}</p>
       <div v-if="photoDlg.images.length" style="display:flex;flex-wrap:wrap;gap:10px">
         <el-image v-for="(url,i) in photoDlg.images" :key="i" :src="url" fit="cover" style="width:200px;height:150px;border-radius:8px" :preview-src-list="photoDlg.images"/>
       </div>

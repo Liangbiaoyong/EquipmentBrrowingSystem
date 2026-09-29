@@ -89,19 +89,9 @@
     <el-dialog v-model="returnDlg.show" title="归还登记" width="440px">
       <el-form label-width="80px">
         <el-form-item label="单号"><el-tag>{{ returnDlg.id }}</el-tag></el-form-item>
-        <el-form-item label="损坏情况"><el-input v-model="returnDlg.damage" type="textarea" :rows="2" placeholder="无损坏可不填"/></el-form-item>
+        <el-form-item label="设备情况"><el-input v-model="returnDlg.damage" type="textarea" :rows="2" placeholder="如「设备良好」「设备损坏：外壳磨损」"/></el-form-item>
       </el-form>
       <template #footer><el-button @click="returnDlg.show=false">取消</el-button><el-button type="primary" @click="submitReturn" :loading="returnDlg.loading">确认归还</el-button></template>
-    </el-dialog>
-
-    <!-- 强制归还对话框 -->
-    <el-dialog v-model="forceDlg.show" title="强制归还" width="440px">
-      <el-alert type="warning" :closable="false" show-icon style="margin-bottom:12px">管理员代为操作，设备状态立即变更为已归还</el-alert>
-      <el-form label-width="80px">
-        <el-form-item label="单号"><el-tag>{{ forceDlg.id }}</el-tag></el-form-item>
-        <el-form-item label="原因" required><el-input v-model="forceDlg.remark" type="textarea" :rows="2" placeholder="强制归还原因"/></el-form-item>
-      </el-form>
-      <template #footer><el-button @click="forceDlg.show=false">取消</el-button><el-button type="danger" @click="submitForce" :loading="forceDlg.loading">确认强制归还</el-button></template>
     </el-dialog>
   </div>
 </template>
@@ -132,22 +122,13 @@ function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
 function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';load()}
 
 const returnDlg=reactive({show:false,id:null,damage:'',loading:false})
-const forceDlg=reactive({show:false,id:null,remark:'',loading:false})
 
 function openReturn(row){returnDlg.id=row.id;returnDlg.damage='';returnDlg.show=true}
-function openForce(row){forceDlg.id=row.id;forceDlg.remark='';forceDlg.show=true}
 
 async function submitReturn(){
   returnDlg.loading=true
   try{await axios.post(`/borrows/${returnDlg.id}/return`,null,{params:{damageReport:returnDlg.damage||''}});ElMessage.success('归还成功');returnDlg.show=false;load();loadStats()}
   catch(e){ElMessage.error(e?.response?.data?.msg||'归还失败')}finally{returnDlg.loading=false}
-}
-
-async function submitForce(){
-  if(!forceDlg.remark){ElMessage.warning('请填写原因');return}
-  forceDlg.loading=true
-  try{await axios.put(`/borrows/${forceDlg.id}/force-return`,null,{params:{remark:forceDlg.remark}});ElMessage.success('强制归还完成');forceDlg.show=false;load();loadStats()}
-  catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}finally{forceDlg.loading=false}
 }
 
 async function cancelBorrow(id){

@@ -6,7 +6,6 @@
       <div class="stat-card s-red"><div class="s-num">{{ stats.overdueTotal }}</div><div class="s-label">当前逾期</div></div>
       <div class="stat-card s-orange"><div class="s-num">{{ stats.avgDays }}</div><div class="s-label">平均逾期天数</div></div>
       <div class="stat-card s-blue"><div class="s-num">{{ stats.notified }}</div><div class="s-label">催还中</div></div>
-      <div class="stat-card s-green"><div class="s-num">{{ stats.collected }}</div><div class="s-label">已强制归还</div></div>
     </div>
 
     <!-- 筛选栏 -->
@@ -33,11 +32,10 @@
         <el-table-column prop="overdueDays" label="逾期天数" width="100" sortable="custom"><template #default="{row}"><el-tag :type="row.overdueDays>7?'danger':'warning'" size="large">{{ row.overdueDays }}天</el-tag></template></el-table-column>
         <el-table-column prop="startTime" label="开始时间" width="140" sortable="custom"><template #default="{row}">{{ fmt(row.startTime) }}</template></el-table-column>
         <el-table-column prop="endTime" label="应归还" width="140" sortable="custom"><template #default="{row}">{{ fmt(row.endTime) }}</template></el-table-column>
-        <el-table-column label="操作" width="280" fixed="right"><template #default="{row}">
+        <el-table-column label="操作" width="180" fixed="right"><template #default="{row}">
           <div class="action-btns">
             <el-button size="small" type="primary" @click="doNotify(row)">催还</el-button>
             <el-button size="small" type="warning" @click="doReturn(row)">归还</el-button>
-            <el-button size="small" type="danger" @click="doForceReturn(row)">强制归还</el-button>
           </div>
         </template></el-table-column>
       </el-table>
@@ -48,12 +46,11 @@
     </el-card>
 
     <!-- 对话框 -->
-    <el-dialog v-model="dlg.show" :title="dlg.force?'强制归还':'归还登记'" width="460px">
+    <el-dialog v-model="dlg.show" title="归还登记" width="460px">
       <el-form label-width="80px"><el-form-item label="单号"><el-tag>{{ dlg.row?.id }}</el-tag></el-form-item>
-        <el-form-item label="损坏情况"><el-input v-model="dlg.damage" type="textarea" :rows="2" placeholder="无损坏可不填"/></el-form-item>
-        <el-form-item v-if="dlg.force" label="原因" required><el-input v-model="dlg.remark" type="textarea" :rows="2"/></el-form-item>
+        <el-form-item label="设备情况"><el-input v-model="dlg.damage" type="textarea" :rows="2" placeholder="如「设备良好」「设备损坏：外壳磨损」"/></el-form-item>
       </el-form>
-      <template #footer><el-button @click="dlg.show=false">取消</el-button><el-button :type="dlg.force?'danger':'primary'" @click="submitDlg" :loading="dlg.loading">确认</el-button></template>
+      <template #footer><el-button @click="dlg.show=false">取消</el-button><el-button type="primary" @click="submitDlg" :loading="dlg.loading">确认</el-button></template>
     </el-dialog>
   </div>
 </template>
@@ -65,10 +62,10 @@ import { ElMessage } from 'element-plus'
 
 const list=ref([]);const loading=ref(false);const page=ref(1);const size=ref(20);const total=ref(0)
 const keyword=ref('');const selectedIds=ref([])
-const stats=reactive({overdueTotal:0,avgDays:0,notified:0,collected:0})
+const stats=reactive({overdueTotal:0,avgDays:0,notified:0})
 const sortBy=ref('');const sortOrder=ref('')
 
-const dlg=reactive({show:false,force:false,row:null,damage:'',remark:'',loading:false})
+const dlg=reactive({show:false,row:null,damage:'',loading:false})
 
 function fmt(t){return t?t.replace('T',' ').substring(0,16):''}
 function onSort({prop,order}){sortBy.value=order?prop:'';sortOrder.value=order==='ascending'?'asc':order==='descending'?'desc':'';load()}
@@ -87,22 +84,18 @@ async function loadStats(){
     stats.overdueTotal=data.overdueTotal||0
     stats.avgDays=data.avgDays||0
     stats.notified=data.notified||0
-    stats.collected=data.collected||0
   }catch(e){console.error(e)}
 }
 
 async function doNotify(row){try{await axios.post(`/borrows/${row.id}/overdue-notify`);ElMessage.success('催还通知已发送');load();loadStats()}catch(e){ElMessage.error(e?.response?.data?.msg||'失败')}}
 
-function doReturn(row){dlg.row=row;dlg.damage='';dlg.remark='';dlg.force=false;dlg.show=true}
-function doForceReturn(row){dlg.row=row;dlg.damage='';dlg.remark='';dlg.force=true;dlg.show=true}
+function doReturn(row){dlg.row=row;dlg.damage='';dlg.show=true}
 
 async function submitDlg(){
-  if(dlg.force&&!dlg.remark){ElMessage.warning('请填写强制归还原因');return}
   dlg.loading=true
   try{
-    if(dlg.force){await axios.put(`/borrows/${dlg.row.id}/force-return`,null,{params:{damageReport:dlg.damage,remark:dlg.remark}})}
-    else{await axios.post(`/borrows/${dlg.row.id}/return`,null,{params:{damageReport:dlg.damage}})}
-    ElMessage.success(dlg.force?'强制归还完成':'归还成功');dlg.show=false;load();loadStats()
+    await axios.post(`/borrows/${dlg.row.id}/return`,null,{params:{damageReport:dlg.damage}})
+    ElMessage.success('归还成功');dlg.show=false;load();loadStats()
   }catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}finally{dlg.loading=false}
 }
 
@@ -121,7 +114,7 @@ onMounted(()=>{load();loadStats()})
 
 <style scoped>
 .overdue-page{padding:20px;max-width:1200px;margin:0 auto}
-.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px}
+.stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:16px}
 .stat-card{background:#fff;padding:18px 20px;border-radius:10px;text-align:center;box-shadow:0 1px 6px rgba(0,0,0,0.06);border-top:3px solid;cursor:default;transition:transform 0.15s,box-shadow 0.15s}
 .stat-card:hover{transform:translateY(-2px);box-shadow:0 4px 12px rgba(0,0,0,0.1)}
 .s-num{font-size:28px;font-weight:700}.s-label{font-size:12px;color:#909399;margin-top:4px}

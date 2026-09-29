@@ -12,6 +12,8 @@ import com.gzhu.equipment.service.NotificationService;
 import com.gzhu.equipment.service.SystemConfigService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -58,6 +60,46 @@ public class ScheduledCleanupTask {
     private static final int DEFAULT_LARGE_FILE_DAYS = 30;
     private static final int DEFAULT_NOTIFICATION_READ_DAYS = 180;
     private static final int DEFAULT_NOTIFICATION_UNREAD_DAYS = -1;
+
+    /**
+     * 逾期检测：BORROWING 且已过应归还时间 → 标记 OVERDUE，并同步设备借还状态。
+     *
+     * 独立于每日清理，按小时执行并在启动时执行一次。原因：
+     * 借用单的状态列由本方法维护，若只在每天 03:00 刷新一次，记录刚过期到下次执行前
+     * 页面仍显示「借用中」——而统计是读取时推导的，两者会出现不一致；
+     * 且 @Scheduled 对错过的执行不做补偿，服务器若恰在 03:00 前后重启就整天空过。
+     */
+    @Scheduled(cron = "0 0 * * * ?")
+    public void markOverdue() {
+        var borrowing = borrowMapper.selectList(
+                new LambdaQueryWrapper<BorrowRecord>()
+                        .eq(BorrowRecord::getStatus, "BORROWING")
+                        .lt(BorrowRecord::getEndTime, LocalDateTime.now()));
+        for (BorrowRecord br : borrowing) {
+            long days = java.time.Duration.between(br.getEndTime(), LocalDateTime.now()).toDays();
+            br.setStatus("OVERDUE");
+            br.setOverdueDays((int) days);
+            borrowMapper.updateById(br);
+            // V3: 同步更新设备借还状态为逾期
+            Device device = deviceMapper.selectById(br.getDeviceId());
+            if (device != null && device.getBorrowStatus() != null && device.getBorrowStatus() == 2) {
+                device.setBorrowStatus(4); // 逾期
+                deviceMapper.updateById(device);
+            }
+            notificationService.notifyOverdue(br.getUserId(), "设备#" + br.getDeviceId(), br.getId(), (int) days);
+        }
+        if (!borrowing.isEmpty()) log.info("逾期处理: {} 条", borrowing.size());
+    }
+
+    /** 启动时先跑一次，避免部署后要等到下一个整点才刷新状态 */
+    @EventListener(ApplicationReadyEvent.class)
+    public void markOverdueOnStartup() {
+        try {
+            markOverdue();
+        } catch (Exception e) {
+            log.warn("启动逾期检测失败: {}", e.getMessage());
+        }
+    }
 
     @Scheduled(cron = "0 0 3 * * ?")
     public void execute() {
@@ -127,27 +169,8 @@ public class ScheduledCleanupTask {
         }
         log.info("清理附件(含MinIO): {} 条（{}天前或已过期）", attDeleted, largeDays);
 
-        // ─── 3. 逾期检测 ───
-        int overdueCount = 0;
-        var borrowing = borrowMapper.selectList(
-                new LambdaQueryWrapper<BorrowRecord>()
-                        .eq(BorrowRecord::getStatus, "BORROWING")
-                        .lt(BorrowRecord::getEndTime, LocalDateTime.now()));
-        for (BorrowRecord br : borrowing) {
-            long days = java.time.Duration.between(br.getEndTime(), LocalDateTime.now()).toDays();
-            br.setStatus("OVERDUE");
-            br.setOverdueDays((int) days);
-            borrowMapper.updateById(br);
-            // V3: 同步更新设备借还状态为逾期
-            Device device = deviceMapper.selectById(br.getDeviceId());
-            if (device != null && device.getBorrowStatus() != null && device.getBorrowStatus() == 2) {
-                device.setBorrowStatus(4); // 逾期
-                deviceMapper.updateById(device);
-            }
-            notificationService.notifyOverdue(br.getUserId(), "设备#" + br.getDeviceId(), br.getId(), (int) days);
-            overdueCount++;
-        }
-        log.info("逾期处理: {} 条", overdueCount);
+        // ─── 3. 逾期检测（已抽为独立的每小时任务，见 markOverdue）───
+        markOverdue();
 
         // ─── 4. 归还提醒 ───
         int remindCount = 0;

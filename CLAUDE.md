@@ -222,11 +222,20 @@ git add -A && git commit -m "<type>: <description>" && git push
     仅在**存量数据**的库上执行，全新初始化的库无需执行（否则会把正确数据推快 8 小时）。
   - `17-timezone-fix-authored-columns.sql` — **仅为「2026-09-29 之前版本的 16 号脚本已执行过」的库准备的回退**。
     那一版误把上述字面量列也 +8 小时。**全新环境不要执行本脚本**（跑修正版 16 号即可）。
+  - `18-create-overdue-record.sql` — 补建缺失的 `overdue_record` 表。
+    该表由 `sql/init/08-update-v6-overdue.sql` 创建，但 `sql/init/` **只在数据库首次初始化时执行一次**；
+    若该文件是在卷已存在之后才加入仓库，线上库就会缺表，导致 `/borrows/overdue/stats` 抛 SQL 异常返回 500
+    （表现为逾期管理页统计全为 0 + 「服务器内部错误」）。全新环境无需执行本脚本。
     两支脚本都以 `system_config` 中的标记做幂等保护，重复执行不会二次平移。
     ```bash
     docker exec -i dev-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
       --default-character-set=utf8mb4 device_borrow < sql/migrations/16-timezone-cst-shift.sql
     ```
+
+> **`sql/init/` 只跑一次**：目录挂载到 `/docker-entrypoint-initdb.d`，仅在数据目录为空时执行。
+> 后续往该目录新增脚本**不会**对已有卷生效 —— 这类补丁必须写成 `sql/migrations/` 下的手工脚本。
+> 另注意：MySQL 8 **不支持** `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`（那是 MariaDB 语法），
+> 迁移脚本里不要用；需要幂等就靠建表时的 `CREATE TABLE IF NOT EXISTS` 或 information_schema 判断。
 
 
 ### ⚠️ 部署关键经验
