@@ -214,10 +214,15 @@ git add -A && git commit -m "<type>: <description>" && git push
 - **测试账号**: `admin/admin123`(系统管理员) / `student01/admin123`(学生) / `teacher01/admin123`(教师) / `labadmin/admin123`(实验室管理员)
 - **一键部署脚本**: `deploy-remote.sh` (Linux/Mac) / `run-deploy.bat` (Windows)
 - **初始化流程**: `01-schema.sql` → `02-data.sql` → `07-update-v5-category-descriptions.sql` → `03-test-data.sql`（按文件名排序自动执行）
-- **一次性数据迁移**: `sql/migrations/` 目录**不会**被初始化流程自动执行，需手工导入。目前有一支：
-  - `16-timezone-cst-shift.sql` — 把 V14 之前按 UTC 写入的历史时间整体 +8 小时。
+- **一次性数据迁移**: `sql/migrations/` 目录**不会**被初始化流程自动执行，需手工导入。目前有两支：
+  - `16-timezone-cst-shift.sql` — 把 V14 之前由**系统生成**的时间（`NOW()`/`CURRENT_TIMESTAMP`/`LocalDateTime.now()`）整体 +8 小时。
+    注意：`03-test-data.sql` 里 `start_time`/`end_time`/`real_return_time`/`outcome_recorded_time`/`create_time`/
+    `approval_log.operate_time` 是**脚本写死的字面量，本来就是本地时间**，脚本已按种子行特征（`SECOND(create_time)=0
+    AND create_time<>update_time`）将其排除，不做平移。
     仅在**存量数据**的库上执行，全新初始化的库无需执行（否则会把正确数据推快 8 小时）。
-    脚本以 `system_config.db.timezone_shifted` 做幂等保护，重复执行不会二次平移。
+  - `17-timezone-fix-authored-columns.sql` — **仅为「2026-09-29 之前版本的 16 号脚本已执行过」的库准备的回退**。
+    那一版误把上述字面量列也 +8 小时。**全新环境不要执行本脚本**（跑修正版 16 号即可）。
+    两支脚本都以 `system_config` 中的标记做幂等保护，重复执行不会二次平移。
     ```bash
     docker exec -i dev-mysql mysql -uroot -p"$MYSQL_ROOT_PASSWORD" \
       --default-character-set=utf8mb4 device_borrow < sql/migrations/16-timezone-cst-shift.sql
