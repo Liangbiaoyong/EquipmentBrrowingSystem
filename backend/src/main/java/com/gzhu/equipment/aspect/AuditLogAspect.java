@@ -33,6 +33,13 @@ public class AuditLogAspect {
             "@annotation(org.springframework.web.bind.annotation.PutMapping) || " +
             "@annotation(org.springframework.web.bind.annotation.DeleteMapping)")
     public Object auditLog(ProceedingJoinPoint joinPoint) throws Throwable {
+        // BasicErrorController 不记审计：所有落到 /error 的请求（404/400 等）都会经过它，
+        // 而本切面是切全部 Mapping 注解的，于是公网扫描器每打一个不存在的路径就写一条
+        // operation="error" 的日志，实测每小时数百条，把操作日志彻底刷屏。
+        if (joinPoint.getTarget() != null
+                && "BasicErrorController".equals(joinPoint.getTarget().getClass().getSimpleName())) {
+            return joinPoint.proceed();
+        }
         long start = System.currentTimeMillis();
         String method = joinPoint.getSignature().toShortString();
         String params = truncate(Arrays.toString(joinPoint.getArgs()), 500);

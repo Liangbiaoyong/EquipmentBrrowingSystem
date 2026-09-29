@@ -246,6 +246,9 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
         approvalLog.setResult(result);
         approvalLog.setComment(dto.getComment());
         approvalLog.setOperateTime(LocalDateTime.now());
+        // 记录「实际审批人」而非建单时指派的人：管理员可代审任意节点（见上方 isAdmin 分支），
+        // 若仍保留指派值，终审页的「初审人」就会显示成被指派者而不是真正点通过的人。
+        approvalLog.setApproverId(approverId);
         approvalMapper.updateById(approvalLog);
 
         if ("REJECTED".equals(result)) {

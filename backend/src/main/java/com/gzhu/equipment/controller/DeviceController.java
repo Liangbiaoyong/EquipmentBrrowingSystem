@@ -142,8 +142,12 @@ public class DeviceController {
         }
         Device d = deviceService.getById(id);
         if (d == null) return R.fail(404, "设备不存在");
-        d.setDefaultApproverId(null);
-        deviceService.updateById(d);
+        // 必须用 UpdateWrapper 显式 set(null)：MyBatis-Plus 的 updateById 默认忽略 null 字段
+        // （FieldStrategy.NOT_NULL），直接 d.setDefaultApproverId(null) 再 updateById 根本不会清空该列，
+        // 于是出现「提示已恢复默认、列表里却还是原来那个人」。
+        deviceMapper.update(null, new com.baomidou.mybatisplus.core.conditions.update.UpdateWrapper<Device>()
+                .eq("id", id)
+                .set("default_approver_id", null));
         return R.ok("已恢复默认（使用人审批）");
     }
 

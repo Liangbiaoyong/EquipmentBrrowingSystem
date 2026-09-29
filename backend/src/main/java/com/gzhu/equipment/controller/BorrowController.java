@@ -842,6 +842,9 @@ public class BorrowController {
         }
         // 审批人姓名（初审step=1, 终审step=2）
         java.util.Map<Long,String> approver1Names = new java.util.HashMap<>(), approver2Names = new java.util.HashMap<>();
+        // 终审页要显示「初审完成时间」与「初审意见」，故一并带出该节点的操作时间与审批意见
+        java.util.Map<Long,java.time.LocalDateTime> approver1Times = new java.util.HashMap<>(), approver2Times = new java.util.HashMap<>();
+        java.util.Map<Long,String> approver1Comments = new java.util.HashMap<>(), approver2Comments = new java.util.HashMap<>();
         if (!borrowIds.isEmpty()) {
             var logs = approvalLogMapper.selectList(
                     new LambdaQueryWrapper<ApprovalLog>().in(ApprovalLog::getBorrowId, borrowIds));
@@ -857,8 +860,15 @@ public class BorrowController {
             }
             for (var l : logs) {
                 String name = approverNameMap.getOrDefault(l.getApproverId(), l.getApproverId() != null ? "ID:" + l.getApproverId() : "未分配");
-                if (l.getStep() != null && l.getStep() == 1) approver1Names.put(l.getBorrowId(), name);
-                else if (l.getStep() != null && l.getStep() == 2) approver2Names.put(l.getBorrowId(), name);
+                if (l.getStep() != null && l.getStep() == 1) {
+                    approver1Names.put(l.getBorrowId(), name);
+                    approver1Times.put(l.getBorrowId(), l.getOperateTime());
+                    approver1Comments.put(l.getBorrowId(), l.getComment());
+                } else if (l.getStep() != null && l.getStep() == 2) {
+                    approver2Names.put(l.getBorrowId(), name);
+                    approver2Times.put(l.getBorrowId(), l.getOperateTime());
+                    approver2Comments.put(l.getBorrowId(), l.getComment());
+                }
             }
         }
 
@@ -876,6 +886,10 @@ public class BorrowController {
             m.put("userName", userNames.getOrDefault(r.getUserId(), "用户#"+r.getUserId()));
             m.put("approver1Name", approver1Names.getOrDefault(r.getId(), ""));
             m.put("approver2Name", approver2Names.getOrDefault(r.getId(), ""));
+            m.put("approver1Time", approver1Times.get(r.getId()));
+            m.put("approver2Time", approver2Times.get(r.getId()));
+            m.put("approver1Comment", approver1Comments.getOrDefault(r.getId(), ""));
+            m.put("approver2Comment", approver2Comments.getOrDefault(r.getId(), ""));
             // 归还审批要看学生填写的「设备情况」，故必须显式列出——
             // 本 map 是手工构造的，漏字段不会报错，只会静默传不到前端
             m.put("damageReport", r.getDamageReport());

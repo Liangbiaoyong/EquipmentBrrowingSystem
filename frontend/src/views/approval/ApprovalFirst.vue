@@ -7,7 +7,9 @@
       <el-table-column label="借用人" width="80"><template #default="{row}">{{ row.userName }}</template></el-table-column>
       <el-table-column label="目的" min-width="120" show-overflow-tooltip><template #default="{row}">{{ row.purpose||'-' }}</template></el-table-column>
       <el-table-column label="分类" width="80"><template #default="{row}"><el-tag size="small" type="info">{{ row.purposeCategory||'-' }}</el-tag></template></el-table-column>
-      <el-table-column label="初审人" width="80"><template #default="{row}">{{ row.approver1Name||'-' }}</template></el-table-column>
+      <el-table-column label="初审人" width="90"><template #default="{row}">{{ row.approver1Name||'-' }}</template></el-table-column>
+      <el-table-column v-if="isSecond" label="初审完成时间" width="140"><template #default="{row}">{{ row.approver1Time?fmt(row.approver1Time):'-' }}</template></el-table-column>
+      <el-table-column v-if="isSecond" label="初审意见" min-width="160" show-overflow-tooltip><template #default="{row}">{{ row.approver1Comment||'-' }}</template></el-table-column>
       <el-table-column label="终审人" width="80"><template #default="{row}">{{ row.approver2Name||'(待分配)' }}</template></el-table-column>
       <el-table-column label="开始" width="130"><template #default="{row}">{{ fmt(row.startTime) }}</template></el-table-column>
       <el-table-column label="结束" width="130"><template #default="{row}">{{ fmt(row.endTime) }}</template></el-table-column>

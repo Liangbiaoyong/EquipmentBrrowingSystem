@@ -44,7 +44,7 @@
     </el-form><template #footer><el-button @click="editVisible=false">取消</el-button><el-button type="primary" @click="doEdit">保存</el-button></template></el-dialog>
 
     <!-- 审批人对话框 -->
-    <el-dialog v-model="approverVisible" title="设置默认审批人" width="400px"><el-select v-model="approverId" placeholder="选择审批人" filterable style="width:100%"><el-option v-for="u in approverCandidates" :key="u.id" :label="`${u.realName||u.username} (${roleName(u.userType)})`" :value="u.id"/></el-select><template #footer><el-button @click="approverVisible=false">取消</el-button><el-button type="warning" @click="doClearApprover">恢复默认</el-button><el-button type="primary" @click="doSetApprover">保存</el-button></template></el-dialog>
+    <el-dialog v-model="approverVisible" title="设置默认审批人" width="400px"><el-select v-model="approverId" placeholder="选择审批人" filterable style="width:100%"><el-option v-for="u in approverCandidates" :key="u.id" :label="u._label || `${u.realName||u.username} (${roleName(u.userType)})`" :value="u.id"/></el-select><template #footer><el-button @click="approverVisible=false">取消</el-button><el-button type="warning" @click="doClearApprover">恢复默认</el-button><el-button type="primary" @click="doSetApprover">保存</el-button></template></el-dialog>
   </div>
 </template>
 <script setup>
@@ -106,8 +106,15 @@ async function doEdit(){
 function openApprover(row){
   approverCurrentId.value=row.id
   approverId.value=row.defaultApproverId
-  approverCandidates.value=users.value.filter(u=>u.userType===2 || (row.custodian && u.realName===row.custodian))
-  if(!approverCandidates.value.length) approverCandidates.value=users.value.filter(u=>u.userType===3)
+  // 只保留两个选项：设备原使用人 / 实验室管理员。
+  // 审批本就是「该角色任一人均可办」，没有必要指定到某个具体账号；
+  // 而且用户多了以后把全部管理员列出来会长到没法用。
+  const cust=users.value.find(u=>row.custodian && u.realName===row.custodian)
+  const admin=users.value.find(u=>u.userType===2)||users.value.find(u=>u.userType===3)
+  const opts=[]
+  if(cust) opts.push({...cust,_label:'设备使用人：'+(cust.realName||cust.username)})
+  if(admin) opts.push({...admin,_label:'实验室管理员'})
+  approverCandidates.value=opts
   approverVisible.value=true
 }
 async function doSetApprover(){try{await axios.put(`/devices/${approverCurrentId.value}/default-approver`,null,{params:{approverId:approverId.value}});ElMessage.success('已更新');approverVisible.value=false;load()}catch(e){ElMessage.error(e?.response?.data?.msg||'操作失败')}}

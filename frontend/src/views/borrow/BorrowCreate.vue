@@ -100,9 +100,17 @@ const allOnsite=computed(()=>f.deviceIds.length>0&&f.deviceIds.every(id=>{const 
 const currentPurposeDesc=computed(()=>f.purposeCategory ? purposeDescriptions.value[f.purposeCategory] || '' : '')
 
 // 多设备时显示每个设备的初审人
+// 初审人显示：设备已指定默认审批人时显示该审批人，否则回落到设备使用人。
+// 与后端建单时的解析顺序一致（请求指定 > 设备默认审批人 > 按使用人姓名查账号），
+// 否则管理员改了设备默认审批人，借用人这边看到的还是旧的使用人。
+const approverMap=ref({})
+function resolveApproverLabel(d){
+  if(d?.defaultApproverId){const u=approverMap.value[d.defaultApproverId];if(u)return u.realName||u.username}
+  return d?.custodian||'设备使用人（自动匹配）'
+}
 const multiApprovers=computed(()=>f.deviceIds.map(id=>{
   const d=deviceOptions.value.find(x=>x.id===id)
-  return {deviceId:id,deviceName:d?d.name:'设备#'+id,approver:d?d.custodian||'自动匹配':'自动匹配'}
+  return {deviceId:id,deviceName:d?d.name:'设备#'+id,approver:d?resolveApproverLabel(d):'自动匹配'}
 }))
 
 // 目的大类选项（含描述tooltip）
@@ -115,9 +123,15 @@ const purposeCategories = [
 
 onMounted(async()=>{
   await loadDevices()
+  loadApproverNames()
   if(route.query.deviceId){const id=Number(route.query.deviceId);fromDetailDeviceId.value=id;f.deviceIds=[id];updateApproverInfo()}
   loadPurposeDescriptions()
 })
+
+/** 拉取可选审批人，用于把设备的 defaultApproverId 解析成姓名显示 */
+async function loadApproverNames(){
+  try{const{data}=await axios.get('/auth/approvers');const m={};(data||[]).forEach(u=>{m[u.id]=u});approverMap.value=m}catch{}
+}
 
 async function loadPurposeDescriptions(){
   try{const{data}=await descriptionApi.listByType('PURPOSE');
@@ -136,13 +150,13 @@ function onPickerOpen(visible){if(visible&&deviceOptions.value.length===0)loadDe
 function onDeviceChange(ids){
   if(ids&&ids.length){
     const d=deviceOptions.value.find(x=>x.id===ids[0])
-    if(d){f.approverId=d.defaultApproverId||null;approverLevel1.value=d.custodian||'设备使用人（自动匹配）'}
+    if(d){f.approverId=d.defaultApproverId||null;approverLevel1.value=resolveApproverLabel(d)}
     // 纯现场借用设备自动设当天时间（界面约定：借用时间系统自动设为当天）
     if(allOnsite.value){const {start,end}=todayRange();f.startTime=start;f.endTime=end}
   }
 }
 
-function updateApproverInfo(){if(f.deviceIds.length){const d=deviceOptions.value.find(x=>x.id===f.deviceIds[0]);if(d)approverLevel1.value=d.custodian||'设备使用人（自动匹配）'}}
+function updateApproverInfo(){if(f.deviceIds.length){const d=deviceOptions.value.find(x=>x.id===f.deviceIds[0]);if(d)approverLevel1.value=resolveApproverLabel(d)}}
 
 async function submit(){
   if(!f.deviceIds.length){ElMessage.warning('请选择设备');return}
