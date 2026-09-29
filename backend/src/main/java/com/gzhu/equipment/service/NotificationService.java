@@ -12,6 +12,9 @@ public interface NotificationService extends IService<Notification> {
     /** 借用提交通知（通知审批人） */
     void notifyBorrowSubmitted(Long userId, String deviceName, Long borrowId);
 
+    /** 审批流转到下一节点时，通知该节点的审批人 */
+    void notifyNextApproval(Long userId, String deviceName, Long borrowId, int step);
+
     /** 审批结果通知 */
     void notifyApprovalResult(Long userId, String deviceName, Long borrowId, boolean approved, String comment);
 

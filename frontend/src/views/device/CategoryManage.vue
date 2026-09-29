@@ -8,7 +8,17 @@
             <el-button @click="openBatchCategories">批量预置分类</el-button>
             <span style="margin-left:auto;color:#909399;font-size:12px">共 {{ categories.length }} 个分类</span>
           </div>
-          <el-table :data="categories" stripe :default-sort="{prop:'sort', order:'ascending'}">
+          <el-table :data="categories" stripe row-key="id" :default-sort="{prop:'sort', order:'ascending'}">
+            <!-- 与「实验室管理」一致：展开行查看该分类关联的国标分类 -->
+            <el-table-column type="expand">
+              <template #default="{row}">
+                <div style="padding:8px 20px">
+                  <h4 style="margin:0 0 8px 0;font-size:13px;color:#606266">关联国标分类 ({{ getCategoryMappings(row.id).length }}个)</h4>
+                  <el-tag v-for="m in getCategoryMappings(row.id)" :key="m.id" size="small" style="margin:2px 4px" effect="plain">{{ m.gbCategoryName }}</el-tag>
+                  <span v-if="!getCategoryMappings(row.id).length" style="color:#909399;font-size:12px">暂无关联国标分类，可在「国标映射」页添加</span>
+                </div>
+              </template>
+            </el-table-column>
             <el-table-column prop="id" label="ID" width="80" sortable/>
             <el-table-column prop="name" label="分类名称" min-width="160" sortable/>
             <el-table-column prop="code" label="编码" width="120"/>
@@ -31,7 +41,7 @@
         </el-card>
       </el-tab-pane>
 
-      <el-tab-pane label="映射规则" name="mappings">
+      <el-tab-pane label="国标映射" name="mappings">
         <el-card>
           <div style="margin-bottom:12px;display:flex;gap:10px;flex-wrap:wrap">
             <el-select v-model="mappingFilter" placeholder="按分类筛选" clearable @change="loadMappings" style="width:200px">
@@ -46,10 +56,10 @@
           <el-alert v-if="classifyResult" :title="classifyResult" type="info" :closable="false" style="margin-bottom:12px"/>
           <el-table :data="mappings" stripe :default-sort="{prop:'priority', order:'ascending'}">
             <el-table-column prop="id" label="ID" width="80" sortable/>
-            <el-table-column prop="gbCategoryName" label="国标分类名" min-width="160"/>
-            <el-table-column prop="keyword" label="关键词" width="120"/>
-            <el-table-column label="目标分类" width="140"><template #default="{row}">{{ catName(row.categoryId) }}</template></el-table-column>
-            <el-table-column prop="priority" label="优先级" width="80" sortable/>
+            <el-table-column label="所属分类" width="200" sortable><template #default="{row}">{{ catName(row.categoryId) }}</template></el-table-column>
+            <el-table-column prop="gbCategoryName" label="国标分类名" min-width="200"/>
+            <el-table-column prop="keyword" label="匹配关键词" width="150"/>
+            <el-table-column prop="priority" label="优先级" width="90" sortable/>
             <el-table-column label="状态" width="80"><template #default="{row}"><el-tag :type="row.isActive===1?'success':'info'">{{ row.isActive===1?'启用':'禁用' }}</el-tag></template></el-table-column>
             <el-table-column label="操作" width="240" fixed="right">
               <template #default="{row}">
@@ -140,6 +150,10 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 const tab = ref('categories')
 const categories = ref([])
 const mappings = ref([])
+// 分类列表的展开行需要「该分类的全部关联国标分类」，
+// 而 mappings 会随筛选条件变化，故另存一份未筛选的全量数据
+const allMappings = ref([])
+function getCategoryMappings(categoryId) { return allMappings.value.filter(m => m.categoryId === categoryId) }
 const mappingFilter = ref(null)
 const mappingForm = ref({})
 const mappingVisible = ref(false)
@@ -181,6 +195,10 @@ async function loadCategories() {
 }
 async function loadMappings() {
   try { const { data } = await axios.get('/categories/mappings', { params: { categoryId: mappingFilter.value, keyword: mappingSearch.value || undefined } }); mappings.value = data || [] } catch { console.error }
+}
+/** 全量映射，供分类列表的展开行使用（不受筛选条件影响） */
+async function loadAllMappings() {
+  try { const { data } = await axios.get('/categories/mappings'); allMappings.value = data || [] } catch { console.error }
 }
 
 // 业务分类 CRUD
@@ -273,21 +291,21 @@ async function saveMapping() {
       ElMessage.success('已创建')
     }
     mappingVisible.value = false
-    loadMappings()
+    loadMappings(); loadAllMappings()
   } catch (e) { ElMessage.error(e?.response?.data?.msg || '操作失败') }
   finally { mappingLoading.value = false }
 }
 async function toggleMapping(row) {
   try {
     await axios.put('/categories/mappings/' + row.id + '/toggle')
-    loadMappings()
+    loadMappings(); loadAllMappings()
   } catch { ElMessage.error('操作失败') }
 }
 async function deleteMapping(id) {
   try {
     await ElMessageBox.confirm('确认删除此映射规则？')
     await axios.delete('/categories/mappings/' + id)
-    loadMappings()
+    loadMappings(); loadAllMappings()
   } catch { }
 }
 async function testClassify() {
@@ -299,6 +317,6 @@ async function testClassify() {
   } catch { }
 }
 
-onMounted(() => { loadCategories(); loadMappings() })
+onMounted(() => { loadCategories(); loadMappings(); loadAllMappings() })
 </script>
 <style scoped>.category{padding:20px}</style>

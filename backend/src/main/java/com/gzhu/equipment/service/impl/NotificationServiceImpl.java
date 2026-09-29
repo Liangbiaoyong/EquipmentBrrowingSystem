@@ -45,6 +45,14 @@ public class NotificationServiceImpl extends ServiceImpl<NotificationMapper, Not
     }
 
     @Override
+    public void notifyNextApproval(Long userId, String deviceName, Long borrowId, int step) {
+        String node = step <= 1 ? "初审" : (step == 2 ? "终审" : "最终确认");
+        send(userId, "待您审批（" + node + "）",
+                "设备「" + deviceName + "」的借用单#" + borrowId + " 已流转到" + node + "节点，请及时审批。",
+                "APPROVAL");
+    }
+
+    @Override
     public void notifyApprovalResult(Long userId, String deviceName, Long borrowId, boolean approved, String comment) {
         String title = approved ? "借用申请已通过" : "借用申请被驳回";
         String content = "设备「" + deviceName + "」的借用申请已" + (approved ? "通过" : "驳回") + "（借用单#" + borrowId + "）。";

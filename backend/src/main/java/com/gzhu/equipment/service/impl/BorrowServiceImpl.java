@@ -276,12 +276,41 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
             log.info("借用申请全部审批通过: borrowId={} deviceId={}", record.getId(), record.getDeviceId());
         } else {
             // 流转到下一级（审批日志已在提交时创建）
-            record.setCurrentStep(currentStep + 1);
+            int nextStep = currentStep + 1;
+            record.setCurrentStep(nextStep);
             borrowMapper.updateById(record);
-            log.info("审批流转: borrowId={} step={}→{}", record.getId(), currentStep, currentStep + 1);
+            log.info("审批流转: borrowId={} step={}→{}", record.getId(), currentStep, nextStep);
+            notifyNextApprovers(record, nextStep);
         }
 
         return record;
+    }
+
+    /**
+     * 流转到下一审批节点时通知该节点的审批人。
+     *
+     * 该节点的实际规则是「该角色任一管理员均可审批」（见 approve 中的 isAdmin 分支），
+     * 而建单时写进 approval_log 的审批人只是随手取的一个（无 ORDER BY）；
+     * 若只通知那一个，其余管理员就完全收不到待审提醒。故通知该角色的全部启用账号。
+     */
+    private void notifyNextApprovers(BorrowRecord record, int step) {
+        int needUserType = step >= 3 ? 3 : 2;   // 终审 → 实验室管理员；最终确认 → 系统管理员
+        String deviceName = getDeviceName(record.getDeviceId());
+        java.util.Set<Long> notified = new java.util.HashSet<>();
+        for (SysUser admin : userMapper.selectList(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getUserType, needUserType)
+                .eq(SysUser::getStatus, 1))) {
+            notificationService.notifyNextApproval(admin.getId(), deviceName, record.getId(), step);
+            notified.add(admin.getId());
+        }
+        // 兜底：日志里登记了、但已不是该角色启用账号的审批人，也通知一次
+        ApprovalLog nextLog = approvalMapper.selectOne(new LambdaQueryWrapper<ApprovalLog>()
+                .eq(ApprovalLog::getBorrowId, record.getId())
+                .eq(ApprovalLog::getStep, step)
+                .last("LIMIT 1"));
+        if (nextLog != null && nextLog.getApproverId() != null && !notified.contains(nextLog.getApproverId())) {
+            notificationService.notifyNextApproval(nextLog.getApproverId(), deviceName, record.getId(), step);
+        }
     }
 
     // ==================== 归还申请+审批（学生→设备使用人） ====================

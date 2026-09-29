@@ -180,7 +180,10 @@ public class BorrowController {
 
     @GetMapping("/{id}/images")
     @ApiOperation("获取借用相关图片（借用照片+归还照片）")
-    @PreAuthorize("hasAuthority('borrow:my')")
+    // 归还审批页要展示归还照片，实验室管理员（LAB_ADMIN）并没有 borrow:my 权限，
+    // 只写 borrow:my 会让其在打开照片时收到 403 → 前端提示「加载照片失败」。
+    // 记录级权限由下方 canAccess() 保证。
+    @PreAuthorize("hasAnyAuthority('borrow:my','borrow:view','return:manage')")
     public R<java.util.Map<String, Object>> getImages(@PathVariable Long id) {
         java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
         BorrowRecord record = borrowService.getById(id);
