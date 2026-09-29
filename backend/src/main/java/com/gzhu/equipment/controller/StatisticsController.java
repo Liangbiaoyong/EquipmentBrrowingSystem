@@ -56,15 +56,13 @@ public class StatisticsController {
         SysUser user = sysUserMapper.selectById(p.getUserId());
         if (user == null) return null;
         Integer userType = user.getUserType();
-        // student — never filters
+        // 学生不参与设备口径统计（无 statistics:view / dashboard:view 权限，此处仅作防御）
         if (userType == null || userType == 0) return null;
-        // personal: explicit request
+        // 教师：只能看名下设备，忽略 global 请求——否则教师传 scope=global 即可看到全院数据
+        if (userType == 1) return user.getRealName();
+        // 实验室管理员(2) / 系统管理员(3)：默认全局，也可显式请求只看本人
         if ("personal".equals(scope)) return user.getRealName();
-        // global: explicit request
-        if ("global".equals(scope)) return null;
-        // auto: backward compatible — teacher→personal, lab_admin/system_admin→global
-        if (userType == 1) return user.getRealName(); // teacher → personal
-        return null; // lab_admin(2) / system_admin(3) → global
+        return null;
     }
 
     /** 构建设备查询条件（按scope决定是否限定当前用户持有设备） */
@@ -125,11 +123,28 @@ public class StatisticsController {
                         .ge(BorrowRecord::getEndTime, LocalDateTime.now())
                         .or(w2 -> w2.eq(BorrowRecord::getStatus, "OVERDUE"))));
 
-        Map<String, Long> borrowStats = new LinkedHashMap<>();
+        Map<String, Object> borrowStats = new LinkedHashMap<>();
         borrowStats.put("borrowing", borrowingRecords);
         borrowStats.put("overdue", overdueRecords);
         borrowStats.put("pendingApproval", pendingCount);
         borrowStats.put("total", totalBorrows);
+
+        // 累计借用天数：已归还按「实际借出→实际归还」，未归还按「计划开始→应归还」，
+        // 按**分钟**精度累计后折算成天——用 DATEDIFF 只取整天，会把当天借还的记录算成 0 天。
+        // 「借用天数」与「借用次数」是两个维度：一次借出即 1 次，天数单独累计。
+        String minuteSql = "SELECT CAST(COALESCE(SUM(GREATEST(TIMESTAMPDIFF(MINUTE,"
+                + "COALESCE(pickup_time, start_time), COALESCE(real_return_time, end_time)), 0)), 0) AS SIGNED) "
+                + "FROM borrow_record WHERE status IN ('BORROWING','OVERDUE','RETURN_PENDING','RETURNED')";
+        if (custodian != null) minuteSql += " AND device_id IN (SELECT id FROM device WHERE custodian = ?)";
+        Long borrowMinutes = custodian != null
+                ? jdbcTemplate.queryForObject(minuteSql, Long.class, custodian)
+                : jdbcTemplate.queryForObject(minuteSql, Long.class);
+        if (borrowMinutes == null) borrowMinutes = 0L;
+        double borrowDays = Math.round(borrowMinutes / 1440.0 * 10) / 10.0;
+        borrowStats.put("borrowDays", borrowDays);
+        // 折合人时数：按约定 1 天 = 8 小时
+        borrowStats.put("personHours", Math.round(borrowDays * 8));
+
         data.put("borrowStats", borrowStats);
 
         return R.ok(data);

@@ -32,7 +32,7 @@
             <el-descriptions-item label="使用人">{{ detail.device.custodian }}</el-descriptions-item>
             <el-descriptions-item label="历史借用次数">{{ detail.borrowCount }} 次</el-descriptions-item>
           </el-descriptions>
-          <div style="margin-top:15px" v-if="detail.isBorrowing"><el-alert title="当前借用人" :description="detail.currentBorrower" type="warning" show-icon :closable="false"/><p style="margin-top:5px;color:#909399">预计归还: {{ detail.expectedReturnTime }}</p></div>
+          <div style="margin-top:15px" v-if="detail.borrowing"><el-alert title="当前借用人" :description="detail.currentBorrower" type="warning" show-icon :closable="false"/><p style="margin-top:5px;color:#909399">预计归还: {{ detail.expectedReturnTime }}</p></div>
         </el-card>
       </el-col>
       <el-col :span="8">

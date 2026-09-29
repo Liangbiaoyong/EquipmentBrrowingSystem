@@ -83,6 +83,8 @@
               <div class="bs-card"><div class="bs-num danger">{{ overview.overdue || 0 }}</div><div class="bs-label">逾期未还</div></div>
               <div class="bs-card"><div class="bs-num warning">{{ overview.pendingApproval || 0 }}</div><div class="bs-label">待审批</div></div>
               <div class="bs-card"><div class="bs-num info">{{ overview.totalBorrows || overview.borrowTotal || 0 }}</div><div class="bs-label">总借用次数</div></div>
+              <div class="bs-card"><div class="bs-num success">{{ overview.borrowDays || 0 }}</div><div class="bs-label">累计借用天数</div></div>
+              <div class="bs-card"><div class="bs-num success">{{ overview.personHours || 0 }}</div><div class="bs-label">折合人时数（1天=8小时）</div></div>
             </div>
           </div>
         </div>
@@ -208,11 +210,15 @@ import { toLocalDate } from '@/utils/datetime'
 
 const userStore = useUserStore()
 
-// 全局/个人切换 — 教师/实验室管理员/系统管理员可见
+// 全局/个人切换 — 仅实验室管理员(2)/系统管理员(3)可见。
+// 教师只能看名下设备（后端 getCustodianForScope 同样强制忽略 global），故不提供切换入口。
 const userType = computed(() => userStore.userInfo?.userType)
-const showScopeToggle = computed(() => [1, 2, 3].includes(userType.value))
-// 默认：教师→个人，管理员→全局；优先从localStorage恢复
-const scope = ref(localStorage.getItem('statsScope') || (userType.value === 1 ? 'personal' : 'global'))
+const isAdminUser = computed(() => [2, 3].includes(userType.value))
+const showScopeToggle = computed(() => isAdminUser.value)
+// 默认：管理员→全局，其余→个人；localStorage 仅对管理员生效
+const scope = ref([2, 3].includes(userStore.userInfo?.userType)
+  ? (localStorage.getItem('statsScope') || 'global')
+  : 'personal')
 function onScopeChange(val) { localStorage.setItem('statsScope', val); switchTab(activeTab.value) }
 
 // ==================== 环形图组件 ====================
@@ -273,7 +279,8 @@ const categoryOptions = ref([])
 const overview = reactive({
   deviceTotal:0, borrowAvailable:0, borrowBorrowing:0, borrowUnavailable:0, borrowOverdue:0,
   deviceNormal:0, devicePendingRepair:0, deviceRepairing:0, devicePendingScrap:0, deviceScrapped:0,
-  borrowing:0, overdue:0, pendingApproval:0, totalBorrows:0
+  borrowing:0, overdue:0, pendingApproval:0, totalBorrows:0,
+  borrowDays:0, personHours:0
 })
 
 // 目的分布详情
@@ -346,7 +353,8 @@ async function switchTab(tab) {
         devicePendingRepair: ds.devicePendingRepair || 0, deviceRepairing: ds.deviceRepairing || 0,
         devicePendingScrap: ds.devicePendingScrap || 0, deviceScrapped: ds.deviceScrapped || 0,
         borrowing: bs.borrowing || 0, overdue: bs.overdue || 0,
-        pendingApproval: bs.pendingApproval || 0, totalBorrows: bs.total || 0
+        pendingApproval: bs.pendingApproval || 0, totalBorrows: bs.total || 0,
+        borrowDays: bs.borrowDays || 0, personHours: bs.personHours || 0
       })
     } else if (tab === 'trend') {
       const res = await statsApi.trend(scope.value, filterDates.value?.[0], filterDates.value?.[1])
@@ -488,7 +496,7 @@ onMounted(async () => {
 .borrow-summary { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
 .bs-card { text-align: center; background: #fff; padding: 16px 12px; border-radius: 8px; box-shadow: 0 0 0 1px #EBEEF5; }
 .bs-num { font-size: 28px; font-weight: 700; }
-.bs-num.primary { color: #409EFF; } .bs-num.danger { color: #F56C6C; } .bs-num.warning { color: #E6A23C; } .bs-num.info { color: #909399; }
+.bs-num.primary { color: #409EFF; } .bs-num.danger { color: #F56C6C; } .bs-num.warning { color: #E6A23C; } .bs-num.info { color: #909399; } .bs-num.success { color: #67C23A; }
 .bs-label { font-size: 13px; color: #909399; margin-top: 4px; }
 
 /* ===== 竖向柱状图 ===== */

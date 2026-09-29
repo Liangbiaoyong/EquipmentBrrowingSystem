@@ -591,15 +591,31 @@ PUT    /categories/mappings/{id}/toggle    → 启用/禁用
 ### 1. 仪表盘概览
 
 ```
-GET /statistics/overview
+GET /statistics/overview?scope=auto|personal|global
 权限: dashboard:view
 
 响应:
 {
   "deviceStats": { "total": 2469, "normal": 2400, "repair": 50, "scrap": 19 },
-  "borrowStats": { "borrowing": 5, "overdue": 2, "pendingApproval": 3, "total": 356 }
+  "borrowStats": {
+    "borrowing": 5, "overdue": 2, "pendingApproval": 3,
+    "total": 356,          // 总借用次数：借用记录条数（一次借出即 1 次，与天数无关）
+    "borrowDays": 6286.1,  // 累计借用天数（分钟精度折算，1 位小数）
+    "personHours": 50289   // 折合人时数 = borrowDays × 8（约定 1 天 = 8 小时）
+  }
 }
 ```
+
+**scope 规则（服务端强制，前端传入不可越权）**
+
+| 角色 | 实际范围 |
+|:--|:--|
+| 学生 | 不参与设备口径统计（无该接口权限） |
+| 教师（userType=1） | **恒为名下设备**，传 `global` 也会被忽略 |
+| 实验室管理员 / 系统管理员 | 默认全局；可显式传 `personal` 只看本人 |
+
+> `borrowDays` 口径：已归还按「实际借出 → 实际归还」，未归还按「计划开始 → 应归还」，
+> 只统计状态为 `BORROWING/OVERDUE/RETURN_PENDING/RETURNED` 的记录。
 
 ### 2. 本月借用趋势
 
@@ -1035,7 +1051,7 @@ interface DeviceDetailVO {
   device: Device;
   images: DeviceImage[];
   categoryName: string;
-  isBorrowing: boolean;
+  borrowing: boolean;          // 当前是否被借出（注意：字段名是 borrowing，不是 isBorrowing）
   currentBorrower: string | null;
   expectedReturnTime: string | null;
   borrowType: number;          // 1可现场借用 2可借出

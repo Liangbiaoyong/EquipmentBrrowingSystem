@@ -407,6 +407,11 @@ public class BorrowController {
             javax.servlet.http.HttpServletResponse response) throws Exception {
         StringBuilder sql = new StringBuilder(
                 "SELECT borrow_record.*, d.name AS deviceName, d.asset_no AS deviceAssetNo, u.real_name AS userName, d.custodian AS custodian, "
+                // borrow_record.* 出来的是数据库原始列名（start_time 等），而下面写 CSV/XLSX 时读的是驼峰键，
+                // 带下划线的列必须显式起别名，否则导出为空
+                + "borrow_record.start_time AS startTime, borrow_record.end_time AS endTime, "
+                + "borrow_record.overdue_days AS overdueDays, borrow_record.create_time AS createTime, "
+                + "borrow_record.purpose_category AS purposeCategory, "
                 + "borrow_record.pickup_time AS pickupTime, borrow_record.real_return_time AS realReturnTime, borrow_record.return_request_time AS returnRequestTime, "
                 + "borrow_record.damage_report AS damageReport, borrow_record.reason AS reason, "
                 + "(SELECT u2.real_name FROM approval_log al LEFT JOIN sys_user u2 ON al.approver_id=u2.id "
