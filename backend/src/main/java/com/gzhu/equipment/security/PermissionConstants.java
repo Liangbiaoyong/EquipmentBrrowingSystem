@@ -40,6 +40,8 @@ public final class PermissionConstants {
     public static final String ADMIN_CONFIG      = "admin:config";
     public static final String ADMIN_LOG         = "admin:log";
     public static final String ADMIN_BACKUP      = "admin:backup";
+    /** 业务数据导出：仅实验室管理员与系统管理员 */
+    public static final String ADMIN_EXPORT      = "admin:export";
 
     public static final String LAB_VIEW          = "laboratory:view";
     public static final String LAB_MANAGE        = "laboratory:manage";
@@ -65,7 +67,8 @@ public final class PermissionConstants {
             BORROW_VIEW, BORROW_RETURN,
             APPROVAL_FIRST, APPROVAL_SECOND,  // 管理员可处理初审和终审
             RETURN_MANAGE, REPAIR_MANAGE,
-            STATISTICS_VIEW
+            STATISTICS_VIEW,
+            ADMIN_EXPORT
     ));
 
     /** 系统管理员 */
@@ -78,7 +81,7 @@ public final class PermissionConstants {
             APPROVAL_FIRST, APPROVAL_SECOND,
             RETURN_MANAGE, REPAIR_MANAGE,
             STATISTICS_VIEW,
-            ADMIN_USER, ADMIN_CONFIG, ADMIN_LOG, ADMIN_BACKUP
+            ADMIN_USER, ADMIN_CONFIG, ADMIN_LOG, ADMIN_BACKUP, ADMIN_EXPORT
     ));
 
     private static List<String> buildTeacherPerms() {

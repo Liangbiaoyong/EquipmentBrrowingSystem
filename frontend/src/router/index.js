@@ -41,6 +41,7 @@ const routes = [
       { path: 'admin/settings', name: 'AdminSettings', component: () => import('@/views/admin/AdminSettings.vue'), meta: { title: '系统设置', perm: 'admin:config' } },
       { path: 'admin/logs', name: 'AdminLogs', component: () => import('@/views/admin/AdminLogs.vue'), meta: { title: '操作日志', perm: 'admin:log' } },
       { path: 'admin/data-tables', name: 'AdminDataTables', component: () => import('@/views/admin/AdminDataTables.vue'), meta: { title: '数据表管理', perm: 'admin:user' } },
+      { path: 'admin/export', name: 'AdminExport', component: () => import('@/views/admin/AdminExport.vue'), meta: { title: '业务数据导出', perm: 'admin:export' } },
       { path: 'admin/backup', name: 'BackupManage', component: () => import('@/views/admin/BackupManage.vue'), meta: { title: '数据备份', perm: 'admin:backup' } },
       { path: 'admin/test-data', name: 'TestDataManage', component: () => import('@/views/admin/TestDataManage.vue'), meta: { title: '测试数据', perm: 'admin:user' } },
       { path: 'repairs', name: 'RepairManage', component: () => import('@/views/repair/RepairManage.vue'), meta: { title: '维修管理', perm: 'repair:manage' } },

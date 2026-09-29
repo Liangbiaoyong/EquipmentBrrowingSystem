@@ -135,6 +135,7 @@ const allMenus = [
       { index: '/admin/settings', title: '系统设置' },
       { index: '/admin/logs', title: '操作日志' },
       { index: '/admin/data-tables', title: '数据表管理' },
+      { index: '/admin/export', title: '业务数据导出', perm: 'admin:export' },
       { index: '/admin/backup', title: '数据备份', perm: 'admin:backup' },
       { index: '/admin/test-data', title: '测试数据', perm: 'admin:user' }
     ]
