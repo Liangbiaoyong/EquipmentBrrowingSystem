@@ -70,7 +70,7 @@ public class ScheduledCleanupTask {
      * 且 @Scheduled 对错过的执行不做补偿，服务器若恰在 03:00 前后重启就整天空过。
      */
     @Scheduled(cron = "0 0 * * * ?")
-    public void markOverdue() {
+    public int markOverdue() {
         var borrowing = borrowMapper.selectList(
                 new LambdaQueryWrapper<BorrowRecord>()
                         .eq(BorrowRecord::getStatus, "BORROWING")
@@ -89,13 +89,14 @@ public class ScheduledCleanupTask {
             notificationService.notifyOverdue(br.getUserId(), "设备#" + br.getDeviceId(), br.getId(), (int) days);
         }
         if (!borrowing.isEmpty()) log.info("逾期处理: {} 条", borrowing.size());
+        return borrowing.size();
     }
 
     /** 启动时先跑一次，避免部署后要等到下一个整点才刷新状态 */
     @EventListener(ApplicationReadyEvent.class)
     public void markOverdueOnStartup() {
         try {
-            markOverdue();
+            log.info("启动逾期检测完成，本次标记 {} 条", markOverdue());
         } catch (Exception e) {
             log.warn("启动逾期检测失败: {}", e.getMessage());
         }
