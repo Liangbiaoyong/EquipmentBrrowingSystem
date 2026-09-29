@@ -380,10 +380,19 @@ public class BorrowController {
             w.eq(BorrowRecord::getUserId, currentUserId);
         }
         if (status != null && !status.isEmpty()) w.eq(BorrowRecord::getStatus, status);
-        if (keyword != null && !keyword.isEmpty())
-            w.and(wp -> wp.like(BorrowRecord::getPurpose, keyword).or().like(BorrowRecord::getReason, keyword));
-        if (startDate != null) w.ge(BorrowRecord::getCreateTime, java.time.LocalDate.parse(startDate).atStartOfDay());
-        if (endDate != null) w.le(BorrowRecord::getCreateTime, java.time.LocalDate.parse(endDate).plusDays(1).atStartOfDay());
+        // 关键词：与前端提示一致（设备名称/借用人），另含资产编号、目的、事由。
+        // 原实现只匹配 purpose/reason，所以搜「借用人姓名」永远搜不到。
+        if (keyword != null && !keyword.isEmpty()) {
+            String kw = "%" + keyword + "%";
+            w.and(wp -> wp.like(BorrowRecord::getPurpose, keyword)
+                    .or().like(BorrowRecord::getReason, keyword)
+                    .or().apply("device_id IN (SELECT id FROM device WHERE name LIKE {0} OR asset_no LIKE {0})", kw)
+                    .or().apply("user_id IN (SELECT id FROM sys_user WHERE real_name LIKE {0})", kw));
+        }
+        // 日期范围按「借用开始时间」过滤。原实现按 create_time（提交申请的时刻），
+        // 而页面展示的是开始/结束时间，两者对不上，看起来就像"筛错了"。
+        if (startDate != null) w.ge(BorrowRecord::getStartTime, java.time.LocalDate.parse(startDate).atStartOfDay());
+        if (endDate != null) w.le(BorrowRecord::getStartTime, java.time.LocalDate.parse(endDate).plusDays(1).atStartOfDay());
 
         boolean asc = "asc".equalsIgnoreCase(order);
         if ("id".equals(sort)) w.orderBy(true, asc, BorrowRecord::getId);

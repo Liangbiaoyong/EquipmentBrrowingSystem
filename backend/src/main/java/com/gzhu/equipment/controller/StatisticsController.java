@@ -116,12 +116,10 @@ public class StatisticsController {
         }
         Long pendingCount = borrowMapper.selectCount(bwBase.clone().eq(BorrowRecord::getStatus, "PENDING_APPROVAL"));
         Long totalBorrows = borrowMapper.selectCount(bwBase);
-        Long overdueRecords = borrowMapper.selectCount(bwBase.clone().and(w -> w.eq(BorrowRecord::getStatus, "OVERDUE")
-                .or(w2 -> w2.eq(BorrowRecord::getStatus, "BORROWING")
-                        .lt(BorrowRecord::getEndTime, LocalDateTime.now()))));
-        Long borrowingRecords = borrowMapper.selectCount(bwBase.clone().and(w -> w.eq(BorrowRecord::getStatus, "BORROWING")
-                        .ge(BorrowRecord::getEndTime, LocalDateTime.now())
-                        .or(w2 -> w2.eq(BorrowRecord::getStatus, "OVERDUE"))));
+        // 与「借用浏览」的状态筛选口径保持一致：都按 status 列计数。
+        // 原实现把 OVERDUE 也算进 borrowing，于是卡片「借用中」显示 564、而按该状态筛选只有 24 条。
+        Long overdueRecords = borrowMapper.selectCount(bwBase.clone().eq(BorrowRecord::getStatus, "OVERDUE"));
+        Long borrowingRecords = borrowMapper.selectCount(bwBase.clone().eq(BorrowRecord::getStatus, "BORROWING"));
 
         Map<String, Object> borrowStats = new LinkedHashMap<>();
         borrowStats.put("borrowing", borrowingRecords);

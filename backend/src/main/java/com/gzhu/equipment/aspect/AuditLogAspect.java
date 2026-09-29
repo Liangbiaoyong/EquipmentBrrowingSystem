@@ -33,13 +33,12 @@ public class AuditLogAspect {
             "@annotation(org.springframework.web.bind.annotation.PutMapping) || " +
             "@annotation(org.springframework.web.bind.annotation.DeleteMapping)")
     public Object auditLog(ProceedingJoinPoint joinPoint) throws Throwable {
-        // BasicErrorController 不记审计：所有落到 /error 的请求（404/400 等）都会经过它，
-        // 而本切面是切全部 Mapping 注解的，于是公网扫描器每打一个不存在的路径就写一条
-        // operation="error" 的日志，实测每小时数百条，把操作日志彻底刷屏。
-        if (joinPoint.getTarget() != null
-                && "BasicErrorController".equals(joinPoint.getTarget().getClass().getSimpleName())) {
-            return joinPoint.proceed();
-        }
+        // 落到 /error 的请求（404/400 等）几乎全部来自公网扫描器：量大（实测每小时数百条）、
+        // 以约 10 秒一波的节奏出现、来源 IP 是反向代理而非真实用户，且不是应用故障。
+        // 仍然记录，但换一个独立的操作类型「外部扫描」并计为成功，
+        // 以免混进正常业务的失败记录里把操作日志刷屏。
+        boolean externalScan = joinPoint.getTarget() != null
+                && "BasicErrorController".equals(joinPoint.getTarget().getClass().getSimpleName());
         long start = System.currentTimeMillis();
         String method = joinPoint.getSignature().toShortString();
         String params = truncate(Arrays.toString(joinPoint.getArgs()), 500);
@@ -60,7 +59,7 @@ public class AuditLogAspect {
                     sysLog.setUserId(p.getUserId());
                     sysLog.setUsername(p.getUsername());
                 }
-                sysLog.setOperation(joinPoint.getSignature().getName());
+                sysLog.setOperation(externalScan ? "外部扫描" : joinPoint.getSignature().getName());
                 sysLog.setMethod(method);
                 sysLog.setParams(params);
 

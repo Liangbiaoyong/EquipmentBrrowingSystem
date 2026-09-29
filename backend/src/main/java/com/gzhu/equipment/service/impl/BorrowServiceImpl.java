@@ -520,7 +520,14 @@ public class BorrowServiceImpl extends ServiceImpl<BorrowRecordMapper, BorrowRec
     public void cancelBorrow(Long borrowId, Long userId) {
         BorrowRecord record = borrowMapper.selectById(borrowId);
         if (record == null) throw new IllegalArgumentException("借用单不存在");
-        if (!record.getUserId().equals(userId)) throw new IllegalArgumentException("只能取消自己的借用申请");
+        // 借用浏览是管理员页面，上面的「取消」按钮对管理员可见；
+        // 原实现只允许本人取消，管理员一点就抛异常，而前端又把异常吞了，表现为「点了没反应」。
+        SysUser operator = userMapper.selectById(userId);
+        boolean isAdmin = operator != null && operator.getUserType() != null
+                && (operator.getUserType() == 2 || operator.getUserType() == 3);
+        if (!isAdmin && !record.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("只能取消自己的借用申请");
+        }
         if (!"PENDING_APPROVAL".equals(record.getStatus())) {
             throw new IllegalArgumentException("只有审批中的申请可以取消");
         }

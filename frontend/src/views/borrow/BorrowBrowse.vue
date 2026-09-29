@@ -29,7 +29,7 @@
       <el-select v-model="statusFilter" placeholder="全部状态" clearable style="width:140px" @change="load">
         <el-option v-for="s in statusOptions" :key="s.value" :label="s.label" :value="s.value"/>
       </el-select>
-      <el-date-picker v-model="dates" type="daterange" range-separator="至" start-placeholder="开始日期" end-placeholder="结束日期" format="YYYY-MM-DD" value-format="YYYY-MM-DD" style="width:250px" @change="load"/>
+      <el-date-picker v-model="dates" type="daterange" range-separator="至" start-placeholder="借用起始日" end-placeholder="借用截止日" format="YYYY-MM-DD" value-format="YYYY-MM-DD" style="width:270px" @change="load"/>
       <el-button type="primary" @click="load">查询</el-button>
       <el-button @click="keyword='';statusFilter='';dates=[];load()">重置</el-button>
       <el-dropdown @command="doExport" style="margin-left:auto">
@@ -132,7 +132,13 @@ async function submitReturn(){
 }
 
 async function cancelBorrow(id){
-  try{await ElMessageBox.confirm('确认取消此申请？');await axios.post(`/borrows/${id}/cancel`);ElMessage.success('已取消');load()}catch{}
+  // 确认框的「取消」会 reject，必须与业务失败分开，否则原来的空 catch 会把
+  // 后端的失败原因（如「只有审批中的申请可以取消」）一起吞掉，表现为点了确定没反应
+  try{await ElMessageBox.confirm('确认取消此申请？')}catch{return}
+  try{
+    await axios.post(`/borrows/${id}/cancel`)
+    ElMessage.success('已取消');load();loadStats()
+  }catch(e){ElMessage.error(e?.response?.data?.msg||'取消失败')}
 }
 
 async function load(){
